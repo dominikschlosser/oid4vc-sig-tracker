@@ -1,0 +1,16 @@
+.DS_Store
+cache/
+work/
+raw.json
+raw.prev.json
+unrated.json
+*.log
+site/items.json
+site/reviews/
+# Scratch files from hand runs
+blind-*.json
+review-input*.json
+review-out-*.json
+new-ratings.json
+todo.txt
+deploy.env
