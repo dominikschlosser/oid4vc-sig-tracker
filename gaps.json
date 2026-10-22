@@ -1,0 +1,36 @@
+[
+  {
+    "title": "Digital Credentials API for wallet login",
+    "rating": "high",
+    "basis": "legal",
+    "specs": [
+      "c1731-support-05-shall",
+      "haip-5-2-dc-api"
+    ],
+    "note": "CIR 2026/1731 requires relying parties to support the DC API flow. #49415 lists it as out of scope.",
+    "searched": "\"Digital Credentials API\", \"dc_api\""
+  },
+  {
+    "title": "PID provider checks of the wallet attestation",
+    "rating": "medium",
+    "basis": "legal",
+    "specs": [
+      "arf-issu-21",
+      "c2979-lc-gen-4-wia-ka-recheck",
+      "c2979-lc-gen-3",
+      "c2977-annex-4-2-x5u-x5t"
+    ],
+    "note": "A PID provider must check that the wallet and its key storage are not revoked. It must also end the PID validity before their status expires and sign with x5u and x5t#S256 headers. This only matters when Keycloak issues the PID itself.",
+    "searched": "\"key attestation\" status, \"wallet attestation\" revocation, \"client_status\", \"x5u\""
+  },
+  {
+    "title": "credential_reuse_policy in issuer metadata",
+    "rating": "medium",
+    "basis": "legal",
+    "specs": [
+      "arf-issu-39"
+    ],
+    "note": "Issuers must state in their metadata how wallets may reuse the issued copies.",
+    "searched": "\"credential_reuse_policy\""
+  }
+]

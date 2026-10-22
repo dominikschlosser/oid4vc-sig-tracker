@@ -1,0 +1,102 @@
+[
+  {
+    "name": "EUDI Wallet Architecture and Reference Framework (ARF), main document and Annex 2 HLRs",
+    "version": "3.0.0 (2026-07-23)",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/tree/v3.0.0"
+  },
+  {
+    "name": "ARF Annex 3.01 PID Rulebook",
+    "version": "1.7 (2026-07-17)",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-attestation-rulebooks-catalog/blob/main/rulebooks/pid/pid-rulebook.md"
+  },
+  {
+    "name": "OpenID4VC High Assurance Interoperability Profile (HAIP)",
+    "version": "1.0 final",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html"
+  },
+  {
+    "name": "OpenID for Verifiable Credential Issuance (OID4VCI)",
+    "version": "1.0 final",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html"
+  },
+  {
+    "name": "OpenID for Verifiable Presentations (OID4VP)",
+    "version": "1.0 final",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html"
+  },
+  {
+    "name": "OpenID for Verifiable Credential Issuance 1.1 (editor's draft)",
+    "version": "1.1 editor's draft (commit bde23b7, 2026-10-15)",
+    "url": "https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-1_1-wg-draft.html"
+  },
+  {
+    "name": "Token Status List",
+    "version": "draft-ietf-oauth-status-list-21",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-21.html"
+  },
+  {
+    "name": "OAuth 2.0 Attestation-Based Client Authentication",
+    "version": "draft-ietf-oauth-attestation-based-client-auth-12",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-attestation-based-client-auth-12.html"
+  },
+  {
+    "name": "SD-JWT-based Verifiable Digital Credentials (SD-JWT VC)",
+    "version": "draft-ietf-oauth-sd-jwt-vc-23",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-sd-jwt-vc-23.html"
+  },
+  {
+    "name": "ETSI TS 119 472-3 (EAA issuance profiles, OID4VCI)",
+    "version": "V1.1.1 (2026-03)",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf"
+  },
+  {
+    "name": "ETSI TS 119 472-2 (EAA presentation profiles, OID4VP)",
+    "version": "V1.2.1 (version adopted by CIR 2026/1731)",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf"
+  },
+  {
+    "name": "ETSI TS 119 475 (relying party attributes, WRPAC and WRPRC)",
+    "version": "V1.2.1",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/119475/01.02.01_60/ts_119475v010201p.pdf"
+  },
+  {
+    "name": "ETSI TS 119 602 (lists of trusted entities, LoTE)",
+    "version": "V1.1.1 (2025-11)",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119600_119699/119602/01.01.01_60/ts_119602v010101p.pdf"
+  },
+  {
+    "name": "ETSI TS 119 612 (trusted lists)",
+    "version": "V2.4.1 (2025-08)",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119600_119699/119612/02.04.01_60/ts_119612v020401p.pdf"
+  },
+  {
+    "name": "Commission Implementing Regulation (EU) 2024/2977 (PID and EAA)",
+    "version": "consolidated 2026-08-11",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811"
+  },
+  {
+    "name": "Commission Implementing Regulation (EU) 2024/2979 (integrity and core functionalities)",
+    "version": "consolidated 2026-08-11",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811"
+  },
+  {
+    "name": "Commission Implementing Regulation (EU) 2024/2982 (protocols and interfaces)",
+    "version": "original text (amended by CIR 2026/1731)",
+    "url": "http://data.europa.eu/eli/reg_impl/2024/2982/oj"
+  },
+  {
+    "name": "Commission Implementing Regulation (EU) 2025/848 (registration of wallet-relying parties)",
+    "version": "consolidated 2026-08-11",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02025R0848-20260811"
+  },
+  {
+    "name": "Commission Implementing Regulation (EU) 2026/1731 (amending 2024/2977, 2979, 2980, 2982)",
+    "version": "applies from 2026-08-11",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj"
+  },
+  {
+    "name": "German PID Rulebook (PID-DE), BMI eIDAS 2.0 architecture concept",
+    "version": "1.0.0 draft for consultation (based on ARF PID Rulebook 1.6)",
+    "url": "https://bmi.usercontent.opencode.de/eudi-wallet/eidas-2.0-architekturkonzept/content/features/PID/german-pid-rulebook/"
+  }
+]

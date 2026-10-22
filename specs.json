@@ -1,0 +1,2234 @@
+[
+  {
+    "id": "arf-issu-19",
+    "topic": "trust-anchoring",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_19",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_19",
+    "text": "For the verification of a WIA or KA, a PID Provider SHALL accept the Wallet Provider trust anchors it needs, as published by the Commission in the Wallet Provider LoTE.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-19b",
+    "topic": "trust-anchoring",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_19b",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_19b",
+    "text": "For the retrieval and management of trust anchors, PID Providers SHALL support LoTEs complying with [ETSI TS 119 602].",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-28a",
+    "topic": "trust-anchoring",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_28a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_28a",
+    "text": "For the retrieval and management of trust anchors, Attestation Providers SHALL support LoTEs complying with [ETSI TS 119 602].",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-oia-12",
+    "topic": "trust-anchoring",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_12",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_12",
+    "text": "For both proximity and remote presentation flows, a Relying Party SHALL validate the signature of a PID using a trust anchor provided in a PID Provider LoTE made available in accordance with [Topic 31]].",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-oia-13",
+    "topic": "trust-anchoring",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_13",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_13",
+    "text": "For the verification, the Relying Party SHALL use a trust anchor provided in a QEAA Provider Trusted List",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-oia-14",
+    "topic": "trust-anchoring",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_14",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_14",
+    "text": "For both proximity and remote presentation flows, a Relying Party SHALL validate the signature of a PuB-EAA using a trust anchor provided in a Pub-EAA Provider LoTE made available in accordance with [Topic 31]].",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-oia-15",
+    "topic": "trust-anchoring",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_15",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_15",
+    "text": "For both proximity and remote presentation flows, a Relying Party SHALL validate the signature of a non-qualified EAA using a trust anchor provided according to the mechanism(s) specified in the applicable Attestation Rulebook, see [Topic 12]].",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-oia-15a",
+    "topic": "trust-anchoring",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_15a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_15a",
+    "text": "A Relying Party SHALL perform regular trust anchor management, meaning it SHALL download the latest version of all applicable Trusted Lists and LoTEs.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-oia-15b",
+    "topic": "trust-anchoring",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_15b",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_15b",
+    "text": "For the retrieval and management of trust anchors, Relying Parties and Relying Party Instances SHALL support both Trusted Lists complying with [ETSI TS 119 612] and LoTEs complying with [ETSI TS 119 602].",
+    "applies": "verifier"
+  },
+  {
+    "id": "pidr-6-trust-anchors",
+    "topic": "trust-anchoring",
+    "doc": "ARF PID Rulebook 1.7",
+    "ref": "Section 6",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-attestation-rulebooks-catalog/blob/main/rulebooks/pid/pid-rulebook.md#6-trust-anchors",
+    "text": "The Commission will ensure that the trust anchors of notified PID Providers are published in a publicly available Trusted List. Relying Parties can retrieve the trust anchors of all PID Providers from this Trusted List.",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-3-4-trust-out-of-scope",
+    "topic": "trust-anchoring",
+    "doc": "HAIP 1.0",
+    "ref": "Section 3.4",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-3.4",
+    "text": "Although X.509 PKI is extensively utilized in this specification, the methods for establishing trust or obtaining root certificates are out of the scope of this",
+    "applies": "both"
+  },
+  {
+    "id": "haip-5-trusted-authorities",
+    "topic": "trust-anchoring",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5",
+    "text": "The Authority Key Identifier (aki)-based Trusted Authority Query (trusted_authorities) for DCQL, as defined in section 6.1.1.1 of [OIDF.OID4VP], MUST be supported.",
+    "applies": "verifier"
+  },
+  {
+    "id": "sdvc-2-5-x5c-trust-anchor",
+    "topic": "trust-anchoring",
+    "doc": "SD-JWT VC draft-23",
+    "ref": "Section 2.5",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-sd-jwt-vc-23.html#section-2.5",
+    "text": "If a recipient cannot validate that the public verification key corresponds to the Issuer of the Issuer-signed JWT using a permitted key discovery and validation mechanism, the SD-JWT VC MUST be rejected.",
+    "applies": "verifier"
+  },
+  {
+    "id": "c2977-annex-5-pid-provider-list",
+    "topic": "trust-anchoring",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Annex, Section 5",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "The list of providers of person identification data made available by the Commission in accordance with Implementing Regulation (EU) 2024/2980 shall enable the authentication of person identification data.",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-119602-annex-d-pid-provider-list",
+    "topic": "trust-anchoring",
+    "doc": "ETSI TS 119 602 V1.1.1",
+    "ref": "Annex D (list of PID providers), Service digital identity",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119600_119699/119602/01.01.01_60/ts_119602v010101p.pdf",
+    "text": "The ServiceDigitalIdentity component shall contain one or more X.509 certificates that can be used to verify the signature or seal created by the provider of person identification data on the person identification data it provides",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-119612-svctype-eaa-q",
+    "topic": "trust-anchoring",
+    "doc": "ETSI TS 119 612 V2.4.1",
+    "ref": "Clause 5.5.1.1 (k)",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119600_119699/119612/02.04.01_60/ts_119612v020401p.pdf",
+    "text": "URI: http://uri.etsi.org/TrstSvc/Svctype/EAA/Q Description: The issuance of qualified electronic attestations of attributes by a qualified trust service provider",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-4722-ro-17-etsi-tl",
+    "topic": "trust-anchoring",
+    "doc": "ETSI TS 119 472-2 V1.2.1",
+    "ref": "OIDFVP-HAIP-COMMON-REQ-RO-17",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf",
+    "text": "The Authority Key Identifier shall use the ETSI trusted Lists (specified in ETSI TS 119 612 [12]) mechanism (\"etsi_tl\" type).",
+    "applies": "verifier"
+  },
+  {
+    "id": "c2979-tr-wia-4-1",
+    "topic": "trust-anchoring",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex Ib, TR-WIA-4.1",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "The authorisation server shall also verify that this signing certificate can be verified with a trust anchor on the list of wallet providers referred to in Article 5 of Implementing Regulation (EU) 2024/2980",
+    "applies": "issuer"
+  },
+  {
+    "id": "arfm-6632-wallet-crl-ocsp",
+    "topic": "certificate-revocation-crl-ocsp",
+    "doc": "ARF 3.0.0 main",
+    "ref": "Section 6.6.3.2",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/main/06-trust-model.md#6632-wallet-unit-authenticates-the-relying-party-instance",
+    "text": "For revocation checking, the Wallet Unit uses the standard CRL or OCSP mechanisms, as specified in [RFC 5280], [ETSI TS 119 411-8], and in the Certification Practices Statement of the Access CA.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arfm-6664-signing-cert-revocation",
+    "topic": "certificate-revocation-crl-ocsp",
+    "doc": "ARF 3.0.0 main",
+    "ref": "Section 6.6.6.4",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/main/06-trust-model.md#6664-pid-or-attestation-revocation",
+    "text": "a PID Provider or Attestation Provider can revoke the certificate that it used for signing that PID or attestation, or any intermediate certificate between that signing certificate and the corresponding trust anchor. In all of these cases, a Relying Party that performs revocation checking will not accept",
+    "applies": "both"
+  },
+  {
+    "id": "arf-rpacanot-03b",
+    "topic": "certificate-revocation-crl-ocsp",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPACANot_03b",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPACANot_03b",
+    "text": "Access Certificate Authorities or Providers of registration certificates SHALL ensure that all lists used to revoke their access certificates and registration certificates can be authenticated using the trust anchors for revocation lists notified to the Commission.",
+    "applies": "both"
+  },
+  {
+    "id": "arf-rpacanot-04",
+    "topic": "certificate-revocation-crl-ocsp",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPACANot_04",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPACANot_04",
+    "text": "The trust anchors of Access Certificate Authorities and Providers of registration certificates, as well as their CRL trust anchors, SHALL be accepted",
+    "applies": "both"
+  },
+  {
+    "id": "arf-reg-12",
+    "topic": "certificate-revocation-crl-ocsp",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "Reg_12",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#Reg_12",
+    "text": "An Access CA SHALL be able to revoke an access certificate, if it has a validity period of longer than 24 hours",
+    "applies": "both"
+  },
+  {
+    "id": "c848-annex-iv-3h-revocation-24h",
+    "topic": "certificate-revocation-crl-ocsp",
+    "doc": "CIR (EU) 2025/848 (consolidated 2026-08-11)",
+    "ref": "Annex IV, point 3(h)-(i)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02025R0848-20260811",
+    "text": "within 24 hours after receipt of the revocation request; (i) the obligation for the providers of wallet-relying party access certificates to provide information on the validity or revocation status of wallet-relying party certificates issued by that provider",
+    "applies": "both"
+  },
+  {
+    "id": "etsi-475-css-6-2-3-10-no-crl",
+    "topic": "certificate-revocation-crl-ocsp",
+    "doc": "ETSI TS 119 475 V1.2.1",
+    "ref": "Clause 6.2.3.10, CSS-6.2.3.10-02",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/119475/01.02.01_60/ts_119475v010201p.pdf",
+    "text": "NOTE 1 : WRPRC providers do not provide OCSP or CRL service. NOTE 2: IETF DRAFT Token Status List (TSL) [i.21] provides status list guidance. CSS-6.2.3.10-02: The WRPRC provider shall make the status list publicly available for validation.",
+    "applies": "both"
+  },
+  {
+    "id": "arf-vcr-01",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_01",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_01",
+    "text": "A PID Provider, QEAA Provider, or PuB-EAA Provider SHALL use one of the following methods for revocation of an [ISO/IEC 18013-5]-compliant PID, QEAA, or PuB-EAA: - Only issue short-lived attestations having a validity period of 24 hours or less, such that revocation will never be necessary",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-vcr-01b",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_01b",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_01b",
+    "text": "A PID Provider, QEAA Provider, or PuB-EAA Provider SHALL use one of the following methods for revocation of a [SD-JWT VC]-compliant PID, QEAA, or PuB-EAA: - Only issue short-lived attestations having a validity period of 24 hours or less, such that revocation will never be necessary or,",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-vcr-11",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_11",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_11",
+    "text": "For [ISO/IEC 18013-5]-compliant PIDs and attestations, the PID Provider or Attestation Provider SHALL implement the Attestation Status List or Attestation Revocation List mechanism as specified in Annex 2 of (the amended) CIR [2024/2979).",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-vcr-11a",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_11a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_11a",
+    "text": "For [SD-JWT VC]-compliant PIDs and attestations, the PID Provider or Attestation Provider SHALL implement the Attestation Status List mechanism as specified in [Token Status List].",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-vcr-12",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_12",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_12",
+    "text": "If a Relying Party decides it needs to be able to verify the revocation status of PIDs or attestations, it SHALL support both the Attestation Status List mechanism and the Attestation Revocation List mechanism specified per VCR_11.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-vcr-12a",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_12a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_12a",
+    "text": "A PID Provider or Attestation Provider SHALL support the mechanism specified per VCR_01a for verifying the revocation status of a WIA or KA.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-vcr-13",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_13",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_13",
+    "text": "A Relying Party Instance SHOULD verify the revocation status of a revocable PID or attestation upon obtaining it from a Wallet Unit.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-vcr-14",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_14",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_14",
+    "text": "A Relying Party SHALL perform a risk analysis considering all relevant factors for the use case, including risks to the User and risks to the Relying Party itself, to determine whether it will accept or refuse a PID or attestation in case no reliable information regarding the revocation status...",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-vcr-15",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_15",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_15",
+    "text": "A Relying Party Instance SHOULD NOT request the relevant Attestation Status List or Attestation Revocation List each time an attestation is presented to it by a Wallet Unit.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-vcr-16",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_16",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_16",
+    "text": "A PID Provider, Attestation Provider or Wallet Provider SHALL NOT require the Relying Party or Relying Party Instance to authenticate itself before downloading an Attestation Status List or Attestation Revocation List.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-vcr-17",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_17",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_17",
+    "text": "When using an Attestation Status List for revocation, the PID Provider, Attestation Provider or Wallet Provider SHALL randomly assign the index for each PID or attestation, to prevent this index from becoming a correlator.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-vcr-18",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_18",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_18",
+    "text": "When using an Attestation Status List for revocation, the PID Provider, Attestation Provider, or Wallet Provider SHALL represent a sufficiently large number of PIDs, attestations, WIAs, or KAs on each Attestation Status List to ensure herd privacy.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-vcr-07a",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "VCR_07a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#VCR_07a",
+    "text": "If a PID is revocable, the PID Provider SHALL revoke that PID upon the explicit request of the User to whom the PID was issued.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-wua-29",
+    "topic": "status-lists",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "WUA_29",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#WUA_29",
+    "text": "Throughout the entire validity period of an issued PID, the PID Provider SHALL verify the revocation status of both the Wallet Instance and WSCD using the information in the WIA and the KA (respectively) received during the issuance of that PID.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-6-1-status-list",
+    "topic": "status-lists",
+    "doc": "HAIP 1.0",
+    "ref": "Section 6.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-6.1",
+    "text": "Each Credential MUST have its own unique, unpredictable status list index, even when multiple Credentials reference the same status list URI",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-5-3-1-mso-revocation",
+    "topic": "status-lists",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5.3.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5.3.1",
+    "text": "The Credential Issuer MAY include the MSO revocation mechanism in the issued mdoc. When doing so, it MUST use one of the mechanisms defined in ISO/IEC 18013-5",
+    "applies": "issuer"
+  },
+  {
+    "id": "tsl-8-3-validation-rules",
+    "topic": "status-lists",
+    "doc": "Token Status List draft-21",
+    "ref": "Section 8.3",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-21.html#section-8.3",
+    "text": "The processing rules for Referenced Tokens (such as JWT or CWT) MUST precede any evaluation of a Referenced Token's status.",
+    "applies": "verifier"
+  },
+  {
+    "id": "tsl-13-2-dedicated-entry",
+    "topic": "status-lists",
+    "doc": "Token Status List draft-21",
+    "ref": "Section 13.2",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-21.html#section-13.2",
+    "text": "every Referenced Token MUST have a dedicated Status List entry and MAY be spread across multiple Status List Tokens.",
+    "applies": "issuer"
+  },
+  {
+    "id": "sdvc-2-4-status-should-be-checked",
+    "topic": "status-lists",
+    "doc": "SD-JWT VC draft-23",
+    "ref": "Section 2.4",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-sd-jwt-vc-23.html#section-2.4",
+    "text": "If status is present in the verified payload of the SD-JWT, the status SHOULD be checked. Verifier policy decides whether to reject or accept a presentation of a SD-JWT VC based on the status of the Verifiable Digital Credential.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-8-6-policy-revocation",
+    "topic": "status-lists",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 8.6",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-8.6",
+    "text": "Perform the checks required by the Verifier's policy based on the set of trust requirements such as trust frameworks it belongs to (e.g., revocation checks), if applicable.",
+    "applies": "verifier"
+  },
+  {
+    "id": "c2977-art-5-7-validity-status",
+    "topic": "status-lists",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Article 5(7)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "they shall make publicly available the validity status of person identification data they issue, in a privacy preserving manner, and indicate the location of that information in the person identification data.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2979-eaa-6-2-10-1-05-optional-rp",
+    "topic": "status-lists",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex II, EAA-6.2.10.1-05",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "Verification of the MSO revocation list is optional for the wallet-relying party",
+    "applies": "verifier"
+  },
+  {
+    "id": "c2979-eaa-6-2-10-1-16-wia-ka-status",
+    "topic": "status-lists",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex II, EAA-6.2.10.1-16",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "The provider of person identification data and the provider of electronic attestations of attributes shall support both the attestation status list mechanism and the attestation revocation list mechanism specified in EAA-6.2.10.1-02 for verifying the revocation status of a wallet instance attestation (WIA)",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2979-eaa-4-2-13-03-short-lived",
+    "topic": "status-lists",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex II, EAA-4.2.13-03",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "Where short-lived electronic attestations of attributes with a validity period of 24 hours or less are issued, revocation shall not be required.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2979-lc-gen-4-wia-ka-recheck",
+    "topic": "status-lists",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex Ib, LC_GEN-4",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "A provider of person identification data having a technical validity period of more than 24 hours shall check the revocation status of both the wallet instance attestation and the key attestation received during issuance at least once every 24 hours",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-12c",
+    "topic": "validity-expiry",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_12c",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_12c",
+    "text": "The expiration date of a PID SHALL be no later than the end of the revocation maintenance periods of the WIA and the KA presented as part of the PID issuance process.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-wua-30",
+    "topic": "validity-expiry",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "WUA_30",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#WUA_30",
+    "text": "The technical validity period of a PID SHALL be consistent with the period during which the Wallet Provider has committed to maintaining the revocation status of the Wallet Instance and the WSCD, as conveyed in the WIA and KA presented during issuance.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-pid-19",
+    "topic": "validity-expiry",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "PID_19",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#PID_19",
+    "text": "When issuing a PID compliant with [SD-JWT VC], a PID Provider SHALL ensure that the value of all attributes and metadata in the PID is valid at the value of the timestamp in the nbf claim, if present.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-pid-12",
+    "topic": "validity-expiry",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "PID_12",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#PID_12",
+    "text": "When issuing a PID compliant with [ISO/IEC 18013-5], a PID Provider SHALL ensure that the value of all attributes and metadata in the PID is valid at the value of the timestamp in the validFrom element in the MSO, see [ISO/IEC 18013-5] clause 9.1.2.4.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-6-1-exp-or-status",
+    "topic": "validity-expiry",
+    "doc": "HAIP 1.0",
+    "ref": "Section 6.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-6.1",
+    "text": "It is RECOMMENDED that Issuers limit the validity period when issuing SD-JWT VC. When doing so, the Issuer MUST use an exp claim, a status claim, or both.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2977-annex-4-2-nbf-exp",
+    "topic": "validity-expiry",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Annex, Section 4.2",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "The JWT claims nbf and exp as defined in RFC 7519 ( 8 ) shall be used to express the technical validity period of person identification data compliant with SD-JWT VC format.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2979-lc-gen-3",
+    "topic": "validity-expiry",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex Ib, LC_GEN-3",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "The technical validity period of person identification data shall end before both the 'client_status.exp' of the wallet instance attestation and the 'key_storage_status.exp' of the key attestation sent to the provider of person identification data in the issuance process.",
+    "applies": "issuer"
+  },
+  {
+    "id": "tsl-8-3-expiry-first",
+    "topic": "validity-expiry",
+    "doc": "Token Status List draft-21",
+    "ref": "Section 8.3",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-21.html#section-8.3",
+    "text": "a Relying Party MUST first perform the validation of the Referenced Token - e.g., checking for expected attributes, valid signature and expiration time.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-pid-02",
+    "topic": "credential-formats-mdoc-sdjwt",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "PID_02",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#PID_02",
+    "text": "A PID Provider SHALL issue any PID in both the format specified in ISO/IEC 18013-5 [ISO/IEC 18013-5] and the format specified in [SD-JWT VC].",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-12",
+    "topic": "credential-formats-mdoc-sdjwt",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_12",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_12",
+    "text": "A PID Provider or Attestation Provider SHALL offer its PIDs or attestations in all formats required in the PID Rulebook or the applicable Attestation Rulebook, see [Topic 12]].",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-oia-03b",
+    "topic": "credential-formats-mdoc-sdjwt",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_03b",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_03b",
+    "text": "For remote presentation flows using redirects and [OpenID4VP], when the format of the requested attestation complies with [ISO/IEC 18013-5], Relying Parties and Wallet Units SHALL comply with the requirements in [HAIP] Sections 5, 5.1 and 5.3.1",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-oia-03c",
+    "topic": "credential-formats-mdoc-sdjwt",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_03c",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_03c",
+    "text": "For remote presentation flows using redirects and [OpenID4VP], when the format of the requested attestation complies with [SD-JWT VC], Relying Parties and Wallet Units SHALL comply with the requirements in [HAIP] Sections 5, 5.1, and 5.3.2",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-4-format-profiles",
+    "topic": "credential-formats-mdoc-sdjwt",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4",
+    "text": "MUST support at least one of the following Credential Format Profiles defined in Section 6: IETF SD-JWT VC or ISO mdoc. Ecosystems SHOULD clearly indicate which of these formats, IETF SD-JWT VC, ISO mdoc, or both, are required to be supported.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-5-3-1-one-deviceresponse-per-mdoc",
+    "topic": "credential-formats-mdoc-sdjwt",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5.3.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5.3.1",
+    "text": "When multiple ISO mdocs are being returned, each ISO mdoc MUST be returned in a separate DeviceResponse",
+    "applies": "verifier"
+  },
+  {
+    "id": "c2977-annex-4-formats",
+    "topic": "credential-formats-mdoc-sdjwt",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Annex, Section 4",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "in accordance with the standards set out in Annex II to Implementing Regulation (EU) 2024/2979, clauses 5 (SD-JWT VC format) and 6 (ISO/IEC-mdoc format) as applicable to electronic attestations of attributes.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2977-annex-4-2-x5u-x5t",
+    "topic": "credential-formats-mdoc-sdjwt",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Annex, Section 4.2",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "signing a person identification data in SD-JWT VC format shall contain the x5u and the x5t#S256 header parameters, specified in RFC 7515",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-6-1-1-x5c-required",
+    "topic": "credential-formats-mdoc-sdjwt",
+    "doc": "HAIP 1.0",
+    "ref": "Section 6.1.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-6.1.1",
+    "text": "The SD-JWT VC MUST contain the credential issuer's signing certificate along with a trust chain in the x5c JOSE header parameter as described in section 3.5 of [I-D.ietf-oauth-sd-jwt-vc].",
+    "applies": "both"
+  },
+  {
+    "id": "arf-wua-25",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "WUA_25",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#WUA_25",
+    "text": "During issuance of a PID or attestation, the PID Provider or Attestation Provider SHALL verify the WIA in accordance with the requirements in [OpenID4VCI] Appendix E. In addition, the PID Provider or Attestation Provider SHALL validate that the WIA is not revoked.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-21",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_21",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_21",
+    "text": "Before issuing a PID, a PID Provider SHALL verify the Wallet Unit's WIA and KA using a trust anchor registered in the Wallet Provider LoTE. Moreover, it SHALL verify that the Wallet Instance referenced in the WIA has not been revoked, and that the WSCD referenced in the KA has not been revoked.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-30a",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_30a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_30a",
+    "text": "Before issuing an attestation, an Attestation Provider SHALL: - verify that the Wallet Provider mentioned in the Wallet Unit's WIA is present in the Wallet Provider LoTE. - authenticate and validate the WIA using the trust anchor(s) registered for the Wallet Provider in that LoTE.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-wua-24",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "WUA_24",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#WUA_24",
+    "text": "A Wallet Unit SHALL present a WIA only to a PID Provider or Attestation Provider, as part of the issuance process of a PID or an attestation, and not to a Relying Party or any other entity.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-4-1-client-auth-required",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.4.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.4.1",
+    "text": "Wallets MUST use, and Issuers MUST require, an OAuth2 Client authentication mechanism at OAuth2 Endpoints that support client authentication (such as the PAR and Token Endpoints).",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-4-1-no-reuse",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.4.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.4.1",
+    "text": "Wallet Attestations MUST NOT be reused across different Issuers. They MUST NOT introduce a unique identifier specific to a single Wallet instance.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-4-1-client-id-sub",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.4.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.4.1",
+    "text": "if applicable, the client_id value in the PAR request MUST be the string in the sub value in the client attestation JWT.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-13-3-wallet-attestation",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 13.3",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-13.3",
+    "text": "Wallet Attestation is a signed proof provided by the Wallet Provider, verifying the client's authenticity and genuineness.",
+    "applies": "issuer"
+  },
+  {
+    "id": "abca-1-confidential-client",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "OAuth ABCA draft-12",
+    "ref": "Section 1",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-attestation-based-client-auth-12.html#section-1",
+    "text": "The client is considered a confidential OAuth 2.0 client type according to Section 2.1 of [RFC6749].",
+    "applies": "issuer"
+  },
+  {
+    "id": "abca-7-1-trusted-attester",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "OAuth ABCA draft-12",
+    "ref": "Section 7.1",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-attestation-based-client-auth-12.html#section-7.1",
+    "text": "The signature of the Client Attestation JWT verifies with the public key of a known and trusted Client Attester.",
+    "applies": "issuer"
+  },
+  {
+    "id": "abca-7-5-client-id-match",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "OAuth ABCA draft-12",
+    "ref": "Section 7.5",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-attestation-based-client-auth-12.html#section-7.5",
+    "text": "the Authorization Server MUST verify that the value of this parameter is the same as the client_id value in the sub claim of the Client Attestation",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-auth-req-4-4-2-01",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "AUTH-REQ-4.4.2-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "The Pushed Authorisation Request shall include the Wallet Instance Attestation (WIA) as an OAuth-Client-Attestation parameter, as specified in Appendix E of OpenID4VCI [2], and IETF draft-ietf-oauth-attestation-based-client-auth-07 [5].",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-token-req-4-5-1-01",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "TOKEN-REQ-4.5.1-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "The Token Request shall include the Wallet Instance Attestation (WIA) as an OAuth-Client-Attestation parameter",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-auth-req-proc-4-4-3-01",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "AUTH-REQ-PROC-4.4.3-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "When a PID/EAA Provider receives a WIA, then it shall check that the signature of the JWT verifies under the Wallet Provider's public key as found on the Trusted List of Wallet Providers.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2979-tr-wia-3",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex Ib, TR-WIA-3",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "During issuance, a wallet unit shall send a wallet instance attestation to the authorisation server in the pushed authorisation request and the token request, as specified in OID4VCI.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2979-tr-wia-3-2",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex Ib, TR-WIA-3.2",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "A wallet unit shall send the same wallet instance attestation to only one authorisation server.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2977-art-3-9-wua",
+    "topic": "wallet-attestation-client-auth",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Article 3(9)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "providers of person identification data shall authenticate and validate the wallet unit attestation of the wallet unit and verify that the wallet unit belongs to a wallet solution the provider of person identification data accepts or use another authentication mechanism",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-wua-09a",
+    "topic": "key-attestation-binding",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "WUA_09a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#WUA_09a",
+    "text": "During issuance of a PID or a device-bound attestation, the PID Provider or Attestation Provider SHALL bind the issued PID(s) or attestation(s) to one of the public keys attested in the KA received from the Wallet Unit.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-wua-11a",
+    "topic": "key-attestation-binding",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "WUA_11a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#WUA_11a",
+    "text": "During issuance of a PID or a device-bound attestation, the PID Provider or Attestation Provider SHALL verify the KA in accordance with the requirements in [OpenID4VCI] Appendix F.4. In addition, the PID Provider or Attestation Provider SHALL validate that the KA is not revoked.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-wua-12",
+    "topic": "key-attestation-binding",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "WUA_12",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#WUA_12",
+    "text": "During issuance of a PID or a device-bound attestation, the PID Provider or Attestation Provider SHALL receive a proof that the Wallet Unit possesses the private keys corresponding to all public keys in the KA.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-wua-34",
+    "topic": "key-attestation-binding",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "WUA_34",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#WUA_34",
+    "text": "During issuance of a PID, a PID Provider SHALL verify that the keys attested in the KA are stored in the WSCA/WSCD described in the KA.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-wua-10a",
+    "topic": "key-attestation-binding",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "WUA_10a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#WUA_10a",
+    "text": "An Attestation Provider issuing non-device-bound attestations SHALL indicate in its Credential Issuer metadata that it does not need a KA, as specified in [Technical Specification 3]. A Wallet Unit SHALL NOT send a KA to an Attestation Provider when requesting a non-device-bound attestation.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-17",
+    "topic": "key-attestation-binding",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_17",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_17",
+    "text": "A PID Provider SHALL implement device binding for all PIDs it issues, meaning it SHALL ensure that a PID is cryptographically bound to the WSCA/WSCD included in the Wallet Unit, as specified in [Topic 9].",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-27d",
+    "topic": "key-attestation-binding",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_27d",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_27d",
+    "text": "An Attestation Provider issuing device-bound attestations SHALL indicate the desired level of security for the private key storage and for User authentication in its Credential Issuer metadata, according to [OpenID4VCI] section 12.2.4 and Appendix D.2.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-30",
+    "topic": "key-attestation-binding",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_30",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_30",
+    "text": "Before issuing a device-bound attestation, an Attestation Provider SHALL verify the Wallet Unit's key attestation using a trust anchor registered in the Wallet Provider LoTE. Moreover, it SHALL verify that the WSCD or keystore referenced in the KA has not been revoked.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-oia-17",
+    "topic": "key-attestation-binding",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_17",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_17",
+    "text": "A Relying Party Instance SHOULD verify the device-binding signature or Message Authentication Code provided in the presentation response of the Wallet Unit during the presentation of a PID or device-bound attestation, following the steps specified per [ISO/IEC 18013-5] or [SD-JWT VC], as applicable.",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-4-5-1-key-attestation",
+    "topic": "key-attestation-binding",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.5.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.5.1",
+    "text": "Wallets MUST support key attestations.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-5-1-single-ka-batch",
+    "topic": "key-attestation-binding",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.5.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.5.1",
+    "text": "all public keys used in Credential Request SHOULD be attested within a single key attestation.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-app-d-communicate-need",
+    "topic": "key-attestation-binding",
+    "doc": "OID4VCI 1.0",
+    "ref": "Appendix D",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#appendix-D",
+    "text": "A Credential Issuer MUST communicate the need to evaluate key attestations through its metadata or via an out-of-band mechanism.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-f-1-credential-per-attested-key",
+    "topic": "key-attestation-binding",
+    "doc": "OID4VCI 1.0",
+    "ref": "Appendix F.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#appendix-F.1",
+    "text": "The Credential Issuer SHOULD issue a Credential for each cryptographic public key specified in the attested_keys claim within the key_attestation parameter.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-f-4-verify-proof",
+    "topic": "key-attestation-binding",
+    "doc": "OID4VCI 1.0",
+    "ref": "Appendix F.4",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#appendix-F.4",
+    "text": "if the server has a Nonce Endpoint, the nonce in the key proof matches the server-provided c_nonce value",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-cred-req-proc-4-6-2-1-02",
+    "topic": "key-attestation-binding",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "CRED-REQ-PROC-4.6.2.1-02",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "The PID/EAA Provider shall verify that the signature of the element of the jwt array member verifies under the public key contained in the first position of the attested_keys array within the key_attestation parameter.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-cred-req-proc-4-6-2-1-05",
+    "topic": "key-attestation-binding",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "CRED-REQ-PROC-4.6.2.1-05",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "Each PID/EAA shall be bound to one of the public keys present in the attested_keys array within the key_attestation parameter.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-cred-req-proc-4-6-2-1-06",
+    "topic": "key-attestation-binding",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "CRED-REQ-PROC-4.6.2.1-06",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "There shall not be two PIDs/EAAs bound to the same public key.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2979-tr-ka-4",
+    "topic": "key-attestation-binding",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex Ib, TR_KA-4",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "Where a credential issuer issues device-bound credentials, it shall indicate in the 'proof_types_supported' parameter in its Issuer Credential Metadata, as specified in Section 12.2.4 OID4VCI, that it supports both the 'jwt' and the 'attestation' proof type",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2979-tr-ka-6",
+    "topic": "key-attestation-binding",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex Ib, TR_KA-6",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "Where a credential issuer receives a key attestation in a 'jwt' proof type, it shall verify the signature of the 'jwt' element under the key at index 0 of the 'attested_keys' array",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2979-tr-ka-8",
+    "topic": "key-attestation-binding",
+    "doc": "CIR (EU) 2024/2979 (consolidated 2026-08-11)",
+    "ref": "Annex Ib, TR_KA-8",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2979-20260811",
+    "text": "A provider of person identification data shall ensure that person identification data is bound to a public key that originates from a key attestation mentioning a WSCD.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2977-art-3-5-binding",
+    "topic": "key-attestation-binding",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Article 3(5)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "Providers of person identification data shall ensure that person identification data that they issue is cryptographically bound to the wallet unit to which it is issued.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-6-1-1-1-kb-jwt",
+    "topic": "key-attestation-binding",
+    "doc": "HAIP 1.0",
+    "ref": "Section 6.1.1.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-6.1.1.1",
+    "text": "If the credential has cryptographic holder binding, a KB-JWT, as defined in [I-D.ietf-oauth-sd-jwt-vc], MUST always be present when presenting an SD-JWT VC.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vci-6-1-preauth-client-auth-optional",
+    "topic": "unregistered-wallet-clients",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 6.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-6.1",
+    "text": "For the Pre-Authorized Code Grant Type, authentication of the Client is OPTIONAL, as described in Section 3.2.1 of OAuth 2.0 [RFC6749], and, consequently, the client_id parameter is only needed when a form of Client Authentication that relies on this parameter is used.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-12-3-anonymous-preauth",
+    "topic": "unregistered-wallet-clients",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 12.3",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-12.3",
+    "text": "pre-authorized_grant_anonymous_access_supported: OPTIONAL. A boolean indicating whether the Credential Issuer accepts a Token Request with a Pre-Authorized Code but without a client_id. The default is false.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-4-1-wallet-attestation-sub",
+    "topic": "unregistered-wallet-clients",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.4.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.4.1",
+    "text": "The subject claim for the Wallet Attestation MUST be a value that is shared by all Wallet instances using the present type of wallet implementation.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-9-3-1-1-no-preexisting",
+    "topic": "unregistered-wallet-clients",
+    "doc": "HAIP 1.0",
+    "ref": "Section 9.3.1.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-9.3.1.1",
+    "text": "Example 1: Baseline Interoperability without pre-existing relationships",
+    "applies": "issuer"
+  },
+  {
+    "id": "abca-7-5-client-auth-method",
+    "topic": "unregistered-wallet-clients",
+    "doc": "OAuth ABCA draft-12",
+    "ref": "Section 7.5",
+    "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-attestation-based-client-auth-12.html#section-7.5",
+    "text": "A Client Attestation may be used as an OAuth 2.0 client authentication method as described in Section 2.3 of [RFC6749] towards an Authorization Server.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-3-5-mitigations",
+    "topic": "pre-authorized-code",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 3.5",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-3.5",
+    "text": "anyone who possesses a valid Pre-Authorized Code, without further security measures, would be able to receive a VC from the Credential Issuer. Implementers MUST implement mitigations most suitable to the use case.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-4-1-1-short-lived-single-use",
+    "topic": "pre-authorized-code",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 4.1.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-4.1.1",
+    "text": "This code MUST be short lived and single use.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-4-1-1-tx-code",
+    "topic": "pre-authorized-code",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 4.1.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-4.1.1",
+    "text": "tx_code: OPTIONAL. Object indicating that a Transaction Code is required if present, even if empty.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-13-6-2-tx-code-phishing",
+    "topic": "pre-authorized-code",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 13.6.2",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-13.6.2",
+    "text": "In order to cope with that issue, the Wallet is RECOMMENDED to interact with trusted Credential Issuers only.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-2-authz-code-mandatory",
+    "topic": "pre-authorized-code",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.2",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.2",
+    "text": "The Grant Type authorization_code MUST be supported as defined in Section 4.1.1 in [OIDF.OID4VCI]",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-gen-req-4-1-04",
+    "topic": "pre-authorized-code",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "GEN-REQ-4.1-04",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "PID/EAA Providers implementing the protocol defined in clause 4 and its subclauses of the present document, shall implement at least one of the following flows: the Authorisation Code Flow as specified in clause 3.4 of OpenID4VCI [2], or the Pre-Authorised Code Flow as specified in clause 3.5 of OpenID4VCI [2].",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-gen-req-4-1-05",
+    "topic": "pre-authorized-code",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "GEN-REQ-4.1-05",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "PID Providers implementing the Pre-Authorised Code Flow shall perform user authorisation with the physical presence.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c1731-gen-req-4-1-05-void",
+    "topic": "pre-authorized-code",
+    "doc": "CIR (EU) 2026/1731",
+    "ref": "Annex XI (Annex I to CIR 2024/2982), GEN-REQ-4.1-05",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj",
+    "text": "GEN-REQ-4.1-05: Void",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-dpop",
+    "topic": "dpop-par",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4",
+    "text": "Sender-constrained access token: MUST support DPoP as defined in [RFC9449].",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-fapi2-pkce-par",
+    "topic": "dpop-par",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4",
+    "text": "This includes, but is not limited to using PKCE [RFC7636] with S256 as the code challenge method, Pushed Authorization Requests (PAR) [RFC9126] (where applicable) and the iss value in the Authorization response [RFC9207].",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-par-only-authz-endpoint",
+    "topic": "dpop-par",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4",
+    "text": "Pushed Authorization Requests (PAR): Only required when using the Authorization Endpoint as defined in Section 5 of [OIDF.OID4VCI].",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-3-par-client-auth",
+    "topic": "dpop-par",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.3",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.3",
+    "text": "Wallets MUST authenticate themselves at the PAR endpoint using the same rules as defined in Section 4.4 for client authentication at the token endpoint.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-gen-req-4-1-02",
+    "topic": "dpop-par",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "GEN-REQ-4.1-02",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "they shall implement the protocol defined in OpenID4VCI [2], specified by the requirements defined for the Issuer in OpenID4VC-HAIP [1], clause 4 and its subclauses, unless specified otherwise in the present document.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-01a",
+    "topic": "dpop-par",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_01a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_01a",
+    "text": "PID Providers and Attestation Providers SHALL support the OpenID4VCI protocol specified in [OpenID4VCI], as profiled in Sections 4 and 6 of [HAIP]",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-8-2-cre-optional",
+    "topic": "credential-response-encryption",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 8.2",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-8.2",
+    "text": "credential_response_encryption: OPTIONAL. Object containing information for encrypting the Credential Response. If this request element is not present, the corresponding credential response returned is not encrypted.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-12-2-4-encryption-required",
+    "topic": "credential-response-encryption",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 12.2.4",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-12.2.4",
+    "text": "If the value is true, the Credential Issuer requires encryption for every Credential Response and therefore the Wallet MUST provide encryption keys in the Credential Request.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-10-reject-unencrypted",
+    "topic": "credential-response-encryption",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 10",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-10",
+    "text": "When encryption of a message was required but the received message is unencrypted, it SHOULD be rejected.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-crypto-5-01",
+    "topic": "credential-response-encryption",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "CRYPTO-5-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "In addition to the crypto suites specified in OpenID4VC-HAIP [1], the EUDI Wallet and the PID/EAA Providers shall support the A128GCM algorithm and the A256GCM algorithm specified in NIST SP 800.38D [10].",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-64",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_64",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_64",
+    "text": "PID Providers, Attestation Providers, and Wallet Units SHALL support the features of [OpenID4VCI] enabling the batch issuance of technical PIDs or attestations.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-63",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_63",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_63",
+    "text": "PID Providers and Attestation Providers, and Wallet Units SHALL support the features of [OpenID4VCI] enabling the re-issuance of PIDs and attestations.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-65",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_65",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_65",
+    "text": "A PID Provider or an Attestation Provider of device-bound attestations SHALL verify that a re-issued technical PID or device-bound attestation is issued to the same Wallet Unit as the existing PID or attestation.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-38",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_38",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_38",
+    "text": "A PID Provider or Attestation Provider SHALL have a policy describing which method(s) (i.e, A, B, C, and/or D) it will use to limit the number of times a Wallet Unit may present a single technical PID or attestation.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-39",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_39",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_39",
+    "text": "PID Providers and Attestation Providers SHALL include the credential_reuse_policy parameter, specified in section 4.2.4.2 of [ETSI TS 119 472-3], in their Credential Issuer Metadata to specify which of the methods A, B, C, or D the Wallet Unit must use for the logical PID or attestation issued.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-40",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_40",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_40",
+    "text": "A PID Provider or Attestation Provider SHALL indicate in their OpenID4VCI Issuer metadata that either method A or method B must be used for a given type of PID or attestation.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-43",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_43",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_43",
+    "text": "If Method A is used, the Wallet Unit SHALL request the PID Provider or Attestation Provider to issue technical PIDs or attestations in batches to the Wallet Unit. All PIDs or attestations in a batch SHALL have the same attribute values and the same technical validity period.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-36",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_36",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_36",
+    "text": "When issuing PIDs, attestations, or WIAs or KAs in a batch to a Wallet Unit, a PID Provider, Attestation Provider, or Wallet Provider SHALL ensure that the timestamps in these PIDs, attestations, or WIAs and KAs do not enable Relying Parties to conclude that they are part of the same batch (and...",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-batch-metadata",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4",
+    "text": "The Issuer MUST indicate whether batch issuance is supported by including or omitting the batch_credential_issuance metadata parameter.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-3-3-2-different-crypto",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 3.3.2",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-3.3.2",
+    "text": "the batch of issued Credentials sent in response MUST share the same Credential Format and Credential Dataset, but SHOULD contain different Cryptographic Data.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-12-2-4-batch-size",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 12.2.4",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-12.2.4",
+    "text": "batch_size: REQUIRED. Integer value specifying the maximum array size for the proofs parameter in a Credential Request. It MUST be 2 or greater.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-15-4-1-time-rounding",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 15.4.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-15.4.1",
+    "text": "Claims containing time-related information, such as issuance or expiration dates, SHOULD be either individually randomized within an appropriate time window (e.g., within the last 24 hours), or rounded (e.g., to the start of the day), to avoid unintended correlation factors.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-cred-req-proc-4-6-2-1-04",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "CRED-REQ-PROC-4.6.2.1-04",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "The PID/EAA Provider shall generate as many PIDs/EAAs as elements present in the attested_keys array within the key_attestation parameter.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-reuse-pol-4-2-4-1-01",
+    "topic": "batch-issuance-one-time-use",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "ISS-MDATA-EAA-REUSE-POL-4.2.4.1-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "The credential_metadata child parameter of credential_configurations_supported parameter in the Issuer Metadata may contain the parameter credential_reuse_policy",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-22",
+    "topic": "issuer-metadata",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_22",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_22",
+    "text": "A PID Provider SHALL sign its Credential Issuer metadata as specified in section 12.2.3 of [OpenID4VCI]. To do so, the PID Provider SHALL use the private key corresponding to the public key in its access certificate.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-32",
+    "topic": "issuer-metadata",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_32",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_32",
+    "text": "An Attestation Provider SHALL sign its Credential Issuer metadata as specified in section 12.2.3 of [OpenID4VCI]. To do so, the Attestation Provider SHALL use the private key corresponding to the public key in its access certificate.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-24",
+    "topic": "issuer-metadata",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_24",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_24",
+    "text": "A Wallet Unit SHALL authenticate and validate the access certificate of the PID Provider before requesting the issuance of a PID.",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-1-signed-metadata",
+    "topic": "issuer-metadata",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.1",
+    "text": "When Ecosystem policies require Issuer Authentication to a higher level than possible with TLS alone, signed Credential Issuer Metadata as specified in Section 11.2.3 in [OIDF.OID4VCI]",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-4-1-nonce-endpoint",
+    "topic": "issuer-metadata",
+    "doc": "HAIP 1.0",
+    "ref": "Section 4.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-4.1",
+    "text": "If the Issuer supports Credential Configurations that require key binding, as indicated by the presence of cryptographic_binding_methods_supported, the nonce_endpoint MUST be present in the Credential Issuer Metadata.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-12-2-3-trust-signer",
+    "topic": "issuer-metadata",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 12.2.3",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-12.2.3",
+    "text": "When requesting signed metadata, the Wallet MUST establish trust in the signer of the metadata. Otherwise, the Wallet MUST reject the signed metadata.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-12-2-4-display",
+    "topic": "issuer-metadata",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 12.2.4",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-12.2.4",
+    "text": "display: OPTIONAL. A non-empty array of objects, where each object contains display properties of a Credential Issuer for a certain language.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-iss-mdata-4-2-1-01",
+    "topic": "issuer-metadata",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "ISS-MDATA-4.2.1-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "The Issuer Metadata shall be a signed metadata according to clause 12.2.3 of OpenID4VCI [2] with a JSON Web Signature (JWS hereinafter) specified in IETF RFC 7515 [8].",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-iss-mdata-4-2-1-02",
+    "topic": "issuer-metadata",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "ISS-MDATA-4.2.1-02",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "The signing certificate of the signature on the Issuer Metadata shall be the access certificate of the PID/EAA Provider.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-acc-cert-4-2-2-01",
+    "topic": "issuer-metadata",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "ISS-MDATA-ACC_CERT-4.2.2-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "The JWS signing the Issuer Metadata shall contain, in its Protected Header, the x5c header parameter as specified in IETF RFC 7515 [8].",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-rprc-19",
+    "topic": "verifier-info-registration-certs",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPRC_19",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPRC_19",
+    "text": "A Relying Party Instance SHALL include a single registration certificate applicable for its current Service and intended use in each presentation request to a Wallet Unit, according to the applicable standard's extension mentioned in RPRC_20.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-rprc-20",
+    "topic": "verifier-info-registration-certs",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPRC_20",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPRC_20",
+    "text": "Relying Party Instances and Wallet Units SHALL support the extension for [ISO/IEC 18013-5] or the extension for [OpenID4VP], as applicable.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-rprc-10",
+    "topic": "verifier-info-registration-certs",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPRC_10",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPRC_10",
+    "text": "A Relying Party SHALL distribute the registration certificates it received during registration to its Relying Party Instances.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-rprc-21",
+    "topic": "verifier-info-registration-certs",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPRC_21",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPRC_21",
+    "text": "After receiving a presentation request from a Relying Party, a Wallet Unit SHALL verify that all attributes requested in the request are included in the list of attributes in the registration certificate included in the same request.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-rprc-22",
+    "topic": "verifier-info-registration-certs",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPRC_22",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPRC_22",
+    "text": "A PID Provider or Attestation Provider SHALL include the registration certificate of the applicable Service in its Credential Issuer metadata used in the common OpenID4VCI protocol referenced in ISSU_01 and the extension thereof in [ETSI TS 119 472-3].",
+    "applies": "issuer"
+  },
+  {
+    "id": "vp-5-1-verifier-info",
+    "topic": "verifier-info-registration-certs",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 5.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-5.1",
+    "text": "verifier_info: OPTIONAL. A non-empty array of attestations about the Verifier relevant to the Credential Request.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-5-11-registration-cert",
+    "topic": "verifier-info-registration-certs",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 5.11",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-5.11",
+    "text": "A registration certificate issued by a trusted authority, to prove that the Verifier has publicly registered its intent to request certain credentials.",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-4722-ro-01-verifier-info",
+    "topic": "verifier-info-registration-certs",
+    "doc": "ETSI TS 119 472-2 V1.2.1",
+    "ref": "OIDFVP-HAIP-COMMON-REQ-RO-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf",
+    "text": "The RO JWT body shall contain the verifier_info parameter.",
+    "applies": "verifier"
+  },
+  {
+    "id": "c1731-ro-13-registration-cert",
+    "topic": "verifier-info-registration-certs",
+    "doc": "CIR (EU) 2026/1731",
+    "ref": "Annex XII (Annex II to CIR 2024/2982), OIDFVP-HAIP-COMMON-REQ-RO-13",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj",
+    "text": "OIDFVP-HAIP-COMMON-REQ-RO-13: One of the elements of the verifier_info parameter shall include the registration certificate.",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-4723-reg-cert-4-2-3-01",
+    "topic": "verifier-info-registration-certs",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "ISS-MDATA-REG_CERT-4.2.3-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "The Issuer Metadata shall contain the issuer_info metadata parameter.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c1731-reg-cert-4-2-3-04",
+    "topic": "verifier-info-registration-certs",
+    "doc": "CIR (EU) 2026/1731",
+    "ref": "Annex XI (Annex I to CIR 2024/2982), ISS-MDATA-REG_CERT-4.2.3-04",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj",
+    "text": "ISS-MDATA-REG_CERT-4.2.3-04: One of the elements in the issuer_info array parameter shall contain the PID/EAA Provider's registration certificate.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-475-4-4-national-register",
+    "topic": "verifier-info-registration-certs",
+    "doc": "ETSI TS 119 475 V1.2.1",
+    "ref": "Clause 4.4",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/119475/01.02.01_60/ts_119475v010201p.pdf",
+    "text": "In cases where a WRPRC is not issued, the EUDIW retrieves the relevant information from the national register",
+    "applies": "verifier"
+  },
+  {
+    "id": "c848-art-8-2-c-access-policy",
+    "topic": "verifier-info-registration-certs",
+    "doc": "CIR (EU) 2025/848 (consolidated 2026-08-11)",
+    "ref": "Article 8(2)(c)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02025R0848-20260811",
+    "text": "the wallet-relying party is only allowed to request the data specified in the registration certificates for the intended use registered in the registration certificates",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-rpa-02",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPA_02",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPA_02",
+    "text": "For performing Relying Party authentication, Wallet Units and Relying Party Instances SHALL support access certificates as specified in [ETSI TS 119 475] and [ETSI TS 119 411-8].",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-rpa-03",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPA_03",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPA_03",
+    "text": "A Wallet Unit and a Relying Party Instance SHALL perform Relying Party authentication in all PID or attestation presentation transactions to Relying Parties, whether proximity or remote, using an access certificate.",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-5-x509-hash",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5",
+    "text": "For signed requests, the Verifier MUST use, and the Wallet MUST accept the Client Identifier Prefix x509_hash as defined in Section 5.9.3 of [OIDF.OID4VP]. The X.509 certificate of the trust anchor MUST NOT be included in the x5c JOSE header of the signed request.",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-5-1-signed-jar",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5.1",
+    "text": "Signed Authorization Requests MUST be used by utilizing JWT-Secured Authorization Request (JAR) [RFC9101] with the request_uri parameter.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-5-9-3-x509-san-dns",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 5.9.3",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-5.9.3",
+    "text": "x509_san_dns: When the Client Identifier Prefix is x509_san_dns, the original Client Identifier (the part after the x509_san_dns: prefix) MUST be a DNS name and match a dNSName Subject Alternative Name (SAN) [RFC5280] entry in the leaf certificate passed with the request.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-5-9-3-x509-hash",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 5.9.3",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-5.9.3",
+    "text": "x509_hash: When the Client Identifier Prefix is x509_hash, the original Client Identifier (the part without the x509_hash: prefix) MUST be a hash and match the hash of the leaf certificate passed with the request.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-5-9-3-key-storage",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 5.9.3",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-5.9.3",
+    "text": "To use the Client Identifier Prefixes openid_federation, decentralized_identifier, verifier_attestation, x509_san_dns and x509_hash, Verifiers MUST be capable of securely storing private key material.",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-4722-common-req-01-x509-hash",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "ETSI TS 119 472-2 V1.2.1",
+    "ref": "OIDFVP-HAIP-COMMON-REQ-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf",
+    "text": "The Authorization Request shall use the Client Identifier Prefix x509_hash.",
+    "applies": "verifier"
+  },
+  {
+    "id": "c1731-common-req-01-void",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "CIR (EU) 2026/1731",
+    "ref": "Annex XII (Annex II to CIR 2024/2982), OIDFVP-HAIP-COMMON-REQ-01",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj",
+    "text": "OIDFVP-HAIP-COMMON-REQ-01: void.",
+    "applies": "verifier"
+  },
+  {
+    "id": "c1731-ro-23-access-cert-leaf",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "CIR (EU) 2026/1731",
+    "ref": "Annex XII (Annex II to CIR 2024/2982), OIDFVP-HAIP-COMMON-REQ-RO-23",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj",
+    "text": "The leaf certificate mentioned in OpenID4VP section 5.9.3 for use with the x509_hash Client Identifier Prefix shall be a RP access certificate as specified in ETSI TS 119 475 [14].",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-4722-redirects-ro-02-x5c",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "ETSI TS 119 472-2 V1.2.1",
+    "ref": "OIDFVP-HAIP-REDIRECTS_RO-02",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf",
+    "text": "The x5c header parameter in the JWS Protected Header of the JWS signature on the RO shall contain the RP access certificate in its first element, and its certificate path up to, but excluding, the trust anchor.",
+    "applies": "verifier"
+  },
+  {
+    "id": "c2977-art-3-8-wrpac",
+    "topic": "access-certs-client-id-prefix",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Article 3(8)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "When issuing person identification data to wallet units, providers of person identification data shall identify themselves to wallet units using their wallet-relying party access certificate",
+    "applies": "issuer"
+  },
+  {
+    "id": "haip-5-dcql",
+    "topic": "dcql",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5",
+    "text": "The DCQL query and response MUST be used as defined in Section 6 of [OIDF.OID4VP].",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-6-dcql-credentials",
+    "topic": "dcql",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 6",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-6",
+    "text": "credentials: REQUIRED. A non-empty array of Credential Queries as defined in Section 6.1 that specify the requested Credentials.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-6-1-multiple",
+    "topic": "dcql",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 6.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-6.1",
+    "text": "OPTIONAL. A boolean which indicates whether multiple Credentials can be returned for this Credential Query. If omitted, the default value is false.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-15-4-2-minimal",
+    "topic": "dcql",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 15.4.2",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-15.4.2",
+    "text": "Verifiers SHOULD use DCQL queries that request only the minimal set of claims and Credentials needed to fulfill the specified purposes.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-issu-03",
+    "topic": "dc-api",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_03",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_03",
+    "text": "Wallet Units, PID Providers, and Attestation Providers SHALL support the [W3C Digital Credentials API] for the issuance of PIDs and attestations.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-oia-08",
+    "topic": "dc-api",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_08",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_08",
+    "text": "For remote presentation flows using the [W3C Digital Credentials API] and [OpenID4VP], when the format of the requested attestation complies with [ISO/IEC 18013-5], Relying Parties and Wallet Units SHALL comply with the requirements in [HAIP] Sections 5, 5.2 and 5.3.1",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-oia-08a",
+    "topic": "dc-api",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_08a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_08a",
+    "text": "For remote presentation flows using the [W3C Digital Credentials API] and [OpenID4VP], when the format of the requested attestation complies with [SD-JWT VC], Relying Parties and Wallet Units SHALL comply with the requirements in [HAIP] Sections 5, 5.2 and 5.3.2",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-oia-08d",
+    "topic": "dc-api",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_08d",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_08d",
+    "text": "If a Relying Party uses a redirects-based transmission mechanism for cross-device presentation flows, it SHALL implement adequate mitigations for the challenges described in [Section 4.4.3.1] of the ARF main document.",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-5-2-dc-api",
+    "topic": "dc-api",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5.2",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5.2",
+    "text": "The Verifier MUST use Wallet Invocation via the W3C Digital Credentials API or an equivalent platform API.",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-5-2-dc-api-jwt",
+    "topic": "dc-api",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5.2",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5.2",
+    "text": "The Wallet MUST support the Response Mode dc_api.jwt. The Verifier MUST use the Response Mode dc_api.jwt.",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-4722-support-05-may",
+    "topic": "dc-api",
+    "doc": "ETSI TS 119 472-2 V1.2.1",
+    "ref": "OIDFVP-HAIP-SUPPORT-05",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf",
+    "text": "OIDFVP-HAIP-SUPPORT-05: A Relying Party may meet the requirements defined in clauses 6.5 of the present document.",
+    "applies": "verifier"
+  },
+  {
+    "id": "c1731-support-05-shall",
+    "topic": "dc-api",
+    "doc": "CIR (EU) 2026/1731",
+    "ref": "Annex XII (Annex II to CIR 2024/2982), OIDFVP-HAIP-SUPPORT-05",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj",
+    "text": "OIDFVP-HAIP-SUPPORT-05: A Relying Party shall meet the requirements specified in clauses 6.5 of the present Annex.",
+    "applies": "verifier"
+  },
+  {
+    "id": "c1731-support-03-cross-device",
+    "topic": "dc-api",
+    "doc": "CIR (EU) 2026/1731",
+    "ref": "Annex XII (Annex II to CIR 2024/2982), OIDFVP-HAIP-SUPPORT-03",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj",
+    "text": "OIDFVP-HAIP-SUPPORT-03: The EUDI Wallet should not support the redirects-based mechanism specified in clause 6.4 for cross-device presentation flows.",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-4722-support-04-redirects",
+    "topic": "dc-api",
+    "doc": "ETSI TS 119 472-2 V1.2.1",
+    "ref": "OIDFVP-HAIP-SUPPORT-04",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf",
+    "text": "OIDFVP-HAIP-SUPPORT-04: A Relying Party shall meet the requirements defined in clauses 6.3 and 6.4 of the present document.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-5-1-transaction-data-unknown-type",
+    "topic": "transaction-data",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 5.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-5.1",
+    "text": "The Wallet MUST return an error if a request contains even one unrecognized transaction data type",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-8-4-transaction-data",
+    "topic": "transaction-data",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 8.4",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-8.4",
+    "text": "The Wallet that received the transaction_data parameter in the request MUST include a representation or reference to the data in the respective Credential presentation.",
+    "applies": "verifier"
+  },
+  {
+    "id": "pidr-5-no-pid-key-for-tx",
+    "topic": "transaction-data",
+    "doc": "ARF PID Rulebook 1.7",
+    "ref": "Section 5",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-attestation-rulebooks-catalog/blob/main/rulebooks/pid/pid-rulebook.md#5-pid-usage",
+    "text": "Wallet Units SHALL NOT use a PID private key to sign transactional data received from a Relying Party in a presentation request.",
+    "applies": "both"
+  },
+  {
+    "id": "c1731-18013-5-resp-03",
+    "topic": "transaction-data",
+    "doc": "CIR (EU) 2026/1731",
+    "ref": "Annex XII (Annex II to CIR 2024/2982), ISO/IEC 18013-5-RESP-03",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj",
+    "text": "Providers of person identification data shall not allow the private key of the person identification data to sign data elements that are provided by the wallet-relying party in the transactional data in the mdoc request.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-oia-09",
+    "topic": "response-encryption",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_09",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_09",
+    "text": "For remote presentation flows the Wallet Unit SHALL ensure that the attributes included in the presented attestation are accessible only to the Relying Party Instance, by encrypting the presentation response.",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-5-1-direct-post-jwt",
+    "topic": "response-encryption",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5.1",
+    "text": "Response encryption MUST be used by utilizing response mode direct_post.jwt, as defined in Section 8.3 of [OIDF.OID4VP].",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-5-enc-values",
+    "topic": "response-encryption",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5",
+    "text": "Verifiers MUST list both A128GCM and A256GCM in encrypted_response_enc_values_supported",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-5-ephemeral-keys",
+    "topic": "response-encryption",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5",
+    "text": "Verifiers MUST supply ephemeral encryption public keys specific to each Authorization Request passed via client metadata as specified in Section 8.3 of [OIDF.OID4VP].",
+    "applies": "verifier"
+  },
+  {
+    "id": "haip-5-1-same-device-redirect",
+    "topic": "response-encryption",
+    "doc": "HAIP 1.0",
+    "ref": "Section 5.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-5.1",
+    "text": "Verifiers MUST reject presentations if Wallets do not follow the redirect back or the redirect back arrives in a different user session to the one the request was initiated in.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-8-3-1-direct-post-jwt",
+    "topic": "response-encryption",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 8.3.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-8.3.1",
+    "text": "This specification also defines a new Response Mode direct_post.jwt, which allows for encryption to be used on top of the Response Mode direct_post defined in Section 8.2.",
+    "applies": "verifier"
+  },
+  {
+    "id": "etsi-4722-common-resp-01",
+    "topic": "response-encryption",
+    "doc": "ETSI TS 119 472-2 V1.2.1",
+    "ref": "OIDFVP-HAIP-COMMON-RESP-01",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947202/01.02.01_60/ts_11947202v010201p.pdf",
+    "text": "OIDFVP-HAIP-COMMON-RESP-01: The EUDI Wallet shall encrypt the authorization response.",
+    "applies": "verifier"
+  },
+  {
+    "id": "c1731-common-resp-01-void",
+    "topic": "response-encryption",
+    "doc": "CIR (EU) 2026/1731",
+    "ref": "Annex XII (Annex II to CIR 2024/2982), OIDFVP-HAIP-COMMON-RESP-01",
+    "url": "http://data.europa.eu/eli/reg_impl/2026/1731/oj",
+    "text": "OIDFVP-HAIP-COMMON-RESP-01: void.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arfm-3-10-authentic-sources",
+    "topic": "authentic-sources",
+    "doc": "ARF 3.0.0 main",
+    "ref": "Section 3.10",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/main/03-roles-within-the-eudi-wallet-ecosystem.md#310-authentic-sources",
+    "text": "Authentic Sources are required to provide an interface to QEAA Providers to verify the authenticity of the above attributes, either directly or via designated intermediaries recognised at national level.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-qtspas-03",
+    "topic": "authentic-sources",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "QTSPAS_03",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#QTSPAS_03",
+    "text": "An Authentic Source or designated intermediary SHALL respond to a verification request for attributes by any QTSP issuing qualified electronic attestation of attributes.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-qtspas-05",
+    "topic": "authentic-sources",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "QTSPAS_05",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#QTSPAS_05",
+    "text": "A QTSP SHALL send an attribute verification request directly to the Authentic Source or designated intermediary recognised at national level, after discovering it using the mechanisms specified the technical specifications mentioned in QTSPAS_01.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-18",
+    "topic": "authentic-sources",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_18",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_18",
+    "text": "A PID Provider SHALL verify the identity of the subject of the PID in compliance with Level of Assurance (LoA) High requirements.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-27a",
+    "topic": "authentic-sources",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_27a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_27a",
+    "text": "If the subject of the attestation is a natural person, an Attestation Provider SHALL verify the identity of the subject of the attestation, in compliance with applicable requirements and in accordance with relevant standards or Implementing Regulations.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2977-art-3-7-enrolment",
+    "topic": "authentic-sources",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Article 3(7)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "Member States shall enroll wallet users in accordance with the requirements relating to enrolment at assurance level high, as set out in Commission Implementing Regulation (EU) 2015/1502",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-pid-21",
+    "topic": "selective-disclosure",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "PID_21",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#PID_21",
+    "text": "When issuing a PID compliant with [SD-JWT VC], a PID Provider SHALL make all claims (i.e., all top-level properties, all nested properties, and all array entries) selectively disclosable individually, except those claims defined as non-selectively disclosable in [SD-JWT VC].",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-oia-07",
+    "topic": "selective-disclosure",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_07",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_07",
+    "text": "A Wallet Unit SHALL support selective disclosure of attributes from PIDs and attestations to be presented to the requesting Relying Parties.",
+    "applies": "both"
+  },
+  {
+    "id": "c2977-annex-sd-each-identifier",
+    "topic": "selective-disclosure",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Annex, Section 1 (Table 1 notes)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "Member States shall ensure that the selective disclosure applies to each data identifier, including the portrait.",
+    "applies": "issuer"
+  },
+  {
+    "id": "c2982-art-5-4-sd",
+    "topic": "selective-disclosure",
+    "doc": "CIR (EU) 2024/2982",
+    "ref": "Article 5(4)",
+    "url": "http://data.europa.eu/eli/reg_impl/2024/2982/oj",
+    "text": "Wallet providers shall ensure that wallet solutions support the selective disclosure of attributes of personal identification data and of electronic attestations of attributes.",
+    "applies": "both"
+  },
+  {
+    "id": "vp-15-4-2-minimal-sd",
+    "topic": "selective-disclosure",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 15.4.2",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-15.4.2",
+    "text": "Verifiers SHOULD use DCQL queries that request only the minimal set of claims and Credentials needed to fulfill the specified purposes.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-issu-35",
+    "topic": "logging-data-minimisation",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_35",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_35",
+    "text": "A PID Provider or Attestation Provider SHALL ensure that all unique elements in a PID or attestation have a negligible chance of having the same value across all PIDs or attestations issued by that Provider.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-35b",
+    "topic": "logging-data-minimisation",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_35b",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_35b",
+    "text": "After issuing a PID, attestation, KA, or WIA, a PID Provider, Attestation Provider or Wallet Provider SHALL discard the values of all unique elements, including at least the ones mentioned in requirement ISSU_35 or ISSU_35a (as applicable) above, as well as any timestamps, as soon as they are no...",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-oia-16",
+    "topic": "logging-data-minimisation",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "OIA_16",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#OIA_16",
+    "text": "When receiving a PID or attestation, a Relying Party Instance SHALL discard the values of all unique elements, including at least the ones mentioned in requirement ISSU_35 in [Topic 10], as well as any timestamps, as soon as they are no longer needed.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-pid-03a",
+    "topic": "logging-data-minimisation",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "PID_03a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#PID_03a",
+    "text": "If a Relying Party obtains the portrait attribute from a User's PID, it SHALL NOT retain the portrait, unless its processing is necessary for the purposes of identification and authentication in compliance with Union data protection law or where this is provided for by Union or national law, in...",
+    "applies": "verifier"
+  },
+  {
+    "id": "arf-dash-03a",
+    "topic": "logging-data-minimisation",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "DASH_03a",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#DASH_03a",
+    "text": "For a PID or attestation presentation transaction or a Wallet-to-Wallet transaction executed through the Wallet Unit, the log SHALL NOT contain the value of any attributes presented to the Relying Party or the Verifier Wallet Unit.",
+    "applies": "both"
+  },
+  {
+    "id": "c2977-art-3a-3-portrait",
+    "topic": "logging-data-minimisation",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Article 3a(3)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "The portrait shall not be retained by wallet-relying parties unless its processing is necessary for the purposes of identification and authentication in compliance with Union data protection law",
+    "applies": "verifier"
+  },
+  {
+    "id": "c2977-art-5-8-unlinkability",
+    "topic": "logging-data-minimisation",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Article 5(8)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "Providers of person identification data shall enable privacy preserving techniques which ensure unlinkability where the electronic attestations of attributes do not require the identification of the user.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci-15-4-1-correlation",
+    "topic": "logging-data-minimisation",
+    "doc": "OID4VCI 1.0",
+    "ref": "Section 15.4.1",
+    "url": "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-final.html#section-15.4.1",
+    "text": "Issue a batch of Credentials with the same Credential Dataset to facilitate the use of a unique Credential per presentation or per Verifier.",
+    "applies": "issuer"
+  },
+  {
+    "id": "etsi-4723-sec-6-02",
+    "topic": "logging-data-minimisation",
+    "doc": "ETSI TS 119 472-3 V1.1.1",
+    "ref": "SEC-6-02",
+    "url": "https://www.etsi.org/deliver/etsi_ts/119400_119499/11947203/01.01.01_60/ts_11947203v010101p.pdf",
+    "text": "SEC-6-02: The privacy considerations in clause 15 of OpenID4VCI [2] shall apply.",
+    "applies": "issuer"
+  },
+  {
+    "id": "pidr-2-3-personal-administrative-number",
+    "topic": "pid-identifiers",
+    "doc": "ARF PID Rulebook 1.7",
+    "ref": "Section 2.3",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-attestation-rulebooks-catalog/blob/main/rulebooks/pid/pid-rulebook.md#23-optional-attributes-specified-in-cir-20242977",
+    "text": "personal_administrative_number | A value assigned to the user to whom the person identification data relates that is unique among all personal administrative numbers issued by the provider of person identification data. Where Member States opt to include this attribute",
+    "applies": "both"
+  },
+  {
+    "id": "c2977-annex-table2-pan-optional",
+    "topic": "pid-identifiers",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Annex, Table 2 (optional attributes)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "personal_administrative_number A value assigned to the user to whom the person identification data relates that is unique among all personal administrative numbers issued by the provider of person identification data. Where Member States opt to include this attribute",
+    "applies": "both"
+  },
+  {
+    "id": "c2977-art-3-4-unique",
+    "topic": "pid-identifiers",
+    "doc": "CIR (EU) 2024/2977 (consolidated 2026-08-11)",
+    "ref": "Article 3(4)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02024R2977-20260811",
+    "text": "Member States shall ensure that the person identification data issued to a given wallet user is unique for the Member State.",
+    "applies": "both"
+  },
+  {
+    "id": "depid-pan-not-included",
+    "topic": "pid-identifiers",
+    "doc": "German PID Rulebook (PID-DE) 1.0.0 draft",
+    "ref": "Optional attributes as specified in CIR 2026/1731 (Annex 1, Table 2)",
+    "url": "https://bmi.usercontent.opencode.de/eudi-wallet/eidas-2.0-architekturkonzept/content/features/PID/german-pid-rulebook/optional-attributes-as-specified-in-cir-20261731",
+    "text": "personal_administrative_number not available not included in the German PID",
+    "applies": "both"
+  },
+  {
+    "id": "depid-document-number-not-included",
+    "topic": "pid-identifiers",
+    "doc": "German PID Rulebook (PID-DE) 1.0.0 draft",
+    "ref": "Metadata as specified in CIR 2026/1731 (Annex 1, Table 5)",
+    "url": "https://bmi.usercontent.opencode.de/eudi-wallet/eidas-2.0-architekturkonzept/content/features/PID/german-pid-rulebook/metadata-as-specified-in-cir-20261731",
+    "text": "document_number not available optional not included in the German PID",
+    "applies": "both"
+  },
+  {
+    "id": "haip-6-1-sub-optional",
+    "topic": "pid-identifiers",
+    "doc": "HAIP 1.0",
+    "ref": "Section 6.1",
+    "url": "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-final.html#section-6.1",
+    "text": "Note: If there is a requirement to provide the Subject’s identifier assigned and maintained by the Issuer, the sub claim MAY be used. There is no requirement for a binding to exist between the sub and cnf claims.",
+    "applies": "both"
+  },
+  {
+    "id": "arf-zkp-04",
+    "topic": "pid-identifiers",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ZKP_04",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ZKP_04",
+    "text": "A ZKP scheme SHOULD support the derivation of a verifiable User pseudonym, by combining an attribute value that is unique for the User with Relying Party-specific context (e.g., the Relying Party identifier)",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-6-credential-sets",
+    "topic": "combined-presentation",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 6",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-6",
+    "text": "credential_sets: OPTIONAL. A non-empty array of Credential Set Queries as defined in Section 6.2 that specifies additional constraints on which of the requested Credentials to return.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-6-2-options",
+    "topic": "combined-presentation",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 6.2",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-6.2",
+    "text": "options: REQUIRED A non-empty array, where each value in the array is a list of Credential Query identifiers representing one set of Credentials that satisfies the use case.",
+    "applies": "verifier"
+  },
+  {
+    "id": "vp-6-2-required",
+    "topic": "combined-presentation",
+    "doc": "OID4VP 1.0",
+    "ref": "Section 6.2",
+    "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html#section-6.2",
+    "text": "required: OPTIONAL A boolean which indicates whether this set of Credentials is required to satisfy the particular use case at the Verifier. If omitted, the default value is true.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arfm-66310-binding-methods",
+    "topic": "combined-presentation",
+    "doc": "ARF 3.0.0 main",
+    "ref": "Section 6.6.3.10.1",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/main/06-trust-model.md#66310-relying-party-instance-verifies-combined-presentation-of-attributes",
+    "text": "In such cases, the Relying Party will need to verify that these attestations belong to the same User.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arfm-66310-attribute-binding",
+    "topic": "combined-presentation",
+    "doc": "ARF 3.0.0 main",
+    "ref": "Section 6.6.3.10.1",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/main/06-trust-model.md#66310-relying-party-instance-verifies-combined-presentation-of-attributes",
+    "text": "Attribute-Based Binding: Multiple attestations may include a shared unique identifier (e.g., a PID number), which can then serve as a binding reference across different attestations.",
+    "applies": "verifier"
+  },
+  {
+    "id": "arfm-66310-2-envisioned",
+    "topic": "combined-presentation",
+    "doc": "ARF 3.0.0 main",
+    "ref": "Section 6.6.3.10.2",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/main/06-trust-model.md#66310-relying-party-instance-verifies-combined-presentation-of-attributes",
+    "text": "Cryptographic binding between attestations is an envisioned cryptographic mechanism that enables a WSCA/WSCD or keystore to prove that it manages the private keys corresponding to two (or more) public keys.",
+    "applies": "both"
+  },
+  {
+    "id": "arf-acp-01",
+    "topic": "combined-presentation",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ACP_01",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ACP_01",
+    "text": "A Cryptographic Binding of Attestations scheme SHALL enable a WSCA/WSCD or keystore to prove that it manages two or more private keys, paired with two or more public keys provided to it by the Wallet Unit.",
+    "applies": "both"
+  },
+  {
+    "id": "arf-acp-05",
+    "topic": "combined-presentation",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ACP_05",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ACP_05",
+    "text": "A Cryptographic Binding of Attestations scheme SHALL enable an Attestation Provider, during the issuance of an attestation, to request and obtain proof that the private key for the new attestation is managed by the same WSCA/WSCD or keystore as the private key of a PID or another attestation...",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-acp-07",
+    "topic": "combined-presentation",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ACP_07",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ACP_07",
+    "text": "Before making a request according to ACP_05, an Attestation Provider SHALL verify that the new attestation indeed belongs to the User of the existing PID or attestation.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-rpi-09",
+    "topic": "combined-presentation",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "RPI_09",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#RPI_09",
+    "text": "When a Wallet Unit presents to an intermediary any attributes from a PID or attestation, the intermediary SHALL verify the authenticity of the PID or attestation, its revocation status, device binding and User binding, as well as any combined presentation of attributes, if applicable, as...",
+    "applies": "verifier"
+  },
+  {
+    "id": "vci11-6-interactive-authorization",
+    "topic": "presentation-during-issuance",
+    "doc": "OID4VCI 1.1 (editor's draft)",
+    "ref": "Section 6",
+    "url": "https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-1_1-wg-draft.html#section-6",
+    "text": "A primary use case is requiring the Presentation of a Credential as a prerequisite for issuing a new Credential.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci11-6-optional",
+    "topic": "presentation-during-issuance",
+    "doc": "OID4VCI 1.1 (editor's draft)",
+    "ref": "Section 6",
+    "url": "https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-1_1-wg-draft.html#section-6",
+    "text": "Support for Interactive Authorization is OPTIONAL.",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci11-6-1-1-openid4vp-presentation",
+    "topic": "presentation-during-issuance",
+    "doc": "OID4VCI 1.1 (editor's draft)",
+    "ref": "Section 6.1.1",
+    "url": "https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-1_1-wg-draft.html#section-6.1.1",
+    "text": "urn:openid:dcp:ia:openid4vp_presentation: Indicates that the Wallet supports an OpenID4VP Presentation interaction",
+    "applies": "issuer"
+  },
+  {
+    "id": "vci11-13-3-require-ia",
+    "topic": "presentation-during-issuance",
+    "doc": "OID4VCI 1.1 (editor's draft)",
+    "ref": "Section 13.3",
+    "url": "https://openid.github.io/OpenID4VCI/openid-4-verifiable-credential-issuance-1_1-wg-draft.html#section-13.3",
+    "text": "require_interactive_authorization: OPTIONAL. A boolean indicating whether the Authorization Server only accepts Interactive Authorization for Credential issuance",
+    "applies": "issuer"
+  },
+  {
+    "id": "arfm-6621-user-auth-out-of-scope",
+    "topic": "presentation-during-issuance",
+    "doc": "ARF 3.0.0 main",
+    "ref": "Section 6.6.2.1",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/main/06-trust-model.md#6621-required-trust-relationships",
+    "text": "The method by which the PID Provider or Attestation Provider performs User identification and authentication is out of scope of the ARF, as these processes are specific to each PID Provider or Attestation Provider.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-issu-27c",
+    "topic": "presentation-during-issuance",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ISSU_27c",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ISSU_27c",
+    "text": "The Attestation Provider SHALL verify that the User requesting the attestation has the right to receive it.",
+    "applies": "issuer"
+  },
+  {
+    "id": "arf-acp-07-issuance",
+    "topic": "presentation-during-issuance",
+    "doc": "ARF 3.0.0 Annex 2",
+    "ref": "ACP_07",
+    "url": "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/v3.0.0/docs/annexes/annex-2/annex-2.02-high-level-requirements-by-topic.md#ACP_07",
+    "text": "Before making a request according to ACP_05, an Attestation Provider SHALL verify that the new attestation indeed belongs to the User of the existing PID or attestation.",
+    "applies": "issuer"
+  }
+]

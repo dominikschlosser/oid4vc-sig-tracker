@@ -1,0 +1,813 @@
+{
+ "19929": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Old duplicate of #42889. It has no open work of its own."
+ },
+ "29997": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "EUDI does not issue access tokens or ID tokens as credentials."
+ },
+ "30358": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Claim mapping for token exchange. EUDI flows don't use it."
+ },
+ "31493": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "A question about how mappers are chosen. It needs an answer or a small cleanup."
+ },
+ "31674": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Test refactoring."
+ },
+ "32956": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Internal refactoring of client scope configuration."
+ },
+ "39042": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "haip-4-dpop"
+  ],
+  "note": "HAIP requires DPoP. A server nonce prevents proofs made in advance."
+ },
+ "39260": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Moves endpoints into their own class. Internal cleanup."
+ },
+ "39828": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "The admin UI dropdown lacks custom attributes. The API already accepts them."
+ },
+ "40038": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Consistent naming in docs and UI text."
+ },
+ "42889": {
+  "rating": "high",
+  "basis": "usable",
+  "specs": [],
+  "note": "The open part is promotion to supported. Production deployments need that."
+ },
+ "43136": {
+  "rating": "blocker",
+  "basis": "legal",
+  "specs": [
+   "c2979-tr-wia-3",
+   "arf-wua-25",
+   "haip-4-4-1-client-auth-required"
+  ],
+  "note": "PID and attestation providers must check the wallet attestation during client authentication."
+ },
+ "43396": {
+  "rating": "medium",
+  "basis": "profile",
+  "specs": [
+   "arf-issu-01a"
+  ],
+  "note": "OID4VCI 1.0 is required, but most of it is already in place."
+ },
+ "43400": {
+  "rating": "low",
+  "basis": "profile",
+  "specs": [
+   "abca-7-1-trusted-attester"
+  ],
+  "note": "The ABCA authenticator now checks trusted attesters. The issue is marked for closing."
+ },
+ "43939": {
+  "rating": "high",
+  "basis": "usable",
+  "specs": [
+   "haip-9-3-1-1-no-preexisting",
+   "arf-vcr-11a"
+  ],
+  "note": "Still open: revocation, and issuance to wallets that are not registered in advance."
+ },
+ "43974": {
+  "rating": "low",
+  "basis": "legal",
+  "specs": [
+   "c2977-annex-4-2-nbf-exp"
+  ],
+  "note": "Main already sets exp from the credential refresh interval. This looks done."
+ },
+ "44206": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Cleanup of the SD-JWT library API. Maintainers call it minor."
+ },
+ "44745": {
+  "rating": "high",
+  "basis": "security",
+  "specs": [
+   "vci-4-1-1-tx-code"
+  ],
+  "note": "Anyone with the offer-create role can get offers for other users until tx_code works.",
+  "why": "A user with the offer-create role can get credentials in other users' names. It is High and not Blocker because it needs that privileged role."
+ },
+ "44768": {
+  "rating": "high",
+  "basis": "legal",
+  "specs": [
+   "c2979-tr-wia-3",
+   "arf-wua-25",
+   "haip-4-4-1-client-auth-required"
+  ],
+  "note": "Issuers must check the wallet attestation during issuance.",
+  "why": "The implementing regulation requires PID providers to check the wallet attestation. Parts of it are merged, the rest is open."
+ },
+ "44769": {
+  "rating": "medium",
+  "basis": "profile",
+  "specs": [
+   "haip-4-4-1-client-auth-required"
+  ],
+  "note": "Server challenges replace nonces chosen by the client in attestation PoPs."
+ },
+ "44770": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "abca-7-1-trusted-attester"
+  ],
+  "note": "Stops replay of attestation PoP JWTs."
+ },
+ "44771": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "haip-4-4-1-client-auth-required"
+  ],
+  "note": "Binds refresh tokens to the attested wallet instance."
+ },
+ "44772": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Admin UI for attestation trust settings."
+ },
+ "44831": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "vci-3-5-mitigations",
+   "vci-4-1-1-short-lived-single-use"
+  ],
+  "note": "Only the token audience limit is open, and it is partly done."
+ },
+ "44834": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [
+   "vci-3-5-mitigations"
+  ],
+  "note": "Looks done. Pre-authorized access tokens are already limited to the credential endpoint."
+ },
+ "44960": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "vci-6-1-preauth-client-auth-optional",
+   "vci-12-3-anonymous-preauth"
+  ],
+  "note": "Wallets are not registered clients. Only REST offers still bind the code to one client."
+ },
+ "45851": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Vague follow-ups from test work. The flows work."
+ },
+ "46200": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Admin permissions for credential management."
+ },
+ "46212": {
+  "rating": "blocker",
+  "basis": "legal",
+  "specs": [
+   "arf-vcr-01"
+  ],
+  "note": "Issuers of PIDs and qualified attestations need status lists. Keycloak has none.",
+  "why": "Credentials valid for more than 24 hours need a status list. The only workaround is reissuing every credential each day, and no issuer can sustain that."
+ },
+ "46264": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [],
+  "note": "One configuration can then serve several records, such as multiple diplomas."
+ },
+ "46269": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "vci-3-5-mitigations",
+   "vci-4-1-1-tx-code"
+  ],
+  "note": "Basic tx_code works. Delivery channels and a per-offer setting are open."
+ },
+ "46489": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Separate scopes per configuration already work."
+ },
+ "46516": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [],
+  "note": "Optional protection of issuer_state against tampering."
+ },
+ "46518": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "vci-4-1-1-tx-code"
+  ],
+  "note": "Sends the tx_code out of band, so admins never see it."
+ },
+ "46519": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [
+   "vci-4-1-1-tx-code"
+  ],
+  "note": "tx_code for the AIA offer flow. The main tx_code work covers it."
+ },
+ "46520": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [
+   "vci-4-1-1-tx-code",
+   "vci-3-5-mitigations"
+  ],
+  "note": "tx_code for REST offers. The main tx_code work covers it."
+ },
+ "46521": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [
+   "vci-4-1-1-tx-code"
+  ],
+  "note": "tx_code for offers sent by email. The main tx_code work covers it."
+ },
+ "46522": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "vci-4-1-1-tx-code"
+  ],
+  "note": "Issuers need to decide per offer whether a transaction code is required."
+ },
+ "46854": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Admin switch to turn on the pre-authorized grant per client."
+ },
+ "46888": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [
+   "haip-6-1-1-x5c-required"
+  ],
+  "note": "A self-signed certificate does not chain to an EUDI trust anchor."
+ },
+ "46896": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Moves an existing scope policy to client policies."
+ },
+ "47245": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Offers by reference work with wallets and keep the QR code small."
+ },
+ "47652": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "vci-4-1-1-tx-code"
+  ],
+  "note": "tx_code is the main protection against stolen pre-authorized offers."
+ },
+ "47787": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Admin UI review for credential client scopes."
+ },
+ "48106": {
+  "rating": "blocker",
+  "basis": "legal",
+  "specs": [
+   "arf-issu-19b"
+  ],
+  "note": "PID and attestation providers must get wallet provider trust anchors from ETSI lists.",
+  "why": "Issuers must check wallet attestations against the wallet provider list. Copying its trust anchors by hand misses updates and withdrawn providers."
+ },
+ "48220": {
+  "rating": "medium",
+  "basis": "profile",
+  "specs": [],
+  "note": "Conformance tests show interoperability. HAIP tests matter more for EUDI."
+ },
+ "48268": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Order of authenticators in the default client flow."
+ },
+ "48270": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Code cleanup."
+ },
+ "48489": {
+  "rating": "high",
+  "basis": "usable",
+  "specs": [
+   "vci-4-1-1-short-lived-single-use",
+   "vci-12-3-anonymous-preauth"
+  ],
+  "note": "Pre-authorized issuance is common for attestations. The open part has security gaps."
+ },
+ "48490": {
+  "rating": "high",
+  "basis": "usable",
+  "specs": [
+   "vci-3-5-mitigations",
+   "vci-12-3-anonymous-preauth"
+  ],
+  "note": "Open: tx_code, anonymous wallet access and codes leaked in logs."
+ },
+ "48491": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [],
+  "note": "Production pre-authorized issuance needs supported status."
+ },
+ "48902": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [
+   "vci-4-1-1-short-lived-single-use"
+  ],
+  "note": "A retest on main shows the code is single use. The issue looks ready to close."
+ },
+ "49335": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Performance optimization for stored credentials."
+ },
+ "49415": {
+  "rating": "high",
+  "basis": "usable",
+  "specs": [],
+  "note": "Wallet sign-in for relying parties. The first verifier version is merged.",
+  "why": "Wallet sign-in is the main use case for relying parties. The first version is merged, and the rest is still open."
+ },
+ "49815": {
+  "rating": "high",
+  "basis": "legal",
+  "specs": [
+   "arf-vcr-07a",
+   "c2977-art-5-7-validity-status"
+  ],
+  "note": "Revoking all credentials of a user or a wallet, for example after a user request or a wallet compromise."
+ },
+ "49816": {
+  "rating": "medium",
+  "basis": "legal",
+  "specs": [
+   "arf-vcr-07a"
+  ],
+  "note": "Lets a PID provider revoke all credentials of a user on request."
+ },
+ "49817": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [],
+  "note": "Revokes all credentials of one wallet, for example after a wallet compromise."
+ },
+ "49818": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Admin console button for the revocation REST API."
+ },
+ "49819": {
+  "rating": "medium",
+  "basis": "legal",
+  "specs": [
+   "arf-vcr-07a"
+  ],
+  "note": "Users can revoke their own credentials in the account console. The ARF requires that users can ask for revocation."
+ },
+ "49821": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Admin UI action for the wallet revocation API."
+ },
+ "49965": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Issuance is already rejected later. This only fails earlier."
+ },
+ "50114": {
+  "rating": "high",
+  "basis": "legal",
+  "specs": [
+   "arf-pid-02",
+   "arf-issu-12"
+  ],
+  "note": "PIDs must also be issued as mdoc. The open part is maturity and correct CBOR types."
+ },
+ "50116": {
+  "rating": "high",
+  "basis": "legal",
+  "specs": [
+   "arf-pid-02",
+   "c2977-annex-4-formats"
+  ],
+  "note": "Valid PID and mDL mdocs need correct CBOR date and byte types."
+ },
+ "50117": {
+  "rating": "high",
+  "basis": "legal",
+  "specs": [
+   "arf-pid-02"
+  ],
+  "note": "Production use of mdoc PIDs needs a supported feature.",
+  "why": "Preview features are not meant for production. mdoc PIDs need the feature marked as supported."
+ },
+ "50522": {
+  "rating": "high",
+  "basis": "security",
+  "specs": [
+   "vci-3-5-mitigations",
+   "vci-4-1-1-tx-code"
+  ],
+  "note": "Same tx_code gap as #47652."
+ },
+ "50587": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "vci-6-1-preauth-client-auth-optional",
+   "haip-9-3-1-1-no-preexisting"
+  ],
+  "note": "Wallets are not registered clients, so pre-authorized offers need another client context."
+ },
+ "50643": {
+  "rating": "blocker",
+  "basis": "legal",
+  "specs": [
+   "arf-oia-12",
+   "vp-6-credential-sets",
+   "haip-5-dcql"
+  ],
+  "note": "Open: trust list checks and multi-credential DCQL. EUDI needs both."
+ },
+ "50657": {
+  "rating": "blocker",
+  "basis": "security",
+  "specs": [
+   "haip-5-dcql"
+  ],
+  "note": "Without it, any credential from a trusted issuer can sign in as any user.",
+  "why": "Login accepts any credential from a trusted issuer, even one of the wrong type. Someone could sign in to an account that isn't theirs."
+ },
+ "50658": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [],
+  "note": "A declined or failed wallet request should end the login with an error page."
+ },
+ "50659": {
+  "rating": "low",
+  "basis": "profile",
+  "specs": [
+   "haip-5-x509-hash"
+  ],
+  "note": "ES256 is the HAIP baseline. Other algorithms are optional."
+ },
+ "50660": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [
+   "vp-15-4-2-minimal"
+  ],
+  "note": "Saves writing the DCQL query by hand."
+ },
+ "50661": {
+  "rating": "medium",
+  "basis": "profile",
+  "specs": [],
+  "note": "Some wallets send wallet_metadata by POST to get the request object."
+ },
+ "50663": {
+  "rating": "medium",
+  "basis": "profile",
+  "specs": [
+   "vp-5-9-3-x509-san-dns",
+   "c1731-common-req-01-void"
+  ],
+  "note": "CIR 2026/1731 dropped the x509_hash requirement, so some wallets use x509_san_dns."
+ },
+ "50665": {
+  "rating": "medium",
+  "basis": "legal",
+  "specs": [
+   "arf-vcr-13"
+  ],
+  "note": "Verifier revocation checks are only a SHOULD."
+ },
+ "50666": {
+  "rating": "high",
+  "basis": "legal",
+  "specs": [
+   "c1731-ro-13-registration-cert",
+   "arf-rprc-19",
+   "vp-5-1-verifier-info"
+  ],
+  "note": "CIR 2026/1731 puts the registration certificate into verifier_info.",
+  "why": "CIR 2026/1731 puts the registration certificate into verifier_info. It is High and not Blocker because member states may decide not to issue registration certificates."
+ },
+ "50667": {
+  "rating": "blocker",
+  "basis": "usable",
+  "specs": [
+   "vp-6-credential-sets"
+  ],
+  "note": "The PID has no stable identifier, so relying parties need the PID and their own credential in one request.",
+  "why": "A German PID alone can't identify a returning user. Keycloak can't ask for a second credential in a separate request either."
+ },
+ "50669": {
+  "rating": "blocker",
+  "basis": "legal",
+  "specs": [
+   "arf-oia-15b"
+  ],
+  "note": "Relying parties must check PID and attestation signatures against ETSI trusted lists.",
+  "why": "Relying parties must check credentials against the PID provider list. Copying its trust anchors by hand misses updates and withdrawn providers."
+ },
+ "50670": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "arf-pid-02",
+   "arf-oia-03b"
+  ],
+  "note": "Every PID also exists as SD-JWT VC. mdoc matters for mDLs and attestations only issued as mdoc."
+ },
+ "50816": {
+  "rating": "medium",
+  "basis": "legal",
+  "specs": [
+   "arf-pid-21"
+  ],
+  "note": "PID providers must make every array entry selectively disclosable."
+ },
+ "50832": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Faster test setup. No effect on EUDI flows."
+ },
+ "50891": {
+  "rating": "blocker",
+  "basis": "usable",
+  "specs": [
+   "haip-9-3-1-1-no-preexisting"
+  ],
+  "note": "Issuers must serve unknown wallets. Registering each wallet as a client does not scale.",
+  "why": "Every certified wallet must be able to get credentials. Registering each wallet as a client at each issuer does not scale."
+ },
+ "51050": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Internal cleanup of the authorization details."
+ },
+ "51060": {
+  "rating": "medium",
+  "basis": "profile",
+  "specs": [
+   "haip-5-dcql",
+   "haip-5-1-direct-post-jwt"
+  ],
+  "note": "HAIP conformance tests find verifier interop gaps. It is test work."
+ },
+ "51111": {
+  "rating": "high",
+  "basis": "security",
+  "specs": [
+   "abca-7-1-trusted-attester"
+  ],
+  "note": "A captured PoP JWT can be replayed in another token request.",
+  "why": "A captured PoP JWT can be replayed. It is High and not Blocker because an attacker also needs a second valid grant."
+ },
+ "51480": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [],
+  "note": "Assigning the credential to each user gets in the way of issuing it to everyone."
+ },
+ "51575": {
+  "rating": "medium",
+  "basis": "profile",
+  "specs": [
+   "haip-4-dpop",
+   "haip-4-4-1-client-auth-required"
+  ],
+  "note": "HAIP wallets combine DPoP with attestation client authentication."
+ },
+ "51576": {
+  "rating": "medium",
+  "basis": "profile",
+  "specs": [
+   "haip-4-4-1-client-auth-required"
+  ],
+  "note": "Wallets read the supported attestation algorithms from metadata."
+ },
+ "51578": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "abca-7-1-trusted-attester",
+   "abca-7-5-client-id-match"
+  ],
+  "note": "Stricter checks on attestation and PoP JWTs."
+ },
+ "51830": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "arfm-3-10-authentic-sources",
+   "arf-qtspas-05"
+  ],
+  "note": "Many credentials attest data stored outside Keycloak."
+ },
+ "52075": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Module restructuring with no functional change."
+ },
+ "52269": {
+  "rating": "medium",
+  "basis": "legal",
+  "specs": [
+   "arf-pid-02"
+  ],
+  "note": "Wrong CBOR types make mdoc credentials invalid."
+ },
+ "52380": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Refresh token tuning."
+ },
+ "52508": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [],
+  "note": "Headers leak only in DEBUG logs, and a replay needs a second grant."
+ },
+ "52509": {
+  "rating": "high",
+  "basis": "security",
+  "specs": [
+   "arf-issu-35b"
+  ],
+  "note": "With debug logging on, logs contain pre-authorized codes and personal data from credentials.",
+  "why": "Debug logs can contain personal data and usable codes. It is High and not Blocker because debug logging is off by default."
+ },
+ "52517": {
+  "rating": "low",
+  "basis": "profile",
+  "specs": [],
+  "note": "The HAIP rule applies to wallets. Accepting an extra trust anchor is lenient."
+ },
+ "52663": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [],
+  "note": "Open: the impersonation fix and tx_code for offers created by REST."
+ },
+ "52766": {
+  "rating": "blocker",
+  "basis": "legal",
+  "specs": [
+   "c2979-tr-wia-4-1",
+   "etsi-4723-auth-req-proc-4-4-3-01",
+   "arf-wua-25"
+  ],
+  "note": "Wallet attestations are checked through an x5c chain to the wallet provider list.",
+  "why": "Real wallet attestations carry their key in an x5c chain, often without a kid. Without this, ABCA only knows keys registered by hand, so PID and attestation providers can't check attestations from real wallets, and the ETSI lists of #48106 can't be used for client attestations."
+ },
+ "52786": {
+  "rating": "medium",
+  "basis": "legal",
+  "specs": [
+   "etsi-4723-cred-req-proc-4-6-2-1-02"
+  ],
+  "note": "ETSI requires the proof key at attested_keys[0]. Any attested key is still bound today."
+ },
+ "52928": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Admin mappers can override reserved mdoc claims."
+ },
+ "53956": {
+  "rating": "low",
+  "basis": "usable",
+  "specs": [
+   "arfm-3-10-authentic-sources"
+  ],
+  "note": "One mapper for one data source. The generic external source matters more."
+ },
+ "53968": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "arfm-3-10-authentic-sources"
+  ],
+  "note": "Offers can point to external data, so issuers can issue credentials for one transaction."
+ },
+ "54094": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "Tracks whether issued credentials were delivered."
+ },
+ "54512": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "vci-12-2-4-display"
+  ],
+  "note": "Wallets show the issuer name and logo from metadata."
+ },
+ "54515": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "vci-12-3-anonymous-preauth",
+   "vci-6-1-preauth-client-auth-optional"
+  ],
+  "note": "Helps wallets without client authentication in pre-authorized flows. HAIP wallets always authenticate."
+ },
+ "54561": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [
+   "arfm-6664-signing-cert-revocation"
+  ],
+  "note": "No spec requires CRL or OCSP checks on issuer or wallet provider chains."
+ },
+ "54562": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "arf-oia-15b"
+  ],
+  "note": "Relying parties can load one list of lists to trust PID providers of all member states."
+ },
+ "53894": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This PR fixes a flaky admin UI test for the OID4VC section. It has no effect on issuance or verification."
+ }
+}
