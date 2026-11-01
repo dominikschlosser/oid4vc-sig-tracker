@@ -1,0 +1,1872 @@
+{
+ "52883": {
+  "sha": "3c328f58a1dfc99daa445af8c36d4b8a23a3cf23",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Correct and small reuse of the shared X.509 chain validation for client attestations.",
+  "summary": "The PR lets `AttestationBasedClientAuthenticator.findAttesterKey` resolve the attester key from the `x5c` JOSE header. It validates the chain with `TrustMaterialResolver.validateX509Chain` against the X.509 anchors of the client's `attester_trust_idps` and keeps the `kid` lookup as a fallback. The chain checks are the same ones key attestation uses at the credential endpoint, so they cover leaf validity, end entity status, digital signature key usage, required EKUs and a PKIX path to a pinned anchor. The signature is still verified against the resolved leaf key, and every failure becomes `invalid_client_attestation`. I found nothing that must change.",
+  "eudi": "EUDI Wallet Providers sign Wallet Instance Attestations with a certificate in `x5c` that chains to a trusted list anchor, as HAIP 1.0 expects for client attestations. Keycloak can now accept these attestations at the token endpoint without a per attester JWKS.",
+  "good": [
+   "The PR reuses `TrustMaterialResolver.validateX509Chain` and `X509CertificateChainValidator` instead of adding a second chain validator.",
+   "When no X.509 anchors are configured, the code falls back to `kid`, so clients that send both `kid` and `x5c` keep working in JWKS only setups.",
+   "The tests cover an `x5c` attestation without `kid`, an untrusted chain that must fail with `invalid_client_attestation`, and the `kid` fallback."
+  ],
+  "findings": [],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "54522": {
+  "sha": "8e3be3c9d2b136057ef62b54a687282278eac137",
+  "notes": [
+   "Rejecting a list that fails to download or verify is deliberate. It fails closed, and failedRefreshRejectsTheListUntilAValidListIsAvailable tests it. Letting the load error escape so that other trust providers never get a chance is not deliberate.",
+   "Subordinate CAs as trust anchors are deliberate, because EUDI LoTEs list issuing CAs.",
+   "The list signature is only checked against the pinned signing certificates configured for the provider.",
+   "trustListServiceStatuses has no default on purpose, because Keycloak is not EUDI specific. With nothing configured, services that carry a status are not trusted.",
+   "x5c support in AttestationBasedClientAuthenticator and the rule that X.509 trust requires x5c are left out on purpose, because they overlap with the approved #52883. They come back in a follow-up after #52883 is merged."
+  ],
+  "date": "2026-11-03",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "verdict": "approve",
+  "headline": "Solid fail closed ETSI LoTE trust provider for key attestations and OID4VP.",
+  "summary": "The PR adds an `etsi-trust-list` trust material identity provider. It downloads a signed ETSI TS 119 602 LoTE, verifies it against pinned signing certificates, and exposes the listed CA certificates of the configured service types as X.509 trust anchors. It also lets `X509TrustMaterial` accept subordinate CAs. The loader checks the algorithm, the LoTE type, `NextUpdate` and the service status, fails closed on errors without blocking other providers, and the integration tests cover each of these rules. I found nothing that must change before merge.",
+  "eudi": "Keycloak can now use EUDI Wallet Provider, PID Provider and PubEAA LoTEs as trust anchors for WUA key attestations in OID4VCI and for issuer chains in OID4VP. Client attestation through ABCA cannot use these lists until the announced follow up adds `x5c` support.",
+  "good": [
+   "Lists that fail to download or verify, or that are past `NextUpdate`, stop contributing trust without hiding the other configured trust providers.",
+   "Only pinned signing certificates verify the list, and symmetric and `none` algorithms are rejected before verification.",
+   "The tests are precise. The service scope test lists a root CA under the wrong service type, so a regression in type filtering would be caught."
+  ],
+  "findings": [
+   {
+    "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderFactory.java",
+    "line": 113,
+    "title": "The provider is offered to ABCA, which cannot use it yet.",
+    "impact": "An admin who runs only `CLIENT_AUTH_ABCA` and selects this provider as attester trust gets a failed client authentication on every token request.",
+    "detail": "`isSupported` enables the factory when only `CLIENT_AUTH_ABCA` is on. `AttestationBasedClientAuthenticator.findAttesterKey` still resolves keys only by `kid`, and `EtsiTrustListIdentityProvider.resolveKeys` returns nothing, so the call ends in `No matching key found for kid`. The author defers ABCA `x5c` support to after #52883 on purpose. The PR description still says that `AttestationBasedClientAuthenticator` now validates `x5c` chains, and this diff does not touch that class.",
+    "fix": "Correct the PR description. Either drop `CLIENT_AUTH_ABCA` from `isSupported` until the follow up lands, or add one sentence to the docs saying that client attestation cannot use this provider yet.",
+    "context": [
+     [
+      "+",
+      null,
+      108,
+      "        return PROVIDER_ID;"
+     ],
+     [
+      "+",
+      null,
+      109,
+      "    }"
+     ],
+     [
+      "+",
+      null,
+      110,
+      ""
+     ],
+     [
+      "+",
+      null,
+      111,
+      "    @Override"
+     ],
+     [
+      "+",
+      null,
+      112,
+      "    public boolean isSupported(Config.Scope config) {"
+     ],
+     [
+      "+",
+      null,
+      113,
+      "        return Profile.isFeatureEnabled(Profile.Feature.OID4VC_VCI) || Profile.isFeatureEnabled(Profile.Feature.OID4VC_VP)"
+     ]
+    ]
+   }
+  ]
+ },
+ "54367": {
+  "sha": "cff0d20b6126b46b808ee5c869ac0c9131124101",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Replay and freshness checks for ABCA PoP JWTs are correct and follow the DPoP pattern.",
+  "summary": "The PR rejects Client Attestation PoP JWTs whose `jti` was already used or whose `iat` falls outside a 10 second lifetime plus 15 second skew. The replay entry is stored in `SingleUseObjectProvider` only after the PoP signature verifies, so an unauthenticated caller cannot fill the cache. The key includes the realm and the client_id, and the lifespan covers the inclusive boundary. Both points Copilot raised are fixed, and the tests cover replay, fresh `jti` reuse of the attestation and a stale `iat`.",
+  "eudi": "EUDI wallets that already mint a new PoP for each PAR, token and refresh request keep working. A wallet that reuses a PoP or whose clock is off by more than 15 seconds now gets `invalid_client_attestation`.",
+  "good": [
+   "`rejectReplay` runs after signature verification, so only PoPs signed with the attested `cnf` key reach the shared cache.",
+   "The cache key is namespaced by realm and issuer, and the TTL covers the inclusive JPA expiry boundary.",
+   "The HAIP tests now mint a fresh PoP for each client authenticated request, which matches how wallets should behave."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/authentication/authenticators/client/AttestationBasedClientAuthenticator.java",
+    "line": 110,
+    "title": "The PoP lifetime and clock skew are fixed constants with no admin setting.",
+    "impact": "A deployment whose wallets run on phones with a clock off by more than 15 seconds has no way to widen the window, and every token request from those wallets fails.",
+    "detail": "The Javadoc says the values are aligned with `DPoPUtil`, but DPoP lets an admin change lifetime and skew through `DPoPUtil.Validator`. ABCA hardcodes them, so the only fix for a skewed wallet population is a code change.",
+    "fix": "In a later PR, read the lifetime and skew from realm or client configuration and keep the current values as defaults.",
+    "context": [
+     [
+      " ",
+      101,
+      105,
+      ""
+     ],
+     [
+      "+",
+      null,
+      106,
+      "    /**"
+     ],
+     [
+      "+",
+      null,
+      107,
+      "     * Maximum acceptable age of a Client Attestation PoP JWT based on its {@code iat} claim,"
+     ],
+     [
+      "+",
+      null,
+      108,
+      "     * aligned with {@link org.keycloak.services.util.DPoPUtil#DEFAULT_PROOF_LIFETIME}."
+     ],
+     [
+      "+",
+      null,
+      109,
+      "     */"
+     ],
+     [
+      "+",
+      null,
+      110,
+      "    public static final int DEFAULT_POP_LIFETIME_SECONDS = 10;"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "54282": {
+  "sha": "4cadfdfee81323305f47a1279249848a337b099f",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Mapper-inferred DCQL works and is validated. Optional claims are a follow-up.",
+  "summary": "The PR builds the DCQL query from the claim paths of the OID4VP mappers, the configured `vct` values and the principal attribute. A hand-written query still takes precedence, and it is now parsed into a typed model and validated when the identity provider is saved. Request object build failures are still caught and turned into an error page, and existing providers with a working query keep working. I found nothing that must change before merge.",
+  "eudi": "EUDI verifiers can list several national PID types such as `urn:eudi:pid:de:1` and `urn:eudi:pid:it:1` and get a valid single credential query without writing DCQL. Every mapped claim is requested as mandatory, so mappers for optional PID attributes still need a hand-written query with `claim_sets`.",
+  "good": [
+   "The typed `DcqlQuery` model rejects unknown members, null entries and queries the response handling cannot serve, so admins see HTTP 400 on save instead of a failing login.",
+   "Mappers without a target attribute no longer add claims to the inferred query, so unused mappers do not block wallets.",
+   "The integration tests cover inference, override precedence, `vct` deduplication and each validation error message."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/broker/oid4vp/mappers/AbstractOID4VPClaimMapper.java",
+    "line": 87,
+    "title": "Every mapped claim is requested as mandatory, with no way to mark a mapper claim optional.",
+    "impact": "An admin maps the optional PID attribute `email` to the user email, and holders whose PID has no `email` cannot log in because the wallet finds no matching credential.",
+    "detail": "The inferred query lists all mapper claims without `claim_sets`, so OID4VP 1.0 \u00a76.4.1 requires the wallet to return all of them or no credential. The mappers themselves tolerate an absent claim, and the ARF PID rulebook makes attributes such as `email`, `address` and `nationalities` optional. With the inferred query an absent optional attribute now fails the whole login. The workaround is a hand-written query with `claim_sets`, which defeats the point of inference for common PID setups.",
+    "fix": "Add a per mapper required flag, defaulting to required, and emit `claim_sets` that always contain the required claims and the principal and optionally the optional claims. Until then, mention in the help text and release notes that every mapped claim must be present in the credential.",
+    "context": [
+     [
+      "+",
+      null,
+      82,
+      "     * The name of the attribute the claim is stored in, null if none is configured."
+     ],
+     [
+      "+",
+      null,
+      83,
+      "     */"
+     ],
+     [
+      "+",
+      null,
+      84,
+      "    protected abstract String attribute(IdentityProviderMapperModel mapperModel);"
+     ],
+     [
+      "+",
+      null,
+      85,
+      ""
+     ],
+     [
+      "+",
+      null,
+      86,
+      "    @Override"
+     ],
+     [
+      "+",
+      null,
+      87,
+      "    public List<DcqlQuery.ClaimsQuery> requestedClaims(IdentityProviderMapperModel mapperModel) {"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53652": {
+  "sha": "e2247b7a4129a48cb37379629e755cfad3cf4093",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Small, correct bulk revocation of issued credentials per wallet client with indexes and tests.",
+  "summary": "The PR adds `DELETE /admin/realms/{realm}/clients/{id}/vc/issued-credentials`. The endpoint deletes every issued credential record of one wallet client in local and federated storage. It reuses the existing `deleteIssuedVcsByClient` and `deleteFederatedIssuedVcsByClient` queries that client removal already runs, and it adds `CLIENT_ID` indexes on both tables. The refresh path in `OID4VCUtil.checkIssuedVerifiableCredential` looks up the issued record, so the deletion really blocks further refreshes. I found nothing that must change.",
+  "eudi": "Issuers get a single call to cut off credential refresh for a compromised wallet instance or wallet provider. This is the response the ARF expects when a wallet unit is revoked. Credentials that were already presented still need a status list, which is outside the scope of this PR.",
+  "good": [
+   "The endpoint reuses the delete queries that client removal already uses, so bulk revoke and client deletion behave the same way.",
+   "The plain `createIndex` changesets go through `CustomCreateIndexChange`, which overrides `createIndex`, so the 300000 row threshold described in the upgrade note really applies to both new indexes.",
+   "The endpoint requires `manage` on the client. That adds no privilege because the same caller can already delete the client and with it all issued credential records."
+  ],
+  "findings": [],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53645": {
+  "sha": "ce2e633618925dbe0ab6f43c650ec08c80c0c459",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Clean bulk revoke endpoints that reuse existing deletion queries and match single revoke semantics.",
+  "summary": "The PR adds an admin endpoint and an account endpoint that delete all issued credential records of one user. It adds a `removeIssuedVerifiableCredentials` model operation that routes local users to `deleteIssuedVcsByUser` and federated users to the realm scoped `deleteFederatedIssuedVcsByUser`, and reuses it in the user removal paths without changing their behaviour. Authorization, feature checks, CORS and admin events match the existing single credential revoke endpoints, and tests cover isolation from other users, idempotency, both account roles, the 403 case and federated users. I found nothing that must change.",
+  "eudi": "Issuers can now cut off credential refresh for a whole user in one call, for example after a lost wallet, because the refresh token provider rejects refresh when the issued record is gone. Credentials already held by wallets stay valid until they expire, since this PR does not touch any status list.",
+  "good": [
+   "The new operation reuses the existing bulk JPA queries and the user deletion paths now call it, so there is one deletion path per storage type.",
+   "The account endpoint acts only on the authenticated user, and tests check that another user's records survive.",
+   "The docs state clearly that entitlements stay and that refresh of removed records stops."
+  ],
+  "findings": [],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "50897": {
+  "sha": "d90773836c4685e21e769732e8655faa788cc658",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "comment",
+  "headline": "Omitting `target_client` no longer falls back to the calling client and breaks common setups.",
+  "summary": "The PR adds a `target_client` parameter to `create-credential-offer` and stops binding pre-authorized offers to the client that created them. When `target_client` is omitted, the provider now discovers the single OID4VCI client that holds all requested credential scopes, and explicit targets are checked for those scopes. The validation and the tests are solid, including cross-client creation and redemption after the client is disabled. One behaviour change should be fixed first: a pre-authorized request without `target_client` now fails in any realm where two OID4VCI clients share the credential scope, even when the caller is itself a valid target.",
+  "eudi": "EUDI issuers usually register a wallet client for the authorization code flow and an issuer portal client for pre-authorized offers with the same PID or attestation scopes. Those deployments get a 400 on their existing pre-authorized offer calls until they add `target_client`.",
+  "good": [
+   "Explicit targets are now checked against the optional credential scopes at offer time, so a misconfigured client fails at creation and not later at the credential endpoint.",
+   "The test matrices cover a creator client without scopes that targets a different issuance client, and they run through to an issued credential.",
+   "Credential scope lookup happens once, before the offer state is built, and the discovered client is written to the event and the logs."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/credentialoffer/DefaultCredentialOfferProvider.java",
+    "line": 118,
+    "title": "A pre-authorized offer without `target_client` fails when the caller and another client both hold the scope.",
+    "impact": "A realm with a wallet client and an issuer portal client that both carry `IdentityCredential` gets `Multiple OID4VCI clients` on the documented `create-credential-offer` call after upgrade.",
+    "detail": "Before this PR, `OID4VCIssuerEndpoint` bound pre-authorized offers to `clientModel.getClientId()`. The caller already had to be OID4VCI enabled and hold the credential scope for the credential endpoint to accept the token. Now `discoverTargetClient` ignores the caller and scans all clients. Two matches cause a rejection even when the caller is one of them. The PR had to add `targetClient(...)` to about ten existing tests for this reason, and `testPreAuthOffer_DiscoverTargetClient_Ambiguous` says the default test realm always hits it. The pre-authorized `curl` example in `wallet-integration.adoc` and the text in `vc-issuer-configuration.adoc` do not mention `target_client`. Falling back to the caller does not undo the decoupling, because a creator without the scope, like `client2` in the tests, still reaches discovery.",
+    "fix": "Pass the calling client into the provider as the preferred target. If `target_client` is omitted and the caller is enabled, OID4VCI enabled and holds all requested optional scopes, use it. Only otherwise run discovery. Document `target_client` and the discovery rule in the OID4VCI server admin docs.",
+    "context": [
+     [
+      " ",
+      103,
+      114,
+      "                .orElse(null);"
+     ],
+     [
+      "-",
+      104,
+      null,
+      "        String targetUserId = targetUser == null ? null : targetUser.getId();"
+     ],
+     [
+      "+",
+      null,
+      115,
+      "        String targetUserId = targetUser != null ? targetUser.getId() : null;"
+     ],
+     [
+      "+",
+      null,
+      116,
+      ""
+     ],
+     [
+      "+",
+      null,
+      117,
+      "        // Discovery: find the unique OID4VCI-enabled client that has this scope assigned"
+     ],
+     [
+      "+",
+      null,
+      118,
+      "        if (preAuthorized && targetClientId == null) {"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53046": {
+  "sha": "b0a87c7da0a9a6664c91e0c749a3b4c40e1f1ff7",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Generated EC certificates are now persisted, so JWKS and issuer x5c values stay stable.",
+  "summary": "The PR moves self-signed certificate generation for `ecdsa-generated` and `ecdh-generated` providers into `AbstractGeneratedEcKeyProviderFactory#validateConfiguration`, so the certificate is stored with the component like in the RSA generated provider. A key regeneration after a curve change drops the old certificate and issues a new one. Admin updates cannot clear or overwrite the stored certificate because `RepresentationToModel#updateComponent` ignores config keys that are not declared properties, and realm import also runs `validateConfiguration`. The validity period stays at ten years as before, and the three integration tests cover the main lifecycle cases.",
+  "eudi": "OID4VCI issuers that sign SD-JWT VCs or issuer metadata with a generated EC key and `ecGenerateCertificate` now present the same `x5c` on every node and after restarts, which lets wallets and verifiers pin the self-signed certificate. As the author says, components created before the upgrade keep the old per-instance certificate until an admin saves them once.",
+  "good": [
+   "The fix mirrors the established RSA generated provider and persists the certificate in one place that runs on create, update and import.",
+   "A curve change removes the stale certificate inside `generateKeys`, so a certificate can never describe a different key pair.",
+   "The tests check stability across component reloads, enabling the option on an existing key, and regeneration after a curve change."
+  ],
+  "findings": [],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "44207": {
+  "sha": "062132a158775860c51c57346a5faf12d95d7b3a",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "The typed KB-JWT payload and the `alg: none` rejection are sound, with small followups.",
+  "summary": "The PR makes `SdJws` generic and adds a typed `KeyBindingPayload`. `KeyBindingJWT` always signs with `typ` set to `kb+jwt`, and the verifier now rejects a KB-JWT whose header has `alg` set to `none` or no `alg`. Nonce, aud and `sd_hash` are compared in constant time, time claims are read once and passed as `Long`, and the protocol constants move into `OID4VCConstants`. The verification order and outcomes for valid presentations are unchanged, and the new rejection has a test. I found nothing that must change before merge.",
+  "eudi": "Verifiers built on this SDK now reject unsigned KB-JWTs explicitly, as RFC 9901 Section 7.3 requires and HAIP 1.0 relies on for holder binding. Issuance output is unchanged because the service side changes only move constants.",
+  "good": [
+   "`validateKeyBindingAlgorithm` rejects `none` before signature checking, and `testShouldFail_IfAlgorithmNone` covers it with a real test vector.",
+   "`KeyBindingJWT.from` no longer takes a `jwsType`, so callers cannot sign a KB-JWT with a wrong `typ`.",
+   "`KeyBindingPayload` replaces untyped `JsonNode` access with named getters, and `@JsonAnySetter` keeps extra claims intact."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "core/src/main/java/org/keycloak/sdjwt/vp/KeyBindingJWT.java",
+    "line": 58,
+    "title": "A KB-JWT claim with the wrong JSON type now fails in `SdJwtVP.of` with an unchecked exception.",
+    "impact": "A wallet that sends the KB-JWT `aud` as a one-element JSON array, which RFC 7519 Section 4.1.3 allows, makes a verifier built on this SDK throw a `RuntimeException` while parsing instead of a `VerificationException`.",
+    "detail": "`readPayload` binds the payload to `KeyBindingPayload` with Jackson, so `aud` as an array or `nonce` as an object throws a mismatch that is wrapped in a `RuntimeException` inside the `KeyBindingJWT` constructor. Before this PR the same input reached `preventKeyBindingJwtReplay` and failed with `Key binding JWT: Unexpected aud value`. The presentation is still rejected, so this is not a security gap. But the failure moves from verification to parsing, so a caller that only catches `VerificationException` may answer with a server error. A verifier with `keyBindingRequired=false` now also rejects such a presentation instead of ignoring the KB-JWT. Malformed JSON already threw `RuntimeException` before, which is why this can wait.",
+    "fix": "Catch the Jackson mismatch in `KeyBindingJWT.readPayload` and turn it into a clear `IllegalArgumentException`. Or defer the typed binding until `validateKeyBindingJwt` so it surfaces as a `VerificationException`. Add a test with an array `aud`.",
+    "context": [
+     [
+      "+",
+      null,
+      53,
+      "    protected String readClaim(KeyBindingPayload payload, String claimName) throws VerificationException {"
+     ],
+     [
+      "+",
+      null,
+      54,
+      "        throw new UnsupportedOperationException(\"Unsupported to retrieve '\" + claimName + \"' from KeyBindingJWT\");"
+     ],
+     [
+      "+",
+      null,
+      55,
+      "    }"
+     ],
+     [
+      "+",
+      null,
+      56,
+      ""
+     ],
+     [
+      "+",
+      null,
+      57,
+      "    @Override"
+     ],
+     [
+      "+",
+      null,
+      58,
+      "    protected KeyBindingPayload readPayload(JWSInput jwsInput) {"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "core/src/main/java/org/keycloak/sdjwt/vp/KeyBindingJWT.java",
+    "line": 53,
+    "title": "`KeyBindingJWT` inherits `verifyIssClaim` and `verifyVctClaim`, which now always throw `UnsupportedOperationException`.",
+    "impact": "An SDK user who calls the public `verifyVctClaim` on a `KeyBindingJWT` gets an unchecked crash instead of a compile error.",
+    "detail": "The PR adds the abstract `readClaim` to `SdJws` only so that `verifyIssClaim` and `verifyVctClaim` keep working for `IssuerSignedJWT`. Those checks only make sense for the Issuer-signed JWT, so the generic base class now carries a method that one of its two subclasses cannot implement.",
+    "fix": "Move `verifyIssClaim`, `verifyVctClaim` and `readClaim` from `SdJws` into `IssuerSignedJWT` and drop the throwing override.",
+    "context": [
+     [
+      " ",
+      51,
+      48,
+      "        super(jwsString);"
+     ],
+     [
+      " ",
+      52,
+      49,
+      "    }"
+     ],
+     [
+      "+",
+      null,
+      50,
+      ""
+     ],
+     [
+      "+",
+      null,
+      51,
+      "    // No need to support this for now."
+     ],
+     [
+      "+",
+      null,
+      52,
+      "    @Override"
+     ],
+     [
+      "+",
+      null,
+      53,
+      "    protected String readClaim(KeyBindingPayload payload, String claimName) throws VerificationException {"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "core/src/main/java/org/keycloak/sdjwt/SdJwtVerificationContext.java",
+    "line": 275,
+    "title": "The error message always names `none`, even when the `alg` header is missing.",
+    "impact": "An operator who debugs a rejected presentation with no `alg` header sees a message that blames `none`.",
+    "detail": "`validateKeyBindingAlgorithm` throws the same text for `alg == null` and for `Algorithm.none`, so a missing header is reported as `incorrect algorithm 'none'`.",
+    "fix": "Put the actual `alg` value in the message, or use a separate message when the header has no `alg`.",
+    "context": [
+     [
+      "+",
+      null,
+      270,
+      "    }"
+     ],
+     [
+      "+",
+      null,
+      271,
+      ""
+     ],
+     [
+      "+",
+      null,
+      272,
+      "    private void validateKeyBindingAlgorithm() throws VerificationException {"
+     ],
+     [
+      "+",
+      null,
+      273,
+      "        Algorithm alg = keyBindingJwt.getHeader().getAlgorithm();"
+     ],
+     [
+      "+",
+      null,
+      274,
+      "        if (alg == null || Algorithm.none.equals(alg)) {"
+     ],
+     [
+      "+",
+      null,
+      275,
+      "            throw new VerificationException(\"Key Binding JWT has incorrect algorithm '\" + Algorithm.none + \"'\");"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53476": {
+  "sha": "453f53585d65bc2acfa85cb13ac2796b43c1ba46",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Opt-in check that the proof key is attested_keys[0] is correct and well tested.",
+  "summary": "The PR adds the client scope attribute `vc.key_attestation.proof_key_index`. When it is set to 0, a JWT proof that carries a `key_attestation` must be signed by `attested_keys[0]`. When it is unset, the existing membership check from OpenID4VCI 1.0 Appendix D still applies. The admin save path rejects values other than 0 with HTTP 400, and the unit and integration tests cover both modes. I found nothing that must change before merge.",
+  "eudi": "EUDI issuers can now enforce the ETSI TS 119 472-3 rule that the proof is signed with the first attested key. Wallets that sign each proof of a batch with a different attested key will be rejected once the option is on, so only enable it where wallets follow the ETSI rule.",
+  "good": [
+   "The default behaviour is unchanged, so existing credential configurations and wallets keep working.",
+   "Invalid values are rejected at save time with HTTP 400, so a bad value cannot break issuer metadata for the whole realm.",
+   "The error message says where the proof key was actually found, which makes wallet interop problems easy to debug."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/keybinding/JwtProofValidator.java",
+    "line": 205,
+    "title": "With index 0 enforced, one JWT proof still yields only one bound key.",
+    "impact": "An EUDI wallet that sends one JWT proof with a key attestation for several keys, as the ETSI rule implies, gets a single credential instead of a batch.",
+    "detail": "`validateSingleJwtProof` returns only the signing key, so each JWT proof produces one credential. Before this option, a wallet could get a batch by sending several proofs that share one attestation, each signed by a different attested key. With `proof_key_index` set to 0, every proof after the first fails because its signer is not `attested_keys[0]`. The remaining way to get a batch is one proof per attestation, which needs one attestation per key. The ETSI model, where the first key proves possession and the issuer binds credentials to all attested keys, is not implemented. This does not make the default path worse, but it limits batch issuance for issuers that turn the option on.",
+    "fix": "In a later PR, when `requiredProofKeyIndex` is 0 and the proof is valid, return all `attested_keys` as binding keys, like the `attestation` proof type does. Cap the result at the batch size from the issuer metadata.",
+    "context": [
+     [
+      " ",
+      null,
+      200,
+      "        if (!signatureVerifierContext.verify(jwsInput.getEncodedSignatureInput().getBytes(StandardCharsets.UTF_8),"
+     ],
+     [
+      " ",
+      null,
+      201,
+      "                jwsInput.getSignature())) {"
+     ],
+     [
+      " ",
+      null,
+      202,
+      "            throw new VCIssuerException(ErrorType.INVALID_PROOF, \"Could not verify signature of provided proof\");"
+     ],
+     [
+      " ",
+      null,
+      203,
+      "        }"
+     ],
+     [
+      " ",
+      null,
+      204,
+      ""
+     ],
+     [
+      " ",
+      null,
+      205,
+      "        return jwk;"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53484": {
+  "sha": "22560b49827610e2225c38c670aad920319d36b4",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Correct removal of DEBUG logs that leaked ABCA attestation and PoP JWTs.",
+  "summary": "The PR deletes two `debugf` calls in `AttestationBasedClientAuthenticator.authenticateClient()` that wrote the raw `OAuth-Client-Attestation` and `OAuth-Client-Attestation-PoP` header values to the log. Control flow and validation are unchanged, and `logger` is still the inherited field from `AbstractClientAuthenticator`, so nothing is left unused. The remaining exception messages in the file name claims, kids and client ids but never the raw JWTs, so `errorValidatingAssertion` does not reintroduce the leak. Nothing needs to change before merge.",
+  "eudi": "Wallet providers' client attestations sent with HAIP 1.0 token requests no longer end up in Keycloak DEBUG logs, so log access alone no longer yields a reusable client attestation. Issuance behaviour for EUDI wallets is unchanged.",
+  "good": [
+   "The change is a minimal deletion with no behaviour change.",
+   "It also removes the misuse of concatenated values as a `debugf` format string.",
+   "The description scopes the similar OID4VCI logging to a separate issue instead of growing this PR."
+  ],
+  "findings": [],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53332": {
+  "sha": "63fc71bd7b6257945fa0c91f5eb25b12a7cd63ed",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Per user issued credential cache with sound cluster invalidation, ready to merge.",
+  "summary": "The PR caches each user's issued verifiable credentials in the user cache and invalidates the entry on add, remove, user credential removal, user and realm invalidation, and expired row cleanup. Expired row cleanup uses a global invalidation revision that is bumped only when rows were actually removed, and the new count method keeps the old `void` cleanup contract through a default method. I traced every storage path that deletes issued credential rows and each one reaches either a per user, realm or global invalidation. The cluster tests cover both writer and reader directions.",
+  "eudi": "Wallets that refresh credentials or request new ones put less load on the database, because the issued credential lookup in `OID4VCUtil.checkIssuedVerifiableCredential` is now served from cache. Revocation through admin, account or consent withdrawal still invalidates the owner's entry across the cluster before the next credential request is checked.",
+  "good": [
+   "The unscoped `removeIssuedVerifiableCredential(credentialId)` resolves the owner first and then uses the owner scoped delete, so the right user's entry is invalidated.",
+   "The global invalidation revision is checked against each cached entry, so a load that races with expired row cleanup cannot keep stale data.",
+   "The new `removeExpiredIssuedVerifiableCredentialsWithCount` is a default method that returns `-1` and falls back to invalidation, so existing providers keep working."
+  ],
+  "findings": [
+   {
+    "severity": "nit",
+    "file": "model/infinispan/src/main/java/org/keycloak/models/cache/infinispan/UserCacheSession.java",
+    "line": 1183,
+    "title": "Client and client scope removal flush the issued credential cache of every realm.",
+    "impact": "In a cluster with many realms, each client deletion, for example by an admin automation or dynamic client registration cleanup, forces every user in every realm to reload issued credentials from the database.",
+    "detail": "`preRemove(RealmModel, ClientModel)` and `preRemove(ClientScopeModel)` already call `addRealmInvalidation`, which invalidates every `InRealm` entry of that realm, and `CachedUserIssuedVerifiableCredentials` implements `InRealm`. The extra `invalidateAllIssuedVerifiableCredentials()` adds nothing for the affected realm and only widens the flush to unrelated realms.",
+    "fix": "Remove the `invalidateAllIssuedVerifiableCredentials()` calls from both `preRemove` methods and rely on the existing realm invalidation.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -1101,6 +1180,7 @@ public class UserCacheSession implements UserCache, OnCreateComponent, OnUpdateC"
+     ],
+     [
+      " ",
+      1101,
+      1180,
+      "    @Override"
+     ],
+     [
+      " ",
+      1102,
+      1181,
+      "    public void preRemove(RealmModel realm, ClientModel client) {"
+     ],
+     [
+      " ",
+      1103,
+      1182,
+      "        addRealmInvalidation(realm.getId()); // easier to just invalidate whole realm"
+     ],
+     [
+      "+",
+      null,
+      1183,
+      "        invalidateAllIssuedVerifiableCredentials();"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53415": {
+  "sha": "9993d4a4d261654ef495305bc03028e3fc5cb8c7",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "comment",
+  "headline": "Sound fix for custom JWS algorithms, but attacker chosen alg strings now reach WARN logs.",
+  "summary": "The PR stores the JWS `alg` header as a string so tokens signed by a custom `SignatureProvider` parse, and it switches the service verification paths from `getAlgorithm().name()` to `getRawAlgorithm()`. I traced every remaining `getAlgorithm()` caller and every `getRawAlgorithm()` caller. They fail closed on unknown or missing `alg`, because provider lookups by id return null, `CryptoUtils.getSignatureProvider` rejects null, and `KeycloakSession.getProvider` throws on a null id. The one new exposure is that unauthenticated endpoints now log any `alg` string at WARN.",
+  "eudi": "OID4VCI proof and attestation checks and the OID4VP `ACCEPTED_ALGORITHMS` check still gate on allow lists, so HAIP algorithm restrictions are unchanged. Custom or PQC signature providers become usable for proofs and attestations once they are registered.",
+  "good": [
+   "`JwsToken.verifySignature` compares the raw header algorithm with the verifier algorithm, so SD-JWT and KB-JWT algorithm binding still holds for custom algorithms.",
+   "Every changed provider lookup keeps an explicit rejection of a missing `alg` instead of relying on an NPE.",
+   "Header serialization is byte for byte unchanged and `JWSHeaderTest` pins it for known and custom algorithms."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/crypto/CryptoUtils.java",
+    "line": 53,
+    "title": "Any `alg` string from an unauthenticated request is now logged at WARN without escaping.",
+    "impact": "Anyone can send a forged bearer token to the userinfo or introspection endpoint and write chosen text, including line breaks, into the server log that operators and SIEM rules read.",
+    "detail": "Before this PR an `alg` outside the `Algorithm` enum failed in Jackson when the header was parsed, so only the fixed enum names could reach `logger.warnf(\"Unsupported token algorithm requested: %s\", algorithm)`. Now `UserInfoEndpoint`, `AccessTokenIntrospectionProvider`, `Organizations`, `ClientRegistrationTokenUtils` and `AuthenticationManager` pass the raw header value to `getSignatureProvider`. A JSON string such as `\"x\\nINFO [org.keycloak.events] type=LOGIN ...\"` is logged as is. The same token can be repeated freely, so the WARN level also makes log flooding cheap.",
+    "fix": "Log the unsupported algorithm at debug level, as `OIDCIdentityProvider.verifySignature` already does, or escape and truncate the value before logging it.",
+    "context": [
+     [
+      " ",
+      null,
+      48,
+      "        if (algorithm == null) {"
+     ],
+     [
+      " ",
+      null,
+      49,
+      "            throw new VerificationException(\"Missing token algorithm\");"
+     ],
+     [
+      " ",
+      null,
+      50,
+      "        }"
+     ],
+     [
+      " ",
+      null,
+      51,
+      "        SignatureProvider signatureProvider = session.getProvider(SignatureProvider.class, algorithm);"
+     ],
+     [
+      " ",
+      null,
+      52,
+      "        if (signatureProvider == null) {"
+     ],
+     [
+      " ",
+      null,
+      53,
+      "            logger.warnf(\"Unsupported token algorithm requested: %s\", algorithm);"
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/protocol/oidc/AccessTokenIntrospectionProvider.java",
+    "line": 249,
+    "title": "No service level test shows a custom algorithm reaching its provider.",
+    "impact": "A later change that brings back `getAlgorithm().name()` in introspection, userinfo or DPoP would break custom provider deployments without any failing test.",
+    "detail": "`JWSHeaderTest` covers parsing and `TokenVerifier` with a custom `SignatureVerifierContext`. None of the 13 changed service paths is exercised with an `alg` outside the enum, either for success with a registered provider or for a clean 4xx rejection without one. The author offered to add a testsuite test if maintainers want it.",
+    "fix": "Add one testsuite test that registers a custom `SignatureProvider` and verifies a token through introspection, plus a check that an unknown `alg` is rejected with a 4xx at userinfo.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -246,7 +246,7 @@ public class AccessTokenIntrospectionProvider<T extends AccessToken> implements"
+     ],
+     [
+      " ",
+      246,
+      246,
+      "            TokenVerifier<T> verifier = TokenVerifier.create(tokenStr, getTokenClass())"
+     ],
+     [
+      " ",
+      247,
+      247,
+      "                    .realmUrl(Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName()));"
+     ],
+     [
+      " ",
+      248,
+      248,
+      ""
+     ],
+     [
+      "-",
+      249,
+      null,
+      "            SignatureVerifierContext verifierContext = CryptoUtils.getSignatureProvider(session, verifier.getHeader().getAlgorithm().name()).verifier(verifier.getHeader().getKeyId());"
+     ],
+     [
+      "+",
+      null,
+      249,
+      "            SignatureVerifierContext verifierContext = CryptoUtils.getSignatureProvider(session, verifier.getHeader().getRawAlgorithm()).verifier(verifier.getHeader().getKeyId());"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53531": {
+  "sha": "8b32fdde9246caee8b0e417d0e0be7907ac9f568",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Opt-in HAIP trust anchor rejection is correctly scoped to key attestations and well tested.",
+  "summary": "The PR adds a `rejectTrustAnchorInX5c` option to the Default Trust provider. When the option is on, a key-attestation `x5c` chain that contains a configured trust anchor is rejected. A new `TrustMaterialRequest.Purpose` limits the policy to `KEY_ATTESTATION` requests, so OID4VP SD-JWT issuer validation and client attestation keep their current behaviour. The option is off by default, existing stored configs read as `false`, and both the direct `attestation` proof and the `key_attestation` embedded in a JWT proof are tested.",
+  "eudi": "EUDI issuers can now enforce the HAIP 1.0 rule that wallets leave the trust anchor out of the key-attestation `x5c` header. Trust still comes only from the configured roots, so turning the option on makes the check stricter without widening what is trusted.",
+  "good": [
+   "The policy is carried per trust material, so roots and settings from different providers are never mixed.",
+   "Scoping by request purpose keeps OID4VP issuer `x5c` validation unchanged when the option is enabled.",
+   "Tests cover the rejected and accepted cases for both proof types and check the specific error message."
+  ],
+  "findings": [],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53737": {
+  "sha": "ff22e0e2eeacd0ab8a0c4393c4cf599616357d94",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Clean Admin Console action for the existing wallet client revocation endpoint. Ready to merge.",
+  "summary": "The PR adds a \"Revoke all issued credentials\" item to the client Actions menu. It calls the `DELETE /clients/{id}/vc/issued-credentials` endpoint through a new JS admin client method, with a confirmation dialog and alerts. The item only shows when the OID4VCI feature, the realm VC switch and `oid4vci.enabled` on the client are all on. That matches what the issuer endpoint itself requires. The backend, the indexes and the docs from the dependent PR are consistent, and the tests cover the delete across users, federated storage, the admin event and the disabled realm case.",
+  "eudi": "This gives EUDI issuer operators a one click way to cut refresh for every credential issued through a compromised wallet client. It deletes the issuer side records only, so credentials already held by wallets stay valid until they expire or are revoked through a status list.",
+  "good": [
+   "The UI gate matches the server checks in `OID4VCUtil.checkOid4VCIEnabled` and in the issuer endpoint, which rejects clients without `oid4vci.enabled`.",
+   "The bulk delete is a single indexed `DELETE` per table, and the new indexes go through the normal large table migration path.",
+   "The incident response docs now point to the new action instead of saying no bulk API exists."
+  ],
+  "findings": [
+   {
+    "severity": "nit",
+    "file": "js/apps/admin-ui/src/clients/ClientDetails.tsx",
+    "line": 159,
+    "title": "The menu item is shown to admins with only `configure` access, but the endpoint requires `manage`.",
+    "impact": "With fine grained admin permissions, an admin who may configure but not manage a wallet client sees the action and gets a 403 error alert after confirming.",
+    "detail": "`isManager` is `hasAccess(\"manage-clients\") || client.access?.configure`. `ClientResource.revokeIssuedVerifiableCredentials` calls `auth.clients().requireManage(client)`, so `configure` alone is not enough. The request fails closed, so there is no security impact. The existing delete item has the same mismatch.",
+    "fix": "Gate the item on `hasAccess(\"manage-clients\") || client.access?.manage`.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -135,6 +156,12 @@ const ClientDetailHeader = ({"
+     ],
+     [
+      " ",
+      135,
+      156,
+      "  const { hasAccess } = useAccess();"
+     ],
+     [
+      " ",
+      136,
+      157,
+      "  const isManager = hasAccess(\"manage-clients\") || client.access?.configure;"
+     ],
+     [
+      " ",
+      137,
+      158,
+      ""
+     ],
+     [
+      "+",
+      null,
+      159,
+      "  const canRevokeIssuedCredentials ="
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53588": {
+  "sha": "001b758af2e890cac430d5057090da0803984caf",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Idle timeout for OID4VCI refresh tokens is sound and the replay record now covers the family.",
+  "summary": "The PR caps each OID4VCI refresh token at the smaller of the credential expiry and a configurable idle timeout, which restarts on every refresh. It validates the chain refresh interval, idle timeout, credential lifetime against the merged stored and submitted attributes. It also keeps the rotation record until the latest expiry of any token in the family. The earlier review points are fixed and have regression tests, including the replay test after descendants expire. I found nothing that must change before merge.",
+  "eudi": "EUDI issuers get a bounded refresh token lifetime by default, so a wallet that is lost or stops refreshing loses refresh rights after 30 days instead of after the full credential lifetime. Wallets that refresh on the advertised interval are not affected by the default settings.",
+  "good": [
+   "The rotation record keeps the maximum family expiry and carries it forward, so lowering the idle timeout cannot reopen replay of a consumed parent token.",
+   "`ClientScopeResource.update` now applies protocol defaults first and validates the merged state that is actually persisted.",
+   "The tests cover idle expiry, restart on refresh, the derived default, partial updates and replay after descendants expire."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/OID4VCLoginProtocolFactory.java",
+    "line": 466,
+    "title": "An idle timeout equal to the refresh interval passes validation but breaks refresh at credential expiry.",
+    "impact": "An admin who sets the idle timeout equal to the refresh interval gets wallets that fail to refresh when they react to the expired credential.",
+    "detail": "The refresh token gets `exp = now + idleTimeout` at the token endpoint. The credential gets `exp` from the later credential request plus the refresh interval in `OID4VCIssuerEndpoint.getVCToSign`, and `TimeClaimNormalizer` can round it further. With equal values the refresh token always expires shortly before the credential does. A wallet that refreshes at or after credential expiry then gets `invalid_grant`. The error text says the token stays valid at least as long as the interval, which suggests equality is safe. The default settings are not affected because the default idle timeout is 30 days. The comment at `OID4VCIssuerEndpoint.java:1828` still says the refresh token uses the full credential lifetime, which is now wrong.",
+    "fix": "Document in the help text and the admin guide that the idle timeout needs a margin above the refresh interval, or require a minimum margin in the check. Update the stale comment in `OID4VCIssuerEndpoint.getVCToSign`.",
+    "context": [
+     [
+      "+",
+      null,
+      461,
+      "                                    \"The refresh token never outlives the issued credential, so a longer idle timeout would be unusable.\","
+     ],
+     [
+      "+",
+      null,
+      462,
+      "                            idleTimeout, expiry),"
+     ],
+     [
+      "+",
+      null,
+      463,
+      "                    Response.Status.BAD_REQUEST);"
+     ],
+     [
+      "+",
+      null,
+      464,
+      "        }"
+     ],
+     [
+      "+",
+      null,
+      465,
+      ""
+     ],
+     [
+      "+",
+      null,
+      466,
+      "        if (idleTimeout != null && idleTimeout < refreshInterval) {"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53894": {
+  "sha": "5cbed3777a2c5c94b42eca2a6fda821330aa3da4",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Test now asks the server for the OID4VC_VCI flag instead of guessing from the DOM.",
+  "summary": "The PR fixes a flaky Admin UI E2E test for the OpenID for Verifiable Credentials section on the client Advanced tab. The old test read `isVisible()` once, so a page that was still loading looked like a disabled feature and the test skipped its real checks. The new test reads the feature state from server info, waits for the always rendered `OIDCAuthFlowOverrideSave` button, and then asserts visible or hidden with auto waiting. The change only touches test code and is correct.",
+  "eudi": "No effect on EUDI deployments because no production code changes. The OID4VCI enable switch is now reliably exercised in CI whenever `OID4VC_VCI` is on, which protects the admin path that turns credential issuance on for a client.",
+  "good": [
+   "The expected state comes from server info, which is the same source `AdvancedTab.tsx` uses through `useIsFeatureEnabled`.",
+   "Waiting for a sibling section that always renders removes the race where a loading page passed as a hidden section.",
+   "`toBeVisible({ visible: featureEnabled })` uses Playwright auto waiting in both directions instead of a one shot `isVisible()`."
+  ],
+  "findings": [
+   {
+    "severity": "nit",
+    "file": "js/apps/admin-ui/test/utils/AdminClient.ts",
+    "line": 60,
+    "title": "`isFeatureEnabled` strips a `_V<n>` suffix that the Admin UI does not strip.",
+    "impact": "A later test that calls the helper with an unversioned name such as `TOKEN_EXCHANGE_STANDARD` gets `true` while the UI hides the section, so that test fails or checks the wrong branch.",
+    "detail": "Server info reports `Profile.Feature` enum names, for example `OID4VC_VCI` and `TOKEN_EXCHANGE_STANDARD_V2`. The UI hook `useIsFeatureEnabled` compares these names exactly. The helper also matches after removing a version suffix. That rule is not needed for `OID4VC_VCI` and makes the test helper disagree with the code it is meant to mirror.",
+    "fix": "Compare `feature.name === featureName` only, as `useIsFeatureEnabled` does, and drop `normalizeServerFeatureName`.",
+    "context": [
+     [
+      "+",
+      null,
+      55,
+      "    featureName: string,"
+     ],
+     [
+      "+",
+      null,
+      56,
+      "    realm: string = this.#client.realmName,"
+     ],
+     [
+      "+",
+      null,
+      57,
+      "  ): Promise<boolean> {"
+     ],
+     [
+      "+",
+      null,
+      58,
+      "    await this.#login();"
+     ],
+     [
+      "+",
+      null,
+      59,
+      "    const features = (await this.#client.serverInfo.find({ realm })).features;"
+     ],
+     [
+      "+",
+      null,
+      60,
+      "    const normalizeServerFeatureName = (name?: string) =>"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53864": {
+  "sha": "1a2375a4aac63de87e8ed5ea4b12e8e966f73b4a",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "comment",
+  "headline": "Restores pre-auth tx_code correctly, but case-sensitive text codes will trip up real users.",
+  "summary": "The PR lets the credential offer endpoint generate a six character `tx_code` for pre-authorized offers. It returns the code to the caller, adds the `tx_code` descriptor to the pre-authorized grant and checks the code at the token endpoint before the pre-authorized code is consumed. The flow is sound, the QR-only case is rejected and the tests cover missing, wrong and correct codes. One usability problem should be fixed before merge. The token endpoint compares the code case-sensitively against an upper-case alphabet that also contains look-alike characters.",
+  "eudi": "Issuers can again protect pre-authorized offers with a transaction code, as OpenID4VCI 1.0 intends for the pre-authorized code flow. Wallets get a `tx_code` object with `input_mode` and `length` as defined in Section 4.1.1, so they can prompt the holder for the code.",
+  "good": [
+   "The `tx_code` check runs before `markPreAuthCodeAsUsed`, so a wrong code does not burn the offer.",
+   "A `tx_code` request with `type=qr` is rejected before any offer state is stored.",
+   "The grant now carries the `tx_code` descriptor, and the test asserts its `input_mode` and `length`."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/credentialoffer/CredentialOfferState.java",
+    "line": 52,
+    "title": "The generated text code is upper-case only but is compared case-sensitively and uses look-alike characters.",
+    "impact": "A holder who reads the code from an email or SMS and types it into a wallet text field in lower case, or confuses `O` with `0` or `I` with `1`, gets `Invalid TxCode` with no hint why.",
+    "detail": "`generateTxCode` draws from `A-Z0-9`, and the descriptor tells the wallet `input_mode` is `text`, so the wallet shows a normal keyboard. Mobile keyboards type lower case by default. `PreAuthorizedCodeGrantType` compares the submitted value with `MessageDigest.isEqual` on the raw bytes, so `ab12cd` fails against `AB12CD`. The alphabet also has `0`/`O` and `1`/`I`, which humans often mix up when they copy a code by hand. The holder can retry because a wrong code does not consume the offer, but the default offer lifespan is only a few minutes. Many holders will see a failed issuance before they work out the cause.",
+    "fix": "Normalize the submitted `tx_code` to upper case before the constant-time comparison in `PreAuthorizedCodeGrantType`. Drop the look-alike characters from `TX_CODE_ALPHABET`, for example by using the Crockford base32 set. You can also add a short `description` to the `TxCode` descriptor that tells the holder where to find the code.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -47,16 +48,22 @@ public class CredentialOfferState {"
+     ],
+     [
+      " ",
+      47,
+      48,
+      "    private long expiresAt;"
+     ],
+     [
+      " ",
+      48,
+      49,
+      "    private List<OID4VCAuthorizationDetail> authDetails;"
+     ],
+     [
+      " ",
+      49,
+      50,
+      ""
+     ],
+     [
+      "+",
+      null,
+      51,
+      "    private static final SecureRandom TX_CODE_RANDOM = new SecureRandom();"
+     ],
+     [
+      "+",
+      null,
+      52,
+      "    private static final char[] TX_CODE_ALPHABET = \"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\".toCharArray();"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "tests/base/src/test/java/org/keycloak/tests/oid4vc/CredentialOfferStateUtils.java",
+    "line": 34,
+    "title": "`injectTxCode` has no callers anymore.",
+    "impact": "The unused helper is dead test code that suggests tests still need to patch stored offer state.",
+    "detail": "The rewritten tests in `OID4VCredentialOfferPreAuthTest` use the generated code from the endpoint. Nothing else calls `injectTxCode`.",
+    "fix": "Remove `injectTxCode` from `CredentialOfferStateUtils`.",
+    "context": [
+     [
+      " ",
+      null,
+      29,
+      ""
+     ],
+     [
+      " ",
+      null,
+      30,
+      "    /**"
+     ],
+     [
+      " ",
+      null,
+      31,
+      "     * Injects a tx_code into an existing credential offer state, re-storing it."
+     ],
+     [
+      " ",
+      null,
+      32,
+      "     * This is needed for testing because the REST API does not yet support setting tx_code at offer creation time."
+     ],
+     [
+      " ",
+      null,
+      33,
+      "     */"
+     ],
+     [
+      " ",
+      null,
+      34,
+      "    public static void injectTxCode(RunOnServerClient runOnServer, String offerNonce, String txCode) {"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53730": {
+  "sha": "75c858ddb1e1c88bce769a9db7b1c1143bfdcfa2",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "approve",
+  "headline": "Offer checks move cleanly to the token endpoint and the non-standard token claim is gone.",
+  "summary": "The PR removes `credentials_offer_id` from OID4VC authorization details and from issued tokens. Offer existence, expiry, target user, target client and offered configuration are now checked when the token is issued. An authorization-code offer is consumed only after the token response is built. The credential endpoint now relies on the access token and the issued-credential binding alone. The flow is coherent, earlier review points were fixed, and the new behaviour has tests, so nothing blocks merge.",
+  "eudi": "Wallets that follow an issuer-initiated offer now get a clean `invalid_authorization_details` error at the token endpoint for a missing or expired offer, instead of a later 500 at the credential endpoint. Access tokens no longer carry a Keycloak-specific claim, and an access token stays usable for its own lifetime after the offer expires.",
+  "good": [
+   "Offer consumption is deferred until the token response is built, and a test shows that a failed token request leaves the offer usable.",
+   "A missing or evicted offer now maps to `invalid_authorization_details` instead of an `IllegalStateException`.",
+   "Refresh strips the legacy `credentials_offer_id` from pre-upgrade refresh tokens, and a test covers it."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCAuthorizationDetailsProcessor.java",
+    "line": 440,
+    "title": "A stale `issuer_state` client-session note breaks later authorization-code flows in the same SSO session.",
+    "impact": "A wallet that redeems an offer and later starts a scope-only authorization-code flow with the same client, in the same browser session, gets `No credential offer state` at the token endpoint.",
+    "detail": "`TokenManager.attachAuthenticationSession` copies auth-session client notes onto the existing client session but never clears old ones. A new login without `issuer_state` therefore keeps the old note. `getCredentialOfferState` reads that note, looks up the offer that was already consumed, and fails. This was already true before the PR, when the offer was removed after credential issuance. The PR moves consumption to token time, so the stale note now fails as soon as the first token is issued.",
+    "fix": "Clear the `issuer_state` client-session note when the offer is consumed in `afterTokenResponseCreated`. Alternatively clear it when a new authorization request carries no `issuer_state`. Add a test with two consecutive authorization-code flows in one SSO session.",
+    "context": [
+     [
+      " ",
+      null,
+      435,
+      "        //"
+     ],
+     [
+      " ",
+      null,
+      436,
+      "        String credOfferId = clientSessionCtx.getAttribute(CREDENTIALS_OFFER_ID_ATTR, String.class);"
+     ],
+     [
+      " ",
+      null,
+      437,
+      ""
+     ],
+     [
+      " ",
+      null,
+      438,
+      "        // Check if we have issuer_state - this should work for authorization_code"
+     ],
+     [
+      " ",
+      null,
+      439,
+      "        //"
+     ],
+     [
+      " ",
+      null,
+      440,
+      "        String issuerStateNote = clientSessionCtx.getClientSession().getNote(LOGIN_SESSION_NOTE_ADDITIONAL_REQ_PARAMS_PREFIX + ISSUER_STATE);"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCAuthorizationDetailsProcessor.java",
+    "line": 479,
+    "title": "`isLastOid4vcAuthorizationDetail` relies on reference identity that the removal does not need.",
+    "impact": "If a later change makes `asSubtype` or the response list return copies, an authorization-code offer with several configurations is never consumed, and no test would notice.",
+    "detail": "The check compares the detail passed to the hook with the last `openid_credential` entry of `AUTHORIZATION_DETAILS_RESPONSE` using `==`. This works only because `OID4VCAuthorizationDetailsParser.asSubtype` returns the same instance. The removal is already idempotent, because `getOfferStateById` returns null after the first removal and the code skips null. The extra call to `getCredentialOfferState` at line 349 also re-validates state that `process` or `handleMissingAuthorizationDetails` already checked in the same request, and discards the result.",
+    "fix": "Drop `isLastOid4vcAuthorizationDetail` and let the first OID4VC detail consume the offer. Remove the redundant `getCredentialOfferState` call in `afterAuthorizationDetailsProcessed`, or say in a comment why it is needed.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -445,4 +475,22 @@ public class OID4VCAuthorizationDetailsProcessor implements AuthorizationDetails"
+     ],
+     [
+      " ",
+      445,
+      475,
+      ""
+     ],
+     [
+      " ",
+      446,
+      476,
+      "        return offerState;"
+     ],
+     [
+      " ",
+      447,
+      477,
+      "    }"
+     ],
+     [
+      "+",
+      null,
+      478,
+      ""
+     ],
+     [
+      "+",
+      null,
+      479,
+      "    private boolean isLastOid4vcAuthorizationDetail(ClientSessionContext clientSessionCtx,"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "53978": {
+  "sha": "0693a92044416e529fd8db5b1854aac0f3efa351",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "changes",
+  "headline": "Any realm user can pick `claims_ref` on a self-issued offer and pull another record.",
+  "summary": "The PR adds an optional `claims_ref` query parameter to `create-credential-offer`, stores it in `CredentialOfferState` and hands it to mappers through new `VCIssuanceContext` overloads of `setClaim`. The plumbing is clean, backward compatible and tested for both grant types. The problem is who may set the reference. Self-issued offers need no `credential_offer_create` role, so the holder can choose the reference that an external data mapper trusts, and the mapper has no way to tell.",
+  "eudi": "Issuers that fill PID or attestation claims from an external register through `claims_ref` would let a wallet user get a credential signed by the issuer with another person's record. Restricting `claims_ref` to callers with `credential_offer_create` makes the feature safe for EUDI issuers.",
+  "good": [
+   "The new `setClaim` overloads delegate to the old ones, so existing custom mappers keep working unchanged.",
+   "The reference stays server side and the integration test checks it reaches neither the wallet facing offer nor the credential.",
+   "Both pre-authorized and authorization code flows are covered end to end, including batch issuance through the shared `offerState`."
+  ],
+  "findings": [
+   {
+    "severity": "major",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerEndpoint.java",
+    "line": 555,
+    "title": "Callers without `credential_offer_create` can set `claims_ref` on their own offers.",
+    "impact": "A booking or diploma issuer that maps `claims_ref` to an external record lets any logged in user request a self-issued offer with `claims_ref=booking-43` and receive a signed credential holding someone else's data.",
+    "detail": "`DefaultCredentialOfferProvider.validateTargetUser` skips the `credential_offer_create` role check when the target user is the caller, and anonymous authorization code offers skip validation completely because `targetUsername` is null. The endpoint copies `claimsRef` into the state in all these cases. The mapper only receives the reference and the holder's session. It cannot see whether a trusted issuing application or the holder chose the reference. The documentation asks the mapper to check that the record suits the recipient, but the feature exists so that the user does not have to carry a link to the record. In that setup the mapper has nothing to check against, so the stated safeguard does not hold.",
+    "fix": "Reject `claims_ref` with `invalid_credential_offer_request` unless the caller holds the `credential_offer_create` role, whatever the target user is. Add an integration test where a user without the role creates a self-issued offer with `claims_ref` and gets a 400 response.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -550,6 +552,7 @@ public class OID4VCIssuerEndpoint {"
+     ],
+     [
+      " ",
+      550,
+      552,
+      "            CredentialOfferProvider offerProvider = session.getProvider(CredentialOfferProvider.class);"
+     ],
+     [
+      " ",
+      551,
+      553,
+      "            offerState = offerProvider.createCredentialOffer(loginUserModel, grantType,"
+     ],
+     [
+      " ",
+      552,
+      554,
+      "                    credentialConfigurationIds, targetClientId, targetUser, expiresAt);"
+     ],
+     [
+      "+",
+      null,
+      555,
+      "            offerState.setClaimsRef(claimsRef);"
+     ]
+    ]
+   },
+   {
+    "severity": "minor",
+    "file": "docs/guides/server/containers.adoc",
+    "line": 306,
+    "title": "The PR re-adds an unconditional GitHub discussion link that main removed.",
+    "impact": "The product build of the server guide would again show the upstream GitHub discussion link that #53511 limited to upstream docs.",
+    "detail": "The diff against the merge base adds the `discussions/8549` line to `containers.adoc`. That line has nothing to do with claims references. It looks like a merge resolution that kept the old version of the file and undid part of #53511.",
+    "fix": "Drop the change to `docs/guides/server/containers.adoc` from the PR.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -303,6 +303,8 @@ podman|docker run --name keycloak_unoptimized -p 127.0.0.1:8080:8080 \\"
+     ],
+     [
+      " ",
+      303,
+      303,
+      "        start-dev --import-realm"
+     ],
+     [
+      " ",
+      304,
+      304,
+      "----"
+     ],
+     [
+      " ",
+      305,
+      305,
+      ""
+     ],
+     [
+      "+",
+      null,
+      306,
+      "Feel free to join the open https://github.com/keycloak/keycloak/discussions/8549[GitHub Discussion] around enhancements of the admin bootstrapping process."
+     ]
+    ]
+   },
+   {
+    "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/credentialoffer/CredentialOfferState.java",
+    "line": 151,
+    "title": "The maintainer's requests for no setter and a short length bound are still open.",
+    "impact": "Without a bound, every offer state in the single use object store can carry a value as long as the request line allows, and anyone who can call the endpoint can create one.",
+    "detail": "The maintainer asked to pass `claimsRef` through `createCredentialOffer` and the `CredentialOfferState` constructor instead of a new setter, and to keep the reference short like a git ref. The head commit still has `setClaimsRef` and accepts any length.",
+    "fix": "Pass `claimsRef` through `CredentialOfferProvider.createCredentialOffer` into the constructor, remove the setter, and reject values longer than a small limit such as 256 characters.",
+    "context": [
+     [
+      "+",
+      null,
+      146,
+      "     */"
+     ],
+     [
+      "+",
+      null,
+      147,
+      "    public String getClaimsRef() {"
+     ],
+     [
+      "+",
+      null,
+      148,
+      "        return claimsRef;"
+     ],
+     [
+      "+",
+      null,
+      149,
+      "    }"
+     ],
+     [
+      "+",
+      null,
+      150,
+      ""
+     ],
+     [
+      "+",
+      null,
+      151,
+      "    public void setClaimsRef(String claimsRef) {"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "54096": {
+  "sha": "ecbaab72276e4d06208f99a021282d8c1fc7015c",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "comment",
+  "headline": "Completed flag works, but pre-upgrade records all read as incomplete attempts.",
+  "summary": "The PR adds a `completed` flag to issued credential records in local and federated storage. The credential endpoint sets the flag after a successful credential response. The flag is exposed through the Admin and Account REST APIs and survives export and import. The code path is correct and tested end to end. The documentation misleads for upgraded deployments and overstates what the issuer knows about delivery.",
+  "eudi": "EUDI issuers get a simple way to tell token requests that led to an issued credential apart from abandoned attempts. The flag only means Keycloak produced a credential response. It does not confirm that the wallet stored it.",
+  "good": [
+   "The flag is set only after signing, encryption and nonce consumption succeed, so failed credential requests leave it false.",
+   "Federated users are handled through `UserStorageManager` with the same local then federated fallback as removal.",
+   "The new integration test checks the flag before and after a real credential request."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "docs/documentation/server_admin/topics/oid4vci/managing-credentials.adoc",
+    "line": 76,
+    "title": "The documentation does not say that records from before the upgrade read as not completed.",
+    "impact": "After upgrading from 26.7, an integration that follows the documentation treats every credential delivered before the upgrade as an abandoned issuance attempt.",
+    "detail": "The `ISSUED_VER_CREDENTIAL` table already exists in the 26.7.0 changelog. The new changesets add `COMPLETED` with default false, so all existing rows read as false. The documentation says that false means an attempt that never finished. That is wrong for every row written before the upgrade, and an integration that cleans up or reports on incomplete attempts would act on credentials that holders actually have.",
+    "fix": "Add one sentence to the documentation that records created before the upgrade always show `completed` as false, because the server cannot know whether they were delivered. Mention the change in the upgrading guide as well.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -73,6 +73,8 @@ Each issued credential shows:"
+     ],
+     [
+      " ",
+      73,
+      73,
+      "* *Wallet Client* -- The OID4VCI client through which the credential was issued."
+     ],
+     [
+      " ",
+      74,
+      74,
+      "* *Revision* -- The credential revision number. An \"outdated\" label appears if the credential was issued with an older revision of the stored attribute snapshot. The revision does not determine the values of claims mapped from user attributes. For details, see <<_oid4vci_attribute_snapshot,Understan"
+     ],
+     [
+      " ",
+      75,
+      75,
+      ""
+     ],
+     [
+      "+",
+      null,
+      76,
+      "Each issued credential record is created when the wallet requests the credential at the token endpoint, which happens before the credential itself is delivered. The record carries a *completed* status that becomes true only after the credential has been successfully delivered to the wallet. A record"
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "docs/documentation/server_admin/topics/oid4vci/managing-credentials.adoc",
+    "line": 76,
+    "title": "The flag marks a credential response, not a confirmed delivery.",
+    "impact": "When a wallet loses the connection or fails to decrypt an encrypted credential response, the record still shows the credential as delivered.",
+    "detail": "`markIssuedCredentialCompleted` runs while the response is built, before it reaches the wallet. The documentation and the field comments say the credential was successfully delivered. OpenID4VCI 1.0 Section 11 defines the Notification Endpoint with `credential_accepted` as the signal that the wallet stored the credential. Keycloak does not implement that endpoint yet.",
+    "fix": "Describe the flag as set when the issuer returned the credential. A later PR can set or refine it from a `credential_accepted` notification once the Notification Endpoint exists.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -73,6 +73,8 @@ Each issued credential shows:"
+     ],
+     [
+      " ",
+      73,
+      73,
+      "* *Wallet Client* -- The OID4VCI client through which the credential was issued."
+     ],
+     [
+      " ",
+      74,
+      74,
+      "* *Revision* -- The credential revision number. An \"outdated\" label appears if the credential was issued with an older revision of the stored attribute snapshot. The revision does not determine the values of claims mapped from user attributes. For details, see <<_oid4vci_attribute_snapshot,Understan"
+     ],
+     [
+      " ",
+      75,
+      75,
+      ""
+     ],
+     [
+      "+",
+      null,
+      76,
+      "Each issued credential record is created when the wallet requests the credential at the token endpoint, which happens before the credential itself is delivered. The record carries a *completed* status that becomes true only after the credential has been successfully delivered to the wallet. A record"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "54034": {
+  "sha": "22dd276d65668be8c3e3040814326991156e3682",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "changes",
+  "headline": "Spread object fields never reach mDoc credentials or the mandatory claim check.",
+  "summary": "The PR adds `OID4VCGraphQLClaimMapper`, which calls an admin configured GraphQL endpoint at issuance and writes the result into the credential subject. An object result is spread into one claim per field, and a hand written selection set parser lets issuer metadata list those fields. Validation is careful and the SD-JWT path works. But the spread fields skip `setClaimWithMetadataPrefix`, so mDoc credentials lose them and mandatory spread claims fail issuance.",
+  "eudi": "An issuer can now fill PID adjacent or attestation credentials from a backend register without custom code. The object mode is not yet usable for `mso_mdoc` attestations, and the lookup attribute must be one the holder cannot edit.",
+  "good": [
+   "Issuer metadata is derived from the query selection set, so the advertised claims match what the mapper can emit.",
+   "Spread field names go through the same format aware reserved claim check as the configured claim name, including the `id` to `sub` normalization.",
+   "The mapper accepts only a single `query` operation, so a configured mutation cannot run during issuance."
+  ],
+  "findings": [
+   {
+    "severity": "major",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/mappers/OID4VCGraphQLClaimMapper.java",
+    "line": 330,
+    "title": "Spread object fields are never copied into the metadata prefixed claim map.",
+    "impact": "An admin who adds this mapper to an `mso_mdoc` scope with an object Response Path issues mDocs without any of the GraphQL fields, and an SD-JWT scope with Mandatory Claim enabled rejects every credential request.",
+    "detail": "The mapper does not override `setClaimWithMetadataPrefix`. The inherited version in `OID4VCMapper` copies only the value at `getClaimLookupPath()`, which is `[claim.name]`. In object mode the mapper writes `flightNumber`, `route` and so on, never `claim.name`, so nothing is copied. `OID4VCIssuerEndpoint` builds the mDoc subject only from `subjectClaimsWithMetadataPrefix` (line 1876), so the mDoc contains none of the fields that the metadata advertises under the namespace. For JSON formats, `validateRequestedClaimsArePresent` checks the metadata claims, now including each spread field, against the same prefixed map. With Mandatory Claim set, or when a wallet marks a spread claim mandatory in `authorization_details`, `ClaimsPathPointer.filterClaimsByAuthorizationDetails` throws `Mandatory claim not found` and the request fails with 400. The unit test for the mDoc exemption only calls `validate()` and `setClaim` and never runs this copy step.",
+    "fix": "Override `setClaimWithMetadataPrefix` so that in object mode it copies each resolved field name from the raw map to `prefixMetadataAttributePath(List.of(fieldName))`. Add an integration test that issues an `mso_mdoc` credential with an object Response Path, and one with Mandatory Claim enabled on an SD-JWT scope.",
+    "context": [
+     [
+      "+",
+      null,
+      325,
+      "            var node = navigatePath(responseData, responsePath);"
+     ],
+     [
+      "+",
+      null,
+      326,
+      "            if (node == null) {"
+     ],
+     [
+      "+",
+      null,
+      327,
+      "                throw new RuntimeException(\"No data at response path '\" + responsePath + \"' from endpoint '\" + endpoint + \"'\");"
+     ],
+     [
+      "+",
+      null,
+      328,
+      "            }"
+     ],
+     [
+      "+",
+      null,
+      329,
+      ""
+     ],
+     [
+      "+",
+      null,
+      330,
+      "            if (node.isObject()) {"
+     ]
+    ]
+   },
+   {
+    "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/mappers/OID4VCGraphQLClaimMapper.java",
+    "line": 326,
+    "title": "A GraphQL `null` at the Response Path is issued as a `null` claim instead of failing.",
+    "impact": "A user who has no record in the backend gets `{\"data\":{\"booking\":null}}`, and Keycloak signs a credential containing `\"ticket\": null` with none of the advertised fields.",
+    "detail": "`navigatePath` returns Jackson's `NullNode` for a JSON `null`, not Java `null`. So the `node == null` guard does not fire. `NullNode` is neither an object nor an array, so the code falls through to `claims.put(claimName, unwrap(node))`, and `unwrap` returns `null`. Nullable lookup fields are the normal GraphQL answer for a missing record. A config that expects an object therefore writes a claim name that is not in the metadata, and the result is a signed credential without the data it is meant to carry.",
+    "fix": "Treat `node == null || node.isNull()` as no data and throw. Also decide whether `null` field values inside an object are omitted or rejected, and add a unit test for a `null` result.",
+    "context": [
+     [
+      "+",
+      null,
+      321,
+      "        try {"
+     ],
+     [
+      "+",
+      null,
+      322,
+      "            var variables = resolveVariables(userSessionModel, variableMapping);"
+     ],
+     [
+      "+",
+      null,
+      323,
+      "            var responseData = executeQuery(endpoint, query, variables);"
+     ],
+     [
+      "+",
+      null,
+      324,
+      ""
+     ],
+     [
+      "+",
+      null,
+      325,
+      "            var node = navigatePath(responseData, responsePath);"
+     ],
+     [
+      "+",
+      null,
+      326,
+      "            if (node == null) {"
+     ]
+    ]
+   },
+   {
+    "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/mappers/OID4VCGraphQLClaimMapper.java",
+    "line": 114,
+    "title": "The help text does not warn that the lookup attribute must not be editable by the user.",
+    "impact": "An admin who maps `id=user:email` in a realm where users can change their email in the account console lets a user set a colleague's address and receive a signed credential with the colleague's backend data.",
+    "detail": "Other OID4VC mappers copy the user's own attribute values into the credential, so a user can only misstate their own data. This mapper uses the attribute as a lookup key into another system, so whoever controls the attribute chooses whose record gets attested. The default user profile lets users edit `email`, and many realms allow username changes. Nothing in the config or help text points this out.",
+    "fix": "State in the Variable Mapping help text that the source attribute must be immutable and not editable by the user, for example the user id or a read only attribute. Consider rejecting attributes that the user profile marks as editable by the user.",
+    "context": [
+     [
+      "+",
+      null,
+      109,
+      "        CONFIG_PROPERTIES.add(queryConfig);"
+     ],
+     [
+      "+",
+      null,
+      110,
+      ""
+     ],
+     [
+      "+",
+      null,
+      111,
+      "        ProviderConfigProperty variableMappingConfig = new ProviderConfigProperty();"
+     ],
+     [
+      "+",
+      null,
+      112,
+      "        variableMappingConfig.setName(GRAPHQL_VARIABLE_MAPPING);"
+     ],
+     [
+      "+",
+      null,
+      113,
+      "        variableMappingConfig.setLabel(\"Variable Mapping\");"
+     ],
+     [
+      "+",
+      null,
+      114,
+      "        variableMappingConfig.setHelpText(\"Maps GraphQL variables to user attribute sources (e.g. 'id=user:username'). \" +"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/mappers/OID4VCGraphQLClaimMapper.java",
+    "line": 238,
+    "title": "Claim Name is required even when the help text says object responses do not use it.",
+    "impact": "An admin who configures an object response must type a placeholder claim name that never appears in the credential.",
+    "detail": "`validateMapperConfig` rejects a blank `claim.name` in every mode, while `getMetadataAttributePaths` resolves the mode statically. The required placeholder also feeds the inherited copy logic described in the major finding.",
+    "fix": "Require Claim Name only when the parser resolves the path to `SCALAR`, or update the help text to say a value is still required.",
+    "context": [
+     [
+      "+",
+      null,
+      233,
+      "        var endpoint = config.get(GRAPHQL_ENDPOINT);"
+     ],
+     [
+      "+",
+      null,
+      234,
+      "        var query = config.get(GRAPHQL_QUERY);"
+     ],
+     [
+      "+",
+      null,
+      235,
+      "        var variableMapping = config.get(GRAPHQL_VARIABLE_MAPPING);"
+     ],
+     [
+      "+",
+      null,
+      236,
+      "        var responsePath = config.get(RESPONSE_PATH);"
+     ],
+     [
+      "+",
+      null,
+      237,
+      ""
+     ],
+     [
+      "+",
+      null,
+      238,
+      "        if (claimName == null || claimName.isBlank()) {"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "54513": {
+  "sha": "f2fcbc1dc75211a091087e4845f08f08c5dd06b3",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "comment",
+  "headline": "Issuer display works, but unknown JSON fields silently drop the whole display.",
+  "summary": "The PR adds an `oid4vci.display` realm attribute that is parsed into `DisplayObject` elements and published as the top level `display` of the Credential Issuer Metadata, in both JSON and signed form. Validation for missing logo `uri`, empty arrays and duplicate locales is mirrored in the admin UI and on the server, and integration and UI tests cover the main paths. One gap remains: the server parser rejects unknown fields that the admin UI accepts, so a saved value can vanish from the metadata with only a server log warning.",
+  "eudi": "EUDI wallets can now show the issuer name and logo from the Credential Issuer Metadata, which helps users recognise the PID or attestation provider during issuance. No trust decisions depend on this data, so the change carries no security risk for EUDI deployments.",
+  "good": [
+   "Server side validation matches OpenID4VCI 1.0 Section 12.2.4 for logo `uri` and one element per locale.",
+   "Invalid configuration degrades to an omitted `display` instead of breaking the metadata endpoint.",
+   "Tests cover unsigned metadata, signed metadata and the invalid fallback cases."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerWellKnownProvider.java",
+    "line": 223,
+    "title": "Unknown fields make the server drop the display that the admin UI accepted.",
+    "impact": "An admin who types `alt-text` instead of `alt_text`, or adds any extra member, gets \"Realm successfully updated\" while wallets see no issuer name or logo.",
+    "detail": "`JsonSerialization.mapper` keeps Jackson's default `FAIL_ON_UNKNOWN_PROPERTIES`, and unlike `CredentialIssuer.IssuerInfo` neither `DisplayObject` nor `DisplayObject.LogoObject` has `@JsonIgnoreProperties(ignoreUnknown = true)`. Any unknown member throws in `readValue`, so `getIssuerDisplay` returns null and only logs a warning. The admin UI validator in `TokensTab.tsx` accepts such input, so the admin gets no feedback that the setting has no effect.",
+    "fix": "Add `@JsonIgnoreProperties(ignoreUnknown = true)` to `DisplayObject` and `LogoObject`, as `IssuerInfo` already does, and add a test with an unknown member that expects the display to be published.",
+    "context": [
+     [
+      "+",
+      null,
+      218,
+      "        String rawValue = realm.getAttribute(ISSUER_DISPLAY_ATTR);"
+     ],
+     [
+      "+",
+      null,
+      219,
+      "        if (rawValue == null || rawValue.isBlank()) {"
+     ],
+     [
+      "+",
+      null,
+      220,
+      "            return null;"
+     ],
+     [
+      "+",
+      null,
+      221,
+      "        }"
+     ],
+     [
+      "+",
+      null,
+      222,
+      "        try {"
+     ],
+     [
+      "+",
+      null,
+      223,
+      "            List<DisplayObject> display = JsonSerialization.readValue(rawValue,"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "54560": {
+  "sha": "42a4d7e2228374616456be00acd31b8e4d1276b9",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "comment",
+  "headline": "Solid opt-in anonymous pre-authorized grant, but client authentication is skipped even when disabled.",
+  "summary": "The PR adds the OID4VCI `pre-authorized_grant_anonymous_access_supported` realm switch with a stand-in client, advertises it in authorization server metadata, and bumps the conformance suite to 5.3.4 with a served CRL. The grant resolves the offer's target client or the configured client, then applies the DPoP, OID4VCI enablement and `tx_code` checks to it, and the earlier review points about DPoP, CORS and query `client_id` are fixed and tested. One compatibility gap remains. `PreAuthorizedCodeGrantType.isAnonymousAccessAllowed()` returns `true` regardless of the realm switch, so the token endpoint no longer runs client authentication for some requests even in realms that never enable the feature.",
+  "eudi": "EUDI issuers can now serve wallets that redeem pre-authorized codes without a registered client, as OpenID4VCI 1.0 Section 12.3 allows. Realms that keep the switch off should see no change once the realm check moves into the token endpoint decision.",
+  "good": [
+   "The anonymous client gets the same target client, `oid4vci.enabled`, DPoP and `tx_code` checks as an authenticated one, and all of them run before the code is marked as used.",
+   "Wallets that send credentials are still authenticated when anonymous access is on, and this includes `client_id` in the query for X.509.",
+   "The tests cover disabled access, a missing anonymous client, DPoP enforcement, other grant types and the metadata flag."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/protocol/oidc/endpoints/TokenEndpoint.java",
+    "line": 161,
+    "title": "The token endpoint skips client authentication for pre-authorized requests even when the realm switch is off.",
+    "impact": "After an upgrade, a realm that never enabled anonymous access but authenticates wallets with a custom client authenticator gets `invalid_client` on every pre-authorized code redemption.",
+    "detail": "`PreAuthorizedCodeGrantType.isAnonymousAccessAllowed()` always returns `true`, so whether `checkClient()` runs depends only on `isClientIdentified()`. That method guesses client identification from five markers that match the built-in authenticators. A custom `ClientAuthenticator` that identifies the client in another way, such as a certificate lookup without `client_id` or a custom header, used to work for this grant. Now the request reaches the grant with `client == null`, and the grant rejects it with \"Missing client_id parameter\" because the switch is off. The default path should behave exactly as before this PR. Today it depends on a heuristic plus a second rejection inside the grant.",
+    "fix": "Make the SPI decision depend on the realm, for example `isAnonymousAccessAllowed(RealmModel realm)` returning `isAnonymousAccessEnabled(realm)` in `PreAuthorizedCodeGrantType`. Then `checkClient()` runs unconditionally whenever the switch is off. Keep the check in the grant as a safeguard and add a test that a realm with the switch off still runs the normal client authentication path.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -156,7 +158,9 @@ public class TokenEndpoint {"
+     ],
+     [
+      " ",
+      156,
+      158,
+      "        }"
+     ],
+     [
+      " ",
+      157,
+      159,
+      ""
+     ],
+     [
+      " ",
+      158,
+      160,
+      "        if (!grantType.equals(UMA_GRANT_TYPE)) {"
+     ],
+     [
+      "-",
+      159,
+      null,
+      "            checkClient();"
+     ],
+     [
+      "+",
+      null,
+      161,
+      "            if (!grant.isAnonymousAccessAllowed() || isClientIdentified()) {"
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ },
+ "43478": {
+  "sha": "d50760c5897c221d827ef66aea9aecb47a5d9357",
+  "notes": [],
+  "date": "2026-11-03",
+  "verdict": "comment",
+  "headline": "Placeholder cleanup is fine, but two examples now contradict their own prose.",
+  "summary": "The PR replaces hardcoded realm names in five documentation files with the `{realm-name}` placeholder and adds `{client-id}` in one `kcadm.sh` example. The placeholder already appears in many server admin pages. The docs build does not set `attribute-missing`, so Asciidoctor keeps the unresolved attribute as literal text and emits no warning that would trip the WARN fail rule. Two edits only change the URL in a worked example. The command or sentence next to it still names the concrete realm, so the example no longer matches what it describes.",
+  "eudi": "No effect on EUDI deployments. The PR changes only general admin and upgrade documentation and touches no OID4VC pages or code.",
+  "good": [
+   "Uses the `{realm-name}` placeholder that the server admin guide already uses, for example in `con-server-oidc-uri-endpoints.adoc`.",
+   "Removes a hardcoded client UUID from the Docker v2 example in favour of `{client-id}`."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "docs/documentation/server_admin/topics/admin-cli.adoc",
+    "line": 196,
+    "title": "The `kcadm.sh` worked example now explains a realm that the command does not use.",
+    "impact": "An admin who follows the example sees `-r demorealm` in the command and then reads that the POST goes to `/realms/{realm-name}/users`, so the point of the example about how `-r` picks the target realm is lost.",
+    "detail": "Lines 192 to 194 run `kcadm.sh create users ... -r demorealm`. The paragraph explains that `-r` replaces the login realm with `TARGET_REALM`, and this sentence used to prove it by naming `demorealm` in the resulting URL. With the placeholder, the reader can no longer see that the URL realm comes from `-r` and not from `--realm master`.",
+    "fix": "Keep `demorealm` in this sentence, or change the command to `-r {realm-name}` as well so the command and the URL use the same name.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -193,7 +193,7 @@ $ kcadm.sh config credentials --server http://localhost:8080{kc_base_path} --rea"
+     ],
+     [
+      " ",
+      193,
+      193,
+      "$ kcadm.sh create users -s username=testuser -s enabled=true -r demorealm"
+     ],
+     [
+      " ",
+      194,
+      194,
+      "----"
+     ],
+     [
+      " ",
+      195,
+      195,
+      ""
+     ],
+     [
+      "-",
+      196,
+      null,
+      "In this example, you start a session authenticated as the `admin` user in the `master` realm. You then perform a POST call against the resource URL `http://localhost:8080{kc_admins_path}/realms/demorealm/users`."
+     ],
+     [
+      "+",
+      null,
+      196,
+      "In this example, you start a session authenticated as the `admin` user in the `master` realm. You then perform a POST call against the resource URL `http://localhost:8080{kc_admins_path}/realms/{realm-name}/users`."
+     ]
+    ]
+   },
+   {
+    "severity": "minor",
+    "file": "docs/documentation/server_admin/topics/authentication/x509.adoc",
+    "line": 207,
+    "title": "The curl example URL no longer matches the sentence that introduces it.",
+    "impact": "A reader who copies the X.509 direct grant example finds that the introduction says realm `test` while the URL uses a placeholder, and cannot tell which one to substitute.",
+    "detail": "Line 196 still says the example obtains a token for a user in the realm `test`. The URL on line 207 now uses `{realm-name}`. The block also hardcodes `client_id=resource-owner` and a client secret, so the example remains concrete everywhere except the realm.",
+    "fix": "Change the sentence on line 196 to refer to realm `{realm-name}`, or revert the URL to `test` so the example stays consistent.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -204,7 +204,7 @@ curl \\"
+     ],
+     [
+      " ",
+      204,
+      204,
+      "  -d \"grant_type=password\" \\"
+     ],
+     [
+      " ",
+      205,
+      205,
+      "  --cacert /tmp/truststore.pem \\"
+     ],
+     [
+      " ",
+      206,
+      206,
+      "  --cert /tmp/keystore.pem:kssecret \\"
+     ],
+     [
+      "-",
+      207,
+      null,
+      "  \"https://localhost:8543/realms/test/protocol/openid-connect/token\""
+     ],
+     [
+      "+",
+      null,
+      207,
+      "  \"https://localhost:8543/realms/{realm-name}/protocol/openid-connect/token\""
+     ]
+    ]
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "medium"
+ }
+}

@@ -1,0 +1,9 @@
+{
+ "54522": [
+  "Rejecting a list that fails to download or verify is deliberate. It fails closed, and failedRefreshRejectsTheListUntilAValidListIsAvailable tests it. Letting the load error escape so that other trust providers never get a chance is not deliberate.",
+  "Subordinate CAs as trust anchors are deliberate, because EUDI LoTEs list issuing CAs.",
+  "The list signature is only checked against the pinned signing certificates configured for the provider.",
+  "trustListServiceStatuses has no default on purpose, because Keycloak is not EUDI specific. With nothing configured, services that carry a status are not trusted.",
+  "x5c support in AttestationBasedClientAuthenticator and the rule that X.509 trust requires x5c are left out on purpose, because they overlap with the approved #52883. They come back in a follow-up after #52883 is merged."
+ ]
+}
