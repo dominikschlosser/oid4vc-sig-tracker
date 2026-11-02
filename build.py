@@ -182,16 +182,63 @@ def diff_table(rows):
     return f'<table class="diff">{"".join(out)}</table>' if out else ""
 
 
+def in_diff(f):
+    """GitHub takes inline comments only on lines of the PR diff."""
+    last = f.get("context") or [[None, None, None]]
+    kind, old, new = last[-1][:3]
+    return new == f["line"] and (kind == "+" or (kind == " " and old is not None))
+
+
+def sorted_findings(rv):
+    order = {s: k for k, s in enumerate(SEVERITY)}
+    return sorted(rv["findings"], key=lambda f: (order[f["severity"]], f["file"], f["line"] or 0))
+
+
+def markdown(f):
+    parts = [f'**{SEVERITY[f["severity"]]}** · {f["title"]}']
+    parts += [f'**Impact:** {f["impact"]}'] * bool(f.get("impact"))
+    parts += [f["detail"]] * bool(f["detail"])
+    parts += [f'**Suggested fix:** {f["fix"]}'] * bool(f["fix"])
+    return "\n\n".join(parts)
+
+
+def review_export(rv):
+    """What the post service turns into a GitHub review. The page sends only the ids it picked."""
+    lv, effort = level(rv), f'{rv["effort"]} effort' if rv["effort"] else "default effort"
+    intro = [f"### AI review: {findings_label(rv)}", rv["summary"]] + [f'**For EUDI:** {rv["eudi"]}'] * bool(rv["eudi"])
+    intro.append(f'<sub>Claude Code wrote this review of {rv["sha"][:7]} with {MODEL_NAME.get(rv["model"], rv["model"])} at {effort}. '
+                 "It read the code without building or running it.</sub>")
+    return {"sha": rv["sha"], "level": lv, "intro": "\n\n".join(intro),
+            "findings": [{"id": k, "severity": f["severity"], "path": f["file"], "line": f["line"], "inDiff": bool(f["file"]) and in_diff(f),
+                          "body": markdown(f)} for k, f in enumerate(sorted_findings(rv))]}
+
+
+POST_DEFAULT = {"major", "minor", "followup"}
+
+
+def post_panel(it, rv):
+    counts = {s: sum(f["severity"] == s for f in rv["findings"]) for s in SEVERITY}
+    boxes = "".join(f'<label><input type="checkbox" data-sev="{s}"{" checked" if s in POST_DEFAULT else ""}> {SEVERITY[s]} <span class="muted">{n}</span></label>'
+                    for s, n in counts.items() if n)
+    return f'''<section class="post" id="post" data-pr="{it["n"]}" hidden>
+<div class="post-head"><b>Post to GitHub</b><span class="muted" id="post-user"></span></div>
+<p class="muted">Posts the summary and the picked comments as a review on <a href="{it["url"]}">#{it["n"]}</a>, in your name.</p>
+{f'<div class="post-sev">{boxes}</div>' if boxes else ""}
+<div class="post-actions"><a class="btn" id="post-login" href="#" hidden>Sign in with GitHub</a><button class="btn" id="post-send" type="button" hidden></button><button class="link-btn" id="post-logout" type="button" hidden>Sign out</button></div>
+<p class="post-msg" id="post-msg" role="status"></p>
+</section>'''
+
+
 def comment(f, k):
     fix = f'<div class="suggest"><div class="suggest-head">Suggested fix</div><p>{text(f["fix"])}</p></div>' if f["fix"] else ""
-    return f'''<div class="cmt" id="c{k}"><div class="cmt-head"><span class="avatar">C</span><b>Claude</b><span class="sev sev-{f["severity"]}">{SEVERITY[f["severity"]]}</span></div>
+    pick = f'<label class="pick" hidden><input type="checkbox" data-id="{k}" data-sev="{f["severity"]}"{" checked" if f["severity"] in POST_DEFAULT else ""}> Post</label>'
+    return f'''<div class="cmt" id="c{k}"><div class="cmt-head"><span class="avatar">C</span><b>Claude</b><span class="sev sev-{f["severity"]}">{SEVERITY[f["severity"]]}</span>{pick}</div>
 <div class="cmt-body"><p class="cmt-title">{text(f["title"])}</p>{f'<p class="impact"><b>Impact</b> {text(f["impact"])}</p>' if f.get("impact") else ""}<p>{text(f["detail"])}</p>{fix}</div></div>'''
 
 
 def review_page(it, rv, head):
     sha, lv = rv["sha"], level(rv)
-    order = {s: k for k, s in enumerate(SEVERITY)}
-    findings = sorted(rv["findings"], key=lambda f: (order[f["severity"]], f["file"], f["line"] or 0))
+    findings = sorted_findings(rv)
     files = {}
     for k, f in enumerate(findings):
         files.setdefault(f["file"] or "", []).append((k, f))
@@ -215,6 +262,7 @@ def review_page(it, rv, head):
 <title>Review of #{it["n"]}</title>
 <link rel="icon" href="../logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../style.css">
+<script src="../review.js" defer></script>
 </head>
 <body class="review-page">
 <header class="top"><div class="wrap narrow-wrap">
@@ -228,6 +276,7 @@ def review_page(it, rv, head):
 <div class="rv-head"><span class="avatar">C</span><b>Claude</b> {REVIEW_STATE[lv]} on <a href="https://github.com/keycloak/keycloak/pull/{it["n"]}/commits/{sha}"><code>{sha[:7]}</code></a> · {rv["date"]} · {MODEL_NAME.get(rv["model"], rv["model"])}, {f'{rv["effort"]} effort' if rv["effort"] else "default effort"}<span class="rv-count">{findings_label(rv)}</span></div>
 <div class="rv-body"><p>{text(rv["summary"])}</p>{f'<p><b>For EUDI</b> {text(rv["eudi"])}</p>' if rv["eudi"] else ""}{f'<p class="good-head">Done well</p><ul class="good">{good}</ul>' if good else ""}</div>
 </section>
+{post_panel(it, rv) if sha == head else ""}
 {f'<nav class="toc"><div class="toc-head">Files with comments</div><ul>{"".join(toc)}</ul></nav>' if toc else ""}
 {"".join(blocks)}
 </main>
@@ -241,7 +290,9 @@ shutil.rmtree("site/reviews", ignore_errors=True)
 os.makedirs("site/reviews")
 for it in items:
     if "ai" in it:
-        open(f"site/reviews/{it['n']}.html", "w").write(review_page(it, reviews[str(it["n"])], raw_by_n[it["n"]].get("headRefOid")))
+        rv = reviews[str(it["n"])]
+        open(f"site/reviews/{it['n']}.html", "w").write(review_page(it, rv, raw_by_n[it["n"]].get("headRefOid")))
+        json.dump(review_export(rv), open(f"site/reviews/{it['n']}.json", "w"), indent=1)
 
 gaps = json.load(open("gaps.json"))
 for g in gaps:

@@ -38,6 +38,19 @@ With cron:
 
 On macOS a launchd job works better, because it also runs after the Mac wakes up.
 
+## Post reviews to GitHub
+
+Each review page has a panel that posts the summary and the picked comments as a review on the pull request. People sign in with GitHub and post in their own name. Without the post service the panel stays hidden.
+
+The service is in api/. It is a small Go program with no dependencies. To run it:
+
+1. Create a GitHub OAuth App at https://github.com/settings/applications/new. Set the callback URL to `https://<your host>/auth/callback`.
+2. Build it with `cd api && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o api .` and run it next to your web server.
+3. Set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET and PUBLIC_URL (such as `https://<your host>`). DATA_DIR is the folder with the published page, and the service reads reviews/N.json from it.
+4. Send `/auth/*` and `/api/*` to the service, which listens on port 8080. Serve everything else as static files.
+
+GitHub has no narrower scope for review comments than `public_repo`. The service keeps each token in memory and revokes it when the person signs out. It posts only text from the published review and checks first that the pull request still has the reviewed commit.
+
 ## How it works
 
 update.sh runs these steps:
