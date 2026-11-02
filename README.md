@@ -22,7 +22,7 @@ Then:
 
 Open http://localhost:8000. The first run clones keycloak/keycloak into cache/ for the reviews, so it takes a while.
 
-Without a deploy.env file, update.sh builds the page into site/ and stops there. To publish it, copy deploy.env.example to deploy.env and set the SSH target and the folder your web server serves. Any static file server works.
+Without a deploy.env file, update.sh builds the page into site/ and stops there. To publish it, copy deploy.env.example to deploy.env and set the SSH target and the folder your web server serves. Any static file server works. With PUSH_DATA=yes, each run also commits new ratings and reviews and pushes them to your fork.
 
 ### Cost
 
@@ -47,6 +47,7 @@ update.sh runs these steps:
 3. rate.py asks headless Claude Code (rate-prompt.md) to rate those items. It merges valid answers into ratings.json.
 4. review.py reviews open pull requests whose head commit has no review yet, the most relevant first. `python3 review.py N` reviews pull request N now. For each one it checks out the head commit as a worktree of cache/keycloak.git, writes the diff and the comments into .pr/, runs headless Claude Code (review-prompt.md) and deletes the worktree. Claude may only read inside the checkout and write .pr/review.json. The results go into reviews.json.
 5. build.py runs again and writes a page per review into site/reviews/. deploy.sh copies the site to your server.
+6. push.sh commits ratings.json and reviews.json when they changed and pushes them, if deploy.env sets PUSH_DATA=yes.
 
 Files:
 

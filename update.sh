@@ -10,3 +10,4 @@ python3 rate.py
 python3 review.py || echo "review.py failed, the page is deployed without new reviews"
 python3 build.py
 ./deploy.sh
+./push.sh || echo "push.sh failed, the new ratings and reviews stay uncommitted"
