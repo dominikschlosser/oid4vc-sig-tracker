@@ -10,7 +10,7 @@ Scale:
 - blocker: without it, Keycloak can't run lawfully or practically in a production EUDI deployment. Workarounds don't count if they don't scale, such as registering every wallet as a client, configuring trust anchors by hand or reissuing credentials every day. This includes security holes that let someone get or use credentials of other users.
 - high: required by an implementing regulation or HAIP, needed by most deployments, or a security issue that needs more than one step to exploit.
 - medium: improves EUDI flows or is needed by some deployments.
-- low: admin UI, docs, tests, refactoring, cleanup, or items that look already fixed.
+- low (shown as Normal): needed work that EUDI flows don't wait for, such as admin UI, docs, tests, refactoring and cleanup. Also items that look already fixed.
 - none: unrelated to EUDI use. These items are left off the page.
 
 Basis: legal (a CIR, or an ARF or ETSI requirement it relies on), profile (HAIP or the OpenID4VC specs), usable (no rule demands it, but real deployments can't do without it), security, hygiene.

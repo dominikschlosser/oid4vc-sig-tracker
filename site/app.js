@@ -2,13 +2,13 @@
 
 const RATINGS = ["blocker", "high", "medium", "low", "none"];
 const RANK = { none: 0, low: 1, medium: 2, high: 3, blocker: 4 };
-const LABEL = { blocker: "Blocker", high: "High", medium: "Medium", low: "Low", none: "None" };
+const LABEL = { blocker: "Blocker", high: "High", medium: "Medium", low: "Normal", none: "None" };
 const BASIS = { legal: "Legal", profile: "Profile", usable: "Usable", security: "Security", hygiene: "Hygiene" };
 const MEANS = {
   blocker: "Without it, Keycloak can't run lawfully or practically in production. Workarounds that don't scale don't count.",
   high: "Required by law or HAIP, or needed by most deployments.",
   medium: "Better EUDI flows, or needed by some deployments.",
-  low: "Admin UI, docs, tests, cleanup, or looks already done.",
+  low: "Needed work that EUDI flows don't wait for, such as admin UI, docs and tests. Or it looks already done.",
 };
 const STATE_LABEL = { open: "Open", merged: "Merged", done: "Done" };
 const REVIEW_LABEL = { draft: "Draft", none: "No review yet", reviewed: "Reviewed", changes: "Changes requested", approved: "Approved, ready to merge" };

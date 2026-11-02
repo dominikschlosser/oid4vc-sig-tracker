@@ -57,7 +57,7 @@
       <dt><span class="rel rel-blocker">Blocker</span></dt><dd>Without it, Keycloak can't run lawfully or practically in a production EUDI deployment. Workarounds don't count if they don't scale, such as registering every wallet as a client or reissuing credentials every day. Also security holes that give access to other users' credentials.</dd>
       <dt><span class="rel rel-high">High</span></dt><dd>Required by law or HAIP, or needed by most deployments. Also security issues that take more than one step to exploit.</dd>
       <dt><span class="rel rel-medium">Medium</span></dt><dd>Better EUDI flows, or needed by some deployments.</dd>
-      <dt><span class="rel rel-low">Low</span></dt><dd>Admin UI, docs, tests, refactoring, or formats unused in EUDI.</dd>
+      <dt><span class="rel rel-low">Normal</span></dt><dd>Needed work that EUDI flows don't wait for, such as admin UI, docs, tests and refactoring. Also formats that EUDI doesn't use.</dd>
     </dl>
     <h3>Basis</h3>
     <dl class="scale">
@@ -79,7 +79,7 @@
       <label>State <select id="f-state"><option value="open">Open</option><option value="finished">Finished</option><option value="">All</option></select></label>
       <label>Relevance <select id="f-rating">
         <option value="">All</option><option value="blocker">Blocker</option><option value="high+">High and above</option>
-        <option value="medium+">Medium and above</option><option value="low">Low</option>
+        <option value="medium+">Medium and above</option><option value="low">Normal</option>
       </select></label>
       <label>Basis <select id="f-basis"><option value="">All</option><option value="legal">Legal</option><option value="profile">Profile</option><option value="usable">Usable</option><option value="security">Security</option><option value="hygiene">Hygiene</option><option value="unrated">Not rated yet</option></select></label>
       <label>Topic <select id="f-topic"><option value="">All</option></select></label>
