@@ -1,7 +1,8 @@
 "use strict";
 
-// Shows the GitHub account in the header and resolves to { login, involved, requested }.
-// login is null for visitors who are signed out. Hosts without the post service answer 404,
+// Shows the GitHub account in the header and resolves to { login, mine } as soon as the login is known.
+// login is null for visitors who are signed out. mine resolves later to the sets { involved, requested },
+// because it waits for GitHub search. Hosts without the post service answer 404,
 // and then the account stays hidden and this resolves to null.
 window.account = (async () => {
   const box = document.getElementById("account");
@@ -14,7 +15,7 @@ window.account = (async () => {
   } catch {
     return null;
   }
-  const out = { login: null, involved: new Set(), requested: new Set() };
+  const out = { login: null, mine: Promise.resolve({ involved: new Set(), requested: new Set() }) };
   if (res.ok) {
     out.login = (await res.json()).login;
     $("me-login").textContent = out.login;
@@ -25,11 +26,11 @@ window.account = (async () => {
       await fetch(`${root}auth/logout`, { method: "POST", credentials: "same-origin" }).catch(() => {});
       location.reload();
     });
-    try {
-      const m = await (await fetch(`${root}api/mine`, { credentials: "same-origin" })).json();
-      out.involved = new Set(m.involved);
-      out.requested = new Set(m.requested);
-    } catch { /* the GitHub search failed, so only "Opened by me" finds items */ }
+    out.mine = fetch(`${root}api/mine`, { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : { involved: [], requested: [] }))
+      .then((m) => ({ involved: new Set(m.involved), requested: new Set(m.requested) }))
+      // The GitHub search failed, so only "Opened by me" finds items.
+      .catch(() => ({ involved: new Set(), requested: new Set() }));
   } else if (res.status === 401) {
     const signIn = $("signin");
     signIn.href = `${root}auth/login?return=${encodeURIComponent(location.pathname)}`;

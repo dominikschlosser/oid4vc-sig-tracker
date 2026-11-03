@@ -29,7 +29,7 @@ let state = { ...DEFAULTS };
 // The GitHub login of the signed-in visitor, or null.
 let me = null;
 // Numbers GitHub search finds for them: items involving them, and open PRs waiting for their review.
-let mine = { involved: new Set(), requested: new Set() };
+let mine = null;
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
@@ -121,7 +121,6 @@ function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   state = { ...DEFAULTS };
   for (const k of Object.keys(DEFAULTS)) if (p.has(k) && valid(k, p.get(k))) state[k] = p.get(k);
-  if (!me) state.mine = "";
 }
 
 function writeHash() {
@@ -150,9 +149,10 @@ function matches(r) {
     if (state.ai === "none" ? !open.some((p) => !p.ai) : !open.some((p) => p.ai && (state.ai === "any" || p.ai.level === state.ai || (state.ai === "fix" && p.ai.level !== "clean")))) return false;
   }
   if (state.fix === "none" && r.prs.length) return false;
-  if (state.mine === "opened" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me)) return false;
-  if (state.mine === "involved" && ![r, ...r.prs].some((x) => mine.involved.has(x.n))) return false;
-  if (state.mine === "requested" && !r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))) return false;
+  // Until the account and its searches are known, a mine filter from the URL waits instead of hiding everything.
+  if (me && state.mine === "opened" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me)) return false;
+  if (mine && state.mine === "involved" && ![r, ...r.prs].some((x) => mine.involved.has(x.n))) return false;
+  if (mine && state.mine === "requested" && !r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))) return false;
   if (state.q) {
     const prs = r.prs.map((p) => `${p.n} ${p.title} ${p.author}`).join(" ");
     const hay = `${r.n} ${r.title} ${r.author} ${r.labels.join(" ")} ${r.topics.join(" ")} ${r.note} ${r.milestone} ${(r.same || []).join(" ")} ${prs}`.toLowerCase();
@@ -330,7 +330,7 @@ function render() {
 function activeFilters() {
   const out = [];
   for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "mine"]) {
-    if (state[k] === DEFAULTS[k]) continue;
+    if (state[k] === DEFAULTS[k] || (k === "mine" && !me)) continue;
     const name = $(`f-${k}`).closest("label").firstChild.textContent.trim(), value = $(`f-${k}`).selectedOptions[0].textContent;
     out.push([value.startsWith(name) ? value : `${name}: ${value}`, { [k]: DEFAULTS[k] }]);
   }
@@ -360,7 +360,6 @@ function summary() {
     [work.filter((r) => r.rating === "blocker").length, "blocker", { rating: "blocker" }],
     [work.filter((r) => RANK[r.rating] >= RANK.high && !r.prs.length).length, "blockers or high items without a PR", { rating: "high+", fix: "none" }],
   ];
-  if (me) tiles.push([work.filter((r) => r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))).length, "PRs waiting for your review", { mine: "requested" }]);
   $("stats").replaceChildren(...tiles.map(([n, label, f]) => el("button", { type: "button", class: "stat", title: `Show the ${label}`, onclick: () => fresh(f) }, el("b", {}, String(n)), el("span", {}, n === 1 || label !== "blocker" ? label : "blockers"), el("span", { class: "go", "aria-hidden": "true" }, "Show →"))));
 
   $("open-total").textContent = `${work.length} open`;
@@ -439,17 +438,25 @@ function gaps(list) {
     specLink(g.specs))));
 }
 
-// The GitHub account comes from account.js.
+// The GitHub account comes from account.js. The list renders first, and the account filters follow.
 async function signedIn() {
   const acct = await window.account;
-  if (!acct || !acct.login) return;
+  if (!acct || !acct.login) {
+    if (state.mine) filterBy({ mine: "" });
+    return;
+  }
   me = acct.login.toLowerCase();
-  mine = { involved: acct.involved, requested: acct.requested };
   $("f-mine-label").hidden = false;
+  update();
+  mine = await acct.mine;
+  update();
+  const n = rows.filter((r) => isOpen(r) && !isEpic(r) && r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))).length;
+  $("stats").append(el("button", { type: "button", class: "stat", title: "Show the PRs waiting for your review", onclick: () => fresh({ mine: "requested" }) },
+    el("b", {}, String(n)), el("span", {}, "PRs waiting for your review"), el("span", { class: "go", "aria-hidden": "true" }, "Show →")));
 }
 
 async function main() {
-  const [data] = await Promise.all([fetch("items.json").then((r) => r.json()), signedIn()]);
+  const data = await (await fetch("items.json")).json();
   try {
     const back = sessionStorage.getItem("return-hash");
     sessionStorage.removeItem("return-hash");
@@ -480,6 +487,7 @@ async function main() {
   window.addEventListener("hashchange", () => { readHash(); syncControls(); render(); });
   readHash();
   update();
+  signedIn();
 }
 
 main();
