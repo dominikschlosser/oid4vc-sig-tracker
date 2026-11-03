@@ -439,47 +439,17 @@ function gaps(list) {
     specLink(g.specs))));
 }
 
-// Hosts without the post service answer 404, and the account stays hidden there.
-async function account() {
-  let res;
-  try {
-    res = await fetch("api/me", { credentials: "same-origin" });
-  } catch {
-    return;
-  }
-  if (res.ok) {
-    const login = (await res.json()).login;
-    me = login.toLowerCase();
-    $("me-login").textContent = login;
-    $("me-avatar").src = `https://avatars.githubusercontent.com/${encodeURIComponent(login)}?s=48`;
-    $("me-menu").hidden = false;
-    $("f-mine-label").hidden = false;
-    try {
-      const m = await (await fetch("api/mine", { credentials: "same-origin" })).json();
-      mine = { involved: new Set(m.involved), requested: new Set(m.requested) };
-    } catch { /* the GitHub search failed, so only "Opened by me" finds items */ }
-    for (const b of document.querySelectorAll("[data-mine]")) {
-      b.addEventListener("click", () => { $("me-menu").open = false; fresh({ mine: b.dataset.mine }); });
-    }
-  } else if (res.status === 401) {
-    // GitHub sends people back to the bare page, so the filters wait in sessionStorage.
-    $("signin").hidden = false;
-    $("signin-why").hidden = false;
-    $("signin").addEventListener("click", () => {
-      try { sessionStorage.setItem("return-hash", location.hash); } catch { /* the filters are lost, nothing else */ }
-    });
-  } else {
-    return;
-  }
-  $("account").hidden = false;
-  $("signout").addEventListener("click", async () => {
-    await fetch("auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
-    location.reload();
-  });
+// The GitHub account comes from account.js.
+async function signedIn() {
+  const acct = await window.account;
+  if (!acct || !acct.login) return;
+  me = acct.login.toLowerCase();
+  mine = { involved: acct.involved, requested: acct.requested };
+  $("f-mine-label").hidden = false;
 }
 
 async function main() {
-  const [data] = await Promise.all([fetch("items.json").then((r) => r.json()), account()]);
+  const [data] = await Promise.all([fetch("items.json").then((r) => r.json()), signedIn()]);
   try {
     const back = sessionStorage.getItem("return-hash");
     sessionStorage.removeItem("return-hash");

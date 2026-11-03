@@ -214,6 +214,24 @@ def review_export(rv):
 
 
 POST_DEFAULT = {"major", "minor", "followup"}
+GITHUB_MARK = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>'
+REPO_URL = "https://github.com/dominikschlosser/oid4vc-sig-tracker"
+
+
+def site_bar():
+    """The slim site header of the review pages. account.js fills the account, like on the main page."""
+    return f'''<div class="site-bar"><div class="wrap narrow-wrap site-bar-in">
+<a class="site-brand" href="../"><img src="../logo.svg" alt="" width="28" height="28">Keycloak OpenID4VC Tracker</a>
+<a class="site-repo" href="{REPO_URL}">{GITHUB_MARK}<span>View it on GitHub</span></a>
+<div class="account" id="account" data-root="../" hidden>
+<span class="account-why" id="signin-why" hidden>Sign in to post this review</span>
+<a class="signin" id="signin" href="#" hidden>{GITHUB_MARK} Sign in</a>
+<details class="me" id="me-menu" hidden>
+<summary><img class="me-avatar" id="me-avatar" alt="" width="24" height="24"><span id="me-login"></span></summary>
+<div class="me-pop"><a href="../#mine=involved">Involving me</a><a href="../#mine=requested">Waiting for my review</a><a href="../#mine=opened">Opened by me</a><hr><button type="button" id="signout">Sign out</button></div>
+</details>
+</div>
+</div></div>'''
 
 
 def post_panel(it, rv):
@@ -221,7 +239,7 @@ def post_panel(it, rv):
     boxes = "".join(f'<label><input type="checkbox" data-sev="{s}"{" checked" if s in POST_DEFAULT else ""}> {SEVERITY[s]} <span class="muted">{n}</span></label>'
                     for s, n in counts.items() if n)
     return f'''<section class="post" id="post" data-pr="{it["n"]}" hidden>
-<div class="post-head"><b>Post to GitHub</b><span class="muted"><span id="post-user"></span> <button class="link-btn" id="post-logout" type="button" hidden>Sign out</button></span></div>
+<div class="post-head"><b>Post to GitHub</b></div>
 <p class="muted">Posts the summary and the picked comments as a review on <a href="{it["url"]}">#{it["n"]}</a>, in your name.</p>
 {f'<div class="post-sev">{boxes}</div>' if boxes else ""}
 <div class="post-actions"><a class="btn btn-gh" id="post-login" href="#" hidden><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Sign in with GitHub to post</a><button class="btn" id="post-preview" type="button" hidden></button></div>
@@ -264,11 +282,12 @@ def review_page(it, rv, head):
 <title>Review of #{it["n"]}</title>
 <link rel="icon" href="../logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../style.css">
+<script src="../account.js" defer></script>
 <script src="../review.js" defer></script>
 </head>
 <body class="review-page">
-<header class="top"><div class="wrap narrow-wrap">
-<a class="back" href="../">← Keycloak OpenID4VC Tracker</a>
+{site_bar()}
+<header class="top pr-top"><div class="wrap narrow-wrap">
 <h1>{html.escape(it["title"])} <a class="pr-n" href="{it["url"]}">#{it["n"]}</a></h1>
 <p class="sub"><span class="badge s-open">Open</span> {html.escape(it["author"])} wants to merge <code>{it["add"]:,}</code> added and <code>{it["del_"]:,}</code> deleted lines in {it["files"]} files</p>
 </div></header>

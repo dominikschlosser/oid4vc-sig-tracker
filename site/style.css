@@ -312,3 +312,15 @@ button.f.rv-state { font-size: 12px; font-weight: 600; }
 .md code { padding: 1px 5px; border-radius: 4px; background: var(--chip); font-size: 12px; }
 .md sub { color: var(--muted); }
 .post-confirm { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--bg); flex-wrap: wrap; }
+.me-pop a { display: block; padding: 7px 10px; border-radius: 6px; color: var(--text); text-decoration: none; }
+.me-pop a:hover { background: var(--chip); }
+.site-bar { background: var(--panel); border-bottom: 1px solid var(--border); }
+.site-bar-in { display: flex; align-items: center; gap: 16px; min-height: 52px; }
+.site-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; text-decoration: none; }
+.site-brand:hover { color: var(--accent); }
+.site-repo { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); font-size: 13px; text-decoration: none; }
+.site-repo:hover { color: var(--text); }
+.site-bar .account { margin: 0; }
+.pr-top { padding-top: 16px; }
+@media (max-width: 760px) { .site-repo span { display: none; } .site-brand { font-size: 14px; } }
+@media (max-width: 480px) { #me-login { display: none; } .me summary { padding-right: 8px; } .site-brand { white-space: nowrap; } }

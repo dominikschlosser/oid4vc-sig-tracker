@@ -1,6 +1,7 @@
 "use strict";
 
 // The post panel stays hidden on hosts without the post service, such as a self-hosted static copy.
+// account.js runs first and finds out.
 (async () => {
   const panel = document.getElementById("post");
   if (!panel) return;
@@ -8,25 +9,15 @@
   const picks = [...document.querySelectorAll(".pick input")];
   const sevBoxes = [...panel.querySelectorAll("input[data-sev]")];
   const msg = $("post-msg");
-  let login;
-
-  let me;
-  try {
-    me = await fetch("../api/me", { credentials: "same-origin" });
-  } catch {
-    return;
-  }
-  if (me.status === 401) {
+  const acct = await window.account;
+  if (!acct) return;
+  const login = acct.login;
+  if (login) {
+    $("post-preview").hidden = false;
+  } else {
     const signIn = $("post-login");
     signIn.href = `../auth/login?return=${encodeURIComponent(location.pathname)}`;
     signIn.hidden = false;
-  } else if (me.ok) {
-    login = (await me.json()).login;
-    $("post-user").textContent = `Signed in as ${login} ·`;
-    $("post-preview").hidden = false;
-    $("post-logout").hidden = false;
-  } else {
-    return;
   }
   panel.hidden = false;
   document.querySelectorAll(".pick").forEach((p) => (p.hidden = false));
@@ -124,10 +115,5 @@
       say(e.message, "err");
       send.disabled = false;
     }
-  });
-
-  $("post-logout").addEventListener("click", async () => {
-    await fetch("../auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
-    location.reload();
   });
 })();
