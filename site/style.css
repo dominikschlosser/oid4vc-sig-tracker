@@ -281,3 +281,6 @@ button.f.rv-state { font-size: 12px; font-weight: 600; }
 .post-msg.ok { color: var(--open); }
 .post-msg.err { color: var(--closed); }
 .pick { margin-left: auto; font-size: 12px; color: var(--muted); }
+.account { text-align: center; font-size: 13px; color: var(--muted); }
+.account b { color: var(--text); }
+.link-btn { font-size: inherit; }

@@ -17,7 +17,7 @@ const REVIEW_RANK = { approved: 0, changes: 1, reviewed: 2, draft: 3, none: 4 };
 // Within a relevance level, the next PR to act on is one ready to merge, then one nobody has reviewed.
 const NEXT_RANK = { approved: 2, none: 1, reviewed: 0 };
 const AI_RANK = { major: 2, minor: 1, clean: 0 };
-const DEFAULTS = { q: "", state: "open", rating: "", basis: "", topic: "", review: "", fix: "", ai: "", parent: "", sort: "rating", dir: "desc" };
+const DEFAULTS = { q: "", state: "open", rating: "", basis: "", topic: "", review: "", fix: "", ai: "", mine: "", parent: "", sort: "rating", dir: "desc" };
 // One vendored PR changes 1.5 million lines, so the scale tops out here.
 const SCALE_LINES = 5000;
 
@@ -26,6 +26,8 @@ let rows = [];
 let specs = {};
 let byNumber = new Map();
 let state = { ...DEFAULTS };
+// The GitHub login of the signed-in visitor, or null.
+let me = null;
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
@@ -117,6 +119,7 @@ function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   state = { ...DEFAULTS };
   for (const k of Object.keys(DEFAULTS)) if (p.has(k) && valid(k, p.get(k))) state[k] = p.get(k);
+  if (!me) state.mine = "";
 }
 
 function writeHash() {
@@ -145,6 +148,8 @@ function matches(r) {
     if (state.ai === "none" ? !open.some((p) => !p.ai) : !open.some((p) => p.ai && (state.ai === "any" || p.ai.level === state.ai || (state.ai === "fix" && p.ai.level !== "clean")))) return false;
   }
   if (state.fix === "none" && r.prs.length) return false;
+  if (state.mine === "mine" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me || x.assignees.some((a) => a.toLowerCase() === me))) return false;
+  if (state.mine === "review" && !r.prs.some((p) => (p.reviews || []).some(([who]) => who.toLowerCase() === me))) return false;
   if (state.q) {
     const prs = r.prs.map((p) => `${p.n} ${p.title} ${p.author}`).join(" ");
     const hay = `${r.n} ${r.title} ${r.author} ${r.labels.join(" ")} ${r.topics.join(" ")} ${r.note} ${r.milestone} ${(r.same || []).join(" ")} ${prs}`.toLowerCase();
@@ -321,7 +326,7 @@ function render() {
 // The filters in use, each with the patch that removes it.
 function activeFilters() {
   const out = [];
-  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai"]) {
+  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "mine"]) {
     if (state[k] === DEFAULTS[k]) continue;
     const name = $(`f-${k}`).closest("label").firstChild.textContent.trim(), value = $(`f-${k}`).selectedOptions[0].textContent;
     out.push([value.startsWith(name) ? value : `${name}: ${value}`, { [k]: DEFAULTS[k] }]);
@@ -333,7 +338,7 @@ function activeFilters() {
 
 function syncControls() {
   $("q").value = state.q;
-  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "sort"]) $(`f-${k}`).value = state[k];
+  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "mine", "sort"]) $(`f-${k}`).value = state[k];
   for (const th of document.querySelectorAll("th[data-sort]")) {
     th.setAttribute("aria-sort", th.dataset.sort === state.sort ? (state.dir === "asc" ? "ascending" : "descending") : "none");
   }
@@ -430,8 +435,42 @@ function gaps(list) {
     specLink(g.specs))));
 }
 
+// Hosts without the post service answer 404, and the account stays hidden there.
+async function account() {
+  let res;
+  try {
+    res = await fetch("api/me", { credentials: "same-origin" });
+  } catch {
+    return;
+  }
+  if (res.ok) {
+    me = (await res.json()).login.toLowerCase();
+    $("me-login").textContent = me;
+    $("signed-in").hidden = false;
+    $("f-mine-label").hidden = false;
+  } else if (res.status === 401) {
+    // GitHub sends people back to the bare page, so the filters wait in sessionStorage.
+    $("signin").hidden = false;
+    $("signin").addEventListener("click", () => {
+      try { sessionStorage.setItem("return-hash", location.hash); } catch { /* the filters are lost, nothing else */ }
+    });
+  } else {
+    return;
+  }
+  $("account").hidden = false;
+  $("signout").addEventListener("click", async () => {
+    await fetch("auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
+    location.reload();
+  });
+}
+
 async function main() {
-  const data = await (await fetch("items.json")).json();
+  const [data] = await Promise.all([fetch("items.json").then((r) => r.json()), account()]);
+  try {
+    const back = sessionStorage.getItem("return-hash");
+    sessionStorage.removeItem("return-hash");
+    if (back && !location.hash) history.replaceState(null, "", back);
+  } catch { /* nothing to restore */ }
   all = data.items;
   specs = data.specs;
   byNumber = new Map(all.map((i) => [i.n, i]));
@@ -444,7 +483,7 @@ async function main() {
   gaps(data.gaps);
 
   $("q").addEventListener("input", (e) => filterBy({ q: e.target.value }));
-  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai"]) $(`f-${k}`).addEventListener("change", (e) => filterBy({ [k]: e.target.value }));
+  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "mine"]) $(`f-${k}`).addEventListener("change", (e) => filterBy({ [k]: e.target.value }));
   $("f-sort").addEventListener("change", (e) => filterBy({ sort: e.target.value, dir: "desc" }));
   $("reset").addEventListener("click", () => fresh({}));
   $("copy-status").addEventListener("click", copyStatus);
