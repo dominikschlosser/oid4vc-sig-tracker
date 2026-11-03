@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -18,7 +19,16 @@ type fakeGitHub struct {
 	reviews []reviewRequest
 	revoked bool
 	queries []string
+	lock    *sync.Mutex // set by tests that call the fake from many goroutines
 	srv     *httptest.Server
+}
+
+func (g *fakeGitHub) guard(f func()) {
+	if g.lock != nil {
+		g.lock.Lock()
+		defer g.lock.Unlock()
+	}
+	f()
 }
 
 func newFakeGitHub(t *testing.T) *fakeGitHub {
@@ -49,7 +59,7 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 			writeJSON(w, 422, map[string]string{"message": "Line could not be resolved"})
 			return
 		}
-		g.reviews = append(g.reviews, req)
+		g.guard(func() { g.reviews = append(g.reviews, req) })
 		writeJSON(w, 200, map[string]string{"html_url": "https://github.com/keycloak/keycloak/pull/7#pullrequestreview-1"})
 	})
 	mux.HandleFunc("POST /markdown", func(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +68,7 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 		_, _ = w.Write([]byte("<p>" + in["text"] + "</p>"))
 	})
 	mux.HandleFunc("GET /search/issues", func(w http.ResponseWriter, r *http.Request) {
-		g.queries = append(g.queries, r.URL.Query().Get("q"))
+		g.guard(func() { g.queries = append(g.queries, r.URL.Query().Get("q")) })
 		items := []map[string]int{{"number": 7}}
 		if strings.Contains(r.URL.Query().Get("q"), "involves:") {
 			items = append(items, map[string]int{"number": 3})
@@ -91,11 +101,14 @@ func setup(t *testing.T) (*fakeGitHub, *httptest.Server, *http.Client) {
 	app := httptest.NewTLSServer(s.routes())
 	t.Cleanup(app.Close)
 	s.publicURL = app.URL
+	return g, app, browser(app)
+}
+
+// browser is one visitor with their own cookies.
+func browser(app *httptest.Server) *http.Client {
 	jar, _ := cookiejar.New(nil)
-	c := app.Client()
-	c.Jar = jar
-	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return g, app, c
+	return &http.Client{Transport: app.Client().Transport, Jar: jar,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 }
 
 func signIn(t *testing.T, app *httptest.Server, c *http.Client) {
@@ -257,5 +270,35 @@ func TestMineSearchesInvolvementAndReviewRequests(t *testing.T) {
 	}
 	if len(g.queries) != 2 || g.queries[0] != "repo:keycloak/keycloak involves:alice" || g.queries[1] != "repo:keycloak/keycloak is:pr is:open review-requested:alice" {
 		t.Fatalf("queries %q, the second call should come from the cache", g.queries)
+	}
+}
+
+func TestManyUsersAtOnce(t *testing.T) {
+	g, app, _ := setup(t)
+	var mu sync.Mutex
+	g.lock = &mu
+	var wg sync.WaitGroup
+	errs := make(chan string, 40)
+	for range 20 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c := browser(app)
+			signIn(t, app, c)
+			if res, err := c.Get(app.URL + "/api/mine"); err != nil || res.StatusCode != 200 {
+				errs <- "mine failed"
+			}
+			if res, _ := post(t, app, c, app.URL, `{"ids":[1]}`); res.StatusCode != 200 {
+				errs <- "post failed"
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for e := range errs {
+		t.Error(e)
+	}
+	if len(g.reviews) != 20 {
+		t.Fatalf("%d reviews posted, want 20", len(g.reviews))
 	}
 }
