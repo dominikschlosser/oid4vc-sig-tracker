@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -27,7 +28,17 @@ var returnPath = regexp.MustCompile(`^/reviews/[0-9]+\.html$`)
 type session struct {
 	token, login string
 	expires      time.Time
+	mine         *mine
 }
+
+// mine holds the items GitHub search finds for the signed-in person.
+type mine struct {
+	Involved  []int `json:"involved"`
+	Requested []int `json:"requested"`
+	at        time.Time
+}
+
+const mineTTL = 10 * time.Minute
 
 type server struct {
 	clientID, clientSecret string
@@ -102,7 +113,9 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /auth/callback", s.callback)
 	mux.HandleFunc("POST /auth/logout", s.sameOrigin(s.logout))
 	mux.HandleFunc("GET /api/me", s.me)
+	mux.HandleFunc("GET /api/mine", s.mine)
 	mux.HandleFunc("POST /api/reviews/{n}", s.sameOrigin(s.post))
+	mux.HandleFunc("POST /api/reviews/{n}/preview", s.sameOrigin(s.preview))
 	return mux
 }
 
@@ -325,7 +338,8 @@ func (s *server) build(n int, e export, ids []int, inline bool) (reviewRequest, 
 		}
 		seen[id] = true
 		if inline && f.InDiff {
-			req.Comments = append(req.Comments, reviewComment{Path: f.Path, Line: f.Line, Side: "RIGHT", Body: f.Body})
+			source := fmt.Sprintf("<sub>Claude Code wrote this comment in its [review on the Keycloak OpenID4VC tracker](%s/reviews/%d.html#c%d).</sub>", s.publicURL, n, f.ID)
+			req.Comments = append(req.Comments, reviewComment{Path: f.Path, Line: f.Line, Side: "RIGHT", Body: f.Body + "\n\n" + source})
 			continue
 		}
 		where := ""
@@ -334,17 +348,18 @@ func (s *server) build(n int, e export, ids []int, inline bool) (reviewRequest, 
 		}
 		body = append(body, "---\n\n"+where+f.Body)
 	}
-	body = append(body, fmt.Sprintf("<sub>[Full review](%s/reviews/%d.html) on the Keycloak OpenID4VC tracker.</sub>", s.publicURL, n))
+	body = append(body, fmt.Sprintf("<sub>Posted from the [full review](%s/reviews/%d.html) on the Keycloak OpenID4VC tracker.</sub>", s.publicURL, n))
 	req.Body = strings.Join(body, "\n\n")
 	return req, nil
 }
 
-func (s *server) post(w http.ResponseWriter, r *http.Request) {
-	_, v, ok := s.session(r)
-	if !ok {
+// picked reads a post or preview request. It answers the error itself and returns ok false then.
+func (s *server) picked(w http.ResponseWriter, r *http.Request) (v session, n int, e export, req reviewRequest, ids []int, ok bool) {
+	if _, v, ok = s.session(r); !ok {
 		fail(w, http.StatusUnauthorized, "Your sign-in expired. Reload the page and sign in again.")
 		return
 	}
+	ok = false
 	n, err := strconv.Atoi(r.PathValue("n"))
 	if err != nil || n <= 0 {
 		fail(w, http.StatusNotFound, "No such pull request.")
@@ -357,9 +372,20 @@ func (s *server) post(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "The request is malformed.")
 		return
 	}
-	e, err := s.load(n)
-	if err != nil {
+	if e, err = s.load(n); err != nil {
 		fail(w, http.StatusNotFound, "This pull request has no review.")
+		return
+	}
+	if req, err = s.build(n, e, in.IDs, true); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	return v, n, e, req, in.IDs, true
+}
+
+func (s *server) post(w http.ResponseWriter, r *http.Request) {
+	v, n, e, req, ids, ok := s.picked(w, r)
+	if !ok {
 		return
 	}
 	var pr struct {
@@ -376,11 +402,6 @@ func (s *server) post(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusConflict, "The pull request changed since this review. The next daily run reviews the new commits.")
 		return
 	}
-	req, err := s.build(n, e, in.IDs, true)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
 	var out struct {
 		HTMLURL string `json:"html_url"`
 	}
@@ -388,7 +409,7 @@ func (s *server) post(w http.ResponseWriter, r *http.Request) {
 	code, err := s.github(http.MethodPost, path, v.token, req, &out)
 	if code == http.StatusUnprocessableEntity && len(req.Comments) > 0 {
 		// A line that GitHub doesn't count as part of the diff fails the whole review.
-		req, _ = s.build(n, e, in.IDs, false)
+		req, _ = s.build(n, e, ids, false)
 		code, err = s.github(http.MethodPost, path, v.token, req, &out)
 	}
 	if err != nil {
@@ -402,4 +423,117 @@ func (s *server) post(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("posted #%d as %s with %d inline comments", n, v.login, len(req.Comments))
 	writeJSON(w, http.StatusOK, map[string]string{"url": out.HTMLURL})
+}
+
+// preview renders the review exactly as post would send it, with GitHub's own Markdown renderer.
+func (s *server) preview(w http.ResponseWriter, r *http.Request) {
+	v, _, _, req, _, ok := s.picked(w, r)
+	if !ok {
+		return
+	}
+	type comment struct {
+		Path string `json:"path"`
+		Line int    `json:"line"`
+		HTML string `json:"html"`
+	}
+	out := struct {
+		Body     string    `json:"body"`
+		Comments []comment `json:"comments"`
+	}{Comments: make([]comment, len(req.Comments))}
+	texts := []string{req.Body}
+	for _, c := range req.Comments {
+		texts = append(texts, c.Body)
+	}
+	html := make([]string, len(texts))
+	errs := make([]error, len(texts))
+	var wg sync.WaitGroup
+	for i, t := range texts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			html[i], errs[i] = s.markdown(t, v.token)
+		}()
+	}
+	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			fail(w, http.StatusBadGateway, err.Error())
+			return
+		}
+	}
+	out.Body = html[0]
+	for i, c := range req.Comments {
+		out.Comments[i] = comment{Path: c.Path, Line: c.Line, HTML: html[i+1]}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *server) markdown(text, token string) (string, error) {
+	b, _ := json.Marshal(map[string]string{"text": text, "mode": "gfm", "context": s.repo})
+	req, _ := http.NewRequest(http.MethodPost, s.githubAPI+"/markdown", bytes.NewReader(b))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	res, err := s.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = res.Body.Close() }()
+	out, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if err == nil && res.StatusCode != http.StatusOK {
+		err = fmt.Errorf("GitHub answered %d to the preview", res.StatusCode)
+	}
+	return string(out), err
+}
+
+// mine answers the items that involve the signed-in person, and the open PRs that wait for their
+// review. GitHub search counts review requests to teams they belong to, such as CODEOWNERS teams.
+func (s *server) mine(w http.ResponseWriter, r *http.Request) {
+	id, v, ok := s.session(r)
+	if !ok {
+		fail(w, http.StatusUnauthorized, "Not signed in.")
+		return
+	}
+	if v.mine != nil && time.Since(v.mine.at) < mineTTL {
+		writeJSON(w, http.StatusOK, v.mine)
+		return
+	}
+	m := &mine{at: time.Now()}
+	var err error
+	if m.Involved, err = s.search(v.token, "involves:"+v.login); err == nil {
+		m.Requested, err = s.search(v.token, "is:pr is:open review-requested:"+v.login)
+	}
+	if err != nil {
+		fail(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	s.mu.Lock()
+	if cur, ok := s.sessions[id]; ok {
+		cur.mine = m
+		s.sessions[id] = cur
+	}
+	s.mu.Unlock()
+	writeJSON(w, http.StatusOK, m)
+}
+
+// search returns the issue and PR numbers of a GitHub search in the repository, at most 1000.
+func (s *server) search(token, q string) ([]int, error) {
+	nums := []int{}
+	for page := 1; page <= 10; page++ {
+		var res struct {
+			Items []struct {
+				Number int `json:"number"`
+			} `json:"items"`
+		}
+		query := url.Values{"q": {"repo:" + s.repo + " " + q}, "per_page": {"100"}, "page": {strconv.Itoa(page)}}
+		if _, err := s.github(http.MethodGet, "/search/issues?"+query.Encode(), token, nil, &res); err != nil {
+			return nil, err
+		}
+		for _, it := range res.Items {
+			nums = append(nums, it.Number)
+		}
+		if len(res.Items) < 100 {
+			break
+		}
+	}
+	return nums, nil
 }

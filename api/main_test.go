@@ -17,6 +17,7 @@ type fakeGitHub struct {
 	refuse  bool // answers 422 to reviews with inline comments
 	reviews []reviewRequest
 	revoked bool
+	queries []string
 	srv     *httptest.Server
 }
 
@@ -50,6 +51,19 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 		}
 		g.reviews = append(g.reviews, req)
 		writeJSON(w, 200, map[string]string{"html_url": "https://github.com/keycloak/keycloak/pull/7#pullrequestreview-1"})
+	})
+	mux.HandleFunc("POST /markdown", func(w http.ResponseWriter, r *http.Request) {
+		var in map[string]string
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		_, _ = w.Write([]byte("<p>" + in["text"] + "</p>"))
+	})
+	mux.HandleFunc("GET /search/issues", func(w http.ResponseWriter, r *http.Request) {
+		g.queries = append(g.queries, r.URL.Query().Get("q"))
+		items := []map[string]int{{"number": 7}}
+		if strings.Contains(r.URL.Query().Get("q"), "involves:") {
+			items = append(items, map[string]int{"number": 3})
+		}
+		writeJSON(w, 200, map[string]any{"items": items})
 	})
 	mux.HandleFunc("DELETE /applications/id/token", func(w http.ResponseWriter, r *http.Request) {
 		g.revoked = true
@@ -125,6 +139,9 @@ func TestPostsPickedCommentsInline(t *testing.T) {
 	if r.CommitID != "abc123" || r.Event != "COMMENT" || len(r.Comments) != 1 || r.Comments[0].Path != "A.java" || r.Comments[0].Line != 10 {
 		t.Fatalf("review %+v", r)
 	}
+	if !strings.Contains(r.Comments[0].Body, "/reviews/7.html#c0") {
+		t.Fatalf("inline comment without its source: %q", r.Comments[0].Body)
+	}
 	if !strings.Contains(r.Body, "outside") || !strings.Contains(r.Body, "/blob/abc123/B.java#L3") || strings.Contains(r.Body, "nit") {
 		t.Fatalf("body %q", r.Body)
 	}
@@ -195,5 +212,50 @@ func TestLogoutRevokesTheToken(t *testing.T) {
 	res, _ := c.Get(app.URL + "/api/me")
 	if res.StatusCode != 401 {
 		t.Fatalf("me after logout %d", res.StatusCode)
+	}
+}
+
+func TestPreviewRendersWhatPostSends(t *testing.T) {
+	g, app, c := setup(t)
+	signIn(t, app, c)
+	req, _ := http.NewRequest("POST", app.URL+"/api/reviews/7/preview", strings.NewReader(`{"ids":[0,1]}`))
+	req.Header.Set("Origin", app.URL)
+	res, err := c.Do(req)
+	if err != nil || res.StatusCode != 200 {
+		t.Fatalf("preview answered %v %v", res, err)
+	}
+	var out struct {
+		Body     string `json:"body"`
+		Comments []struct {
+			Path string `json:"path"`
+			Line int    `json:"line"`
+			HTML string `json:"html"`
+		} `json:"comments"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&out)
+	if !strings.Contains(out.Body, "outside") || len(out.Comments) != 1 || out.Comments[0].Path != "A.java" || !strings.Contains(out.Comments[0].HTML, "inline") {
+		t.Fatalf("preview %+v", out)
+	}
+	if len(g.reviews) != 0 {
+		t.Fatal("the preview posted a review")
+	}
+}
+
+func TestMineSearchesInvolvementAndReviewRequests(t *testing.T) {
+	g, app, c := setup(t)
+	signIn(t, app, c)
+	for range 2 {
+		res, err := c.Get(app.URL + "/api/mine")
+		if err != nil || res.StatusCode != 200 {
+			t.Fatalf("mine answered %v %v", res, err)
+		}
+		var m struct{ Involved, Requested []int }
+		_ = json.NewDecoder(res.Body).Decode(&m)
+		if len(m.Involved) != 2 || len(m.Requested) != 1 {
+			t.Fatalf("mine %+v", m)
+		}
+	}
+	if len(g.queries) != 2 || g.queries[0] != "repo:keycloak/keycloak involves:alice" || g.queries[1] != "repo:keycloak/keycloak is:pr is:open review-requested:alice" {
+		t.Fatalf("queries %q, the second call should come from the cache", g.queries)
 	}
 }

@@ -28,6 +28,8 @@ let byNumber = new Map();
 let state = { ...DEFAULTS };
 // The GitHub login of the signed-in visitor, or null.
 let me = null;
+// Numbers GitHub search finds for them: items involving them, and open PRs waiting for their review.
+let mine = { involved: new Set(), requested: new Set() };
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
@@ -148,8 +150,9 @@ function matches(r) {
     if (state.ai === "none" ? !open.some((p) => !p.ai) : !open.some((p) => p.ai && (state.ai === "any" || p.ai.level === state.ai || (state.ai === "fix" && p.ai.level !== "clean")))) return false;
   }
   if (state.fix === "none" && r.prs.length) return false;
-  if (state.mine === "mine" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me || x.assignees.some((a) => a.toLowerCase() === me))) return false;
-  if (state.mine === "review" && !r.prs.some((p) => (p.reviews || []).some(([who]) => who.toLowerCase() === me))) return false;
+  if (state.mine === "opened" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me)) return false;
+  if (state.mine === "involved" && ![r, ...r.prs].some((x) => mine.involved.has(x.n))) return false;
+  if (state.mine === "requested" && !r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))) return false;
   if (state.q) {
     const prs = r.prs.map((p) => `${p.n} ${p.title} ${p.author}`).join(" ");
     const hay = `${r.n} ${r.title} ${r.author} ${r.labels.join(" ")} ${r.topics.join(" ")} ${r.note} ${r.milestone} ${(r.same || []).join(" ")} ${prs}`.toLowerCase();
@@ -357,6 +360,7 @@ function summary() {
     [work.filter((r) => r.rating === "blocker").length, "blocker", { rating: "blocker" }],
     [work.filter((r) => RANK[r.rating] >= RANK.high && !r.prs.length).length, "blockers or high items without a PR", { rating: "high+", fix: "none" }],
   ];
+  if (me) tiles.push([work.filter((r) => r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))).length, "PRs waiting for your review", { mine: "requested" }]);
   $("stats").replaceChildren(...tiles.map(([n, label, f]) => el("button", { type: "button", class: "stat", title: `Show the ${label}`, onclick: () => fresh(f) }, el("b", {}, String(n)), el("span", {}, n === 1 || label !== "blocker" ? label : "blockers"), el("span", { class: "go", "aria-hidden": "true" }, "Show →"))));
 
   $("open-total").textContent = `${work.length} open`;
@@ -444,13 +448,23 @@ async function account() {
     return;
   }
   if (res.ok) {
-    me = (await res.json()).login.toLowerCase();
-    $("me-login").textContent = me;
-    $("signed-in").hidden = false;
+    const login = (await res.json()).login;
+    me = login.toLowerCase();
+    $("me-login").textContent = login;
+    $("me-avatar").src = `https://avatars.githubusercontent.com/${encodeURIComponent(login)}?s=48`;
+    $("me-menu").hidden = false;
     $("f-mine-label").hidden = false;
+    try {
+      const m = await (await fetch("api/mine", { credentials: "same-origin" })).json();
+      mine = { involved: new Set(m.involved), requested: new Set(m.requested) };
+    } catch { /* the GitHub search failed, so only "Opened by me" finds items */ }
+    for (const b of document.querySelectorAll("[data-mine]")) {
+      b.addEventListener("click", () => { $("me-menu").open = false; fresh({ mine: b.dataset.mine }); });
+    }
   } else if (res.status === 401) {
     // GitHub sends people back to the bare page, so the filters wait in sessionStorage.
     $("signin").hidden = false;
+    $("signin-why").hidden = false;
     $("signin").addEventListener("click", () => {
       try { sessionStorage.setItem("return-hash", location.hash); } catch { /* the filters are lost, nothing else */ }
     });
