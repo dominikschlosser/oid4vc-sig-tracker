@@ -26,6 +26,7 @@ let rows = [];
 let specs = {};
 let byNumber = new Map();
 let state = { ...DEFAULTS };
+const PERSONAL = { opened: "Opened by me", involved: "Involving me", requested: "Waiting for my review" };
 // The GitHub login of the signed-in visitor, or null.
 let me = null;
 // Numbers GitHub search finds for them: items involving them, and open PRs waiting for their review.
@@ -111,6 +112,8 @@ const isEpic = (r) => Boolean(r.kids);
 function valid(k, v) {
   if (k === "q") return true;
   if (k === "dir") return v === "asc" || v === "desc";
+  // The personal options exist only after sign-in, which finishes after the hash is read.
+  if (k === "who" && Object.hasOwn(PERSONAL, v)) return true;
   if (k === "parent") return rows.some((r) => isEpic(r) && String(r.n) === v);
   if (k === "sort") return document.querySelector(`th[data-sort="${CSS.escape(v)}"]`) !== null || [...$("f-sort").options].some((o) => o.value === v);
   const select = $(`f-${k}`);
@@ -343,6 +346,7 @@ function activeFilters() {
 function syncControls() {
   $("q").value = state.q;
   for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "who", "sort"]) $(`f-${k}`).value = state[k];
+  if ($("f-who").selectedIndex < 0) $("f-who").value = "";
   for (const th of document.querySelectorAll("th[data-sort]")) {
     th.setAttribute("aria-sort", th.dataset.sort === state.sort ? (state.dir === "asc" ? "ascending" : "descending") : "none");
   }
@@ -447,7 +451,7 @@ async function signedIn() {
     return;
   }
   me = acct.login.toLowerCase();
-  $("f-who-you").hidden = false;
+  $("f-who").append(el("optgroup", { label: "You" }, ...Object.entries(PERSONAL).map(([v, t]) => el("option", { value: v }, t))));
   update();
   mine = await acct.mine;
   update();
