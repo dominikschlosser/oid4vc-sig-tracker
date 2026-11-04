@@ -22,7 +22,7 @@ Check the production value of every finding before you keep it:
 - Drop hardening that the spec or the trust model doesn't ask for.
 A short list of findings that matter beats a long list. Missing tests count only for behaviour that would break silently and matters in production.
 
-Leave out style points unless they hide a bug. Don't repeat points that reviewers already raised and the author already fixed. A choice that the description, a comment, the code or .pr/notes.md calls deliberate is not a finding. Refer to the notes as what the author says, never by their file name. Report it only if it is clearly wrong, and then say why the stated reason doesn't hold.
+Leave out style points unless they hide a bug. Leave out points that the author already fixed. A point that someone raised in a comment and that the code still has is a finding. Report it at the severity it deserves and say who raised it. A choice that the description, a comment, the code or .pr/notes.md calls deliberate is not a finding. Refer to the notes as what the author says, never by their file name. Report it only if it is clearly wrong, and then say why the stated reason doesn't hold.
 
 PRs should stay small. A gap that is real but doesn't make this PR worse is a follow-up: tests for edge cases, hardening beyond the goal of the PR, and problems that existed before it. Use minor only for problems the PR itself introduces, or for missing tests of its main behaviour. Give an honest verdict. Approve when you find nothing that must change.
 

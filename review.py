@@ -73,6 +73,13 @@ def context(tree, patch, f):
     return [[" ", None, i + 1, lines[i]] for i in range(max(0, f["line"] - 6), min(f["line"], len(lines)))]
 
 
+def discussed(pr):
+    """When a person last commented on or reviewed the PR. Bots don't count."""
+    dates = [c["createdAt"] for c in pr.get("lastComments", {}).get("nodes", []) if (c["author"] or {}).get("__typename") == "User"]
+    dates += [r["submittedAt"] or "" for r in pr.get("lastReviews", {}).get("nodes", []) if (r["author"] or {}).get("__typename") == "User"]
+    return max(dates, default="")
+
+
 def review(n, sha, base, notes):
     git("fetch", "-q", "origin", f"+refs/heads/{base}:refs/heads/{base}", f"+refs/pull/{n}/head:refs/pr/{n}")
     if git("rev-parse", f"refs/pr/{n}").strip() != sha:
@@ -141,7 +148,7 @@ def clean(r):
 def main():
     raw = {i["number"]: i for i in json.load(open("raw.json"))["items"]}
     reviews = json.load(open("reviews.json")) if os.path.exists("reviews.json") else {}
-    # Design decisions the PR author confirmed. A changed note means a new review.
+    # Design decisions the PR author confirmed.
     notes = json.load(open("review-notes.json"))
     open_prs = {n: i for n, i in raw.items() if i["__typename"] == "PullRequest" and i["state"] == "OPEN"}
     if sys.argv[1:]:
@@ -150,7 +157,9 @@ def main():
         # A PR inherits the relevance of the issues it closes.
         items = {it["n"]: it for it in json.load(open("site/items.json"))["items"]}
         rank = lambda n: max([RANK[items[n]["rating"]] if n in items else 0] + [RANK[items[l]["rating"]] for l in items.get(n, {}).get("links", []) if l in items])
-        done = lambda n: (reviews.get(str(n), {}).get("sha"), reviews.get(str(n), {}).get("notes", [])) == (open_prs[n]["headRefOid"], notes.get(str(n), []))
+        # A new commit, a changed note or a new comment by a person means a new review.
+        done = lambda n: (reviews.get(str(n), {}).get("sha"), reviews.get(str(n), {}).get("notes", []), reviews.get(str(n), {}).get("discussed", "")) == (
+            open_prs[n]["headRefOid"], notes.get(str(n), []), discussed(open_prs[n]))
         todo = [n for n in open_prs if not done(n)]
         todo = sorted(todo, key=lambda n: (open_prs[n]["isDraft"], -rank(n), -n))[:MAX]
     start = time.time()
@@ -163,7 +172,7 @@ def main():
             except Exception as e:
                 print(f"#{n} failed: {e}", file=sys.stderr, flush=True)
                 continue
-            reviews[str(n)] = {"sha": open_prs[n]["headRefOid"], "notes": notes.get(str(n), []), "date": time.strftime("%Y-%m-%d"),
+            reviews[str(n)] = {"sha": open_prs[n]["headRefOid"], "notes": notes.get(str(n), []), "discussed": discussed(open_prs[n]), "date": time.strftime("%Y-%m-%d"),
                           "model": MODEL, "effort": EFFORT, **r}
             json.dump(reviews, open("reviews.json", "w"), indent=1)
             print(f"#{n} {r['verdict']} with {len(r['findings'])} findings after {int(time.time() - start)} s", flush=True)

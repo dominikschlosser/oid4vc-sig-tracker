@@ -51,7 +51,9 @@ FIELDS = """
    additions deletions changedFiles labels(first:30){nodes{name}} comments{totalCount} reactions{totalCount}
    milestone{title} reviewDecision headRefOid baseRefName assignees(first:5){nodes{login}}
    closingIssuesReferences(first:10){nodes{number}}
-   latestReviews(first:10){nodes{state author{__typename login}}} }
+   latestReviews(first:10){nodes{state author{__typename login}}}
+   lastComments:comments(last:10){nodes{createdAt author{__typename}}}
+   lastReviews:reviews(last:10){nodes{submittedAt author{__typename}}} }
 """
 
 
