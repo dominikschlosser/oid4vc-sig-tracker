@@ -2,19 +2,68 @@
  "52883": {
   "sha": "3c328f58a1dfc99daa445af8c36d4b8a23a3cf23",
   "notes": [],
-  "date": "2026-11-03",
-  "verdict": "approve",
-  "headline": "Correct and small reuse of the shared X.509 chain validation for client attestations.",
-  "summary": "The PR lets `AttestationBasedClientAuthenticator.findAttesterKey` resolve the attester key from the `x5c` JOSE header. It validates the chain with `TrustMaterialResolver.validateX509Chain` against the X.509 anchors of the client's `attester_trust_idps` and keeps the `kid` lookup as a fallback. The chain checks are the same ones key attestation uses at the credential endpoint, so they cover leaf validity, end entity status, digital signature key usage, required EKUs and a PKIX path to a pinned anchor. The signature is still verified against the resolved leaf key, and every failure becomes `invalid_client_attestation`. I found nothing that must change.",
-  "eudi": "EUDI Wallet Providers sign Wallet Instance Attestations with a certificate in `x5c` that chains to a trusted list anchor, as HAIP 1.0 expects for client attestations. Keycloak can now accept these attestations at the token endpoint without a per attester JWKS.",
-  "good": [
-   "The PR reuses `TrustMaterialResolver.validateX509Chain` and `X509CertificateChainValidator` instead of adding a second chain validator.",
-   "When no X.509 anchors are configured, the code falls back to `kid`, so clients that send both `kid` and `x5c` keep working in JWKS only setups.",
-   "The tests cover an `x5c` attestation without `kid`, an untrusted chain that must fail with `invalid_client_attestation`, and the `kid` fallback."
-  ],
-  "findings": [],
+  "discussed": "2026-11-03T10:53:35Z",
+  "date": "2026-11-04",
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "high",
+  "verdict": "approve",
+  "headline": "ABCA now resolves the attester key from a trusted `x5c` chain, ready to merge.",
+  "summary": "The PR lets `findAttesterKey` take the attester key from the `x5c` header. It validates the chain against the X.509 trust anchors of the client's `attester_trust_idps`, and it keeps the `kid` lookup for JWKS-only setups. It reuses the same `TrustMaterialResolver.validateX509Chain` path that key attestations already use. Rejections map to `invalid_client_attestation`, and the tests cover the trusted chain, the untrusted chain and the `kid` fallback.",
+  "eudi": "EUDI and HAIP wallets that send their Wallet Attestation with an `x5c` chain and no `kid` can now authenticate at the token endpoint against a Wallet Provider CA. Revocation of the Wallet Provider certificate is still not checked, which is a limit of the existing validator and not of this PR.",
+  "good": [
+   "The change reuses the existing chain validator and trust provider contract instead of adding a second X.509 path.",
+   "A configured chain that fails validation throws and never falls back to `kid`, so a bad `x5c` cannot be rescued by a JWKS key.",
+   "The x5c tests clear the `kid`, so they really cover the case from #52766."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/authentication/authenticators/client/AttestationBasedClientAuthenticator.java",
+    "line": 327,
+    "title": "An attestation without `x5c` skips X.509 trust and goes straight to the `kid` lookup.",
+    "impact": "A client that lists an X.509 trust provider next to a JWKS provider accepts a `kid`-only attestation from the JWKS provider, even though the X.509 provider says a chain is mandatory.",
+    "detail": "dominikschlosser raised this in a comment and the code still has it. `validateX509Chain` only runs when `x5c` is present. The `TrustMaterialIdentityProvider` contract says that exposing X.509 trust anchors makes chain validation mandatory and that a missing chain fails. The harm is limited, because the JWKS provider is itself trusted by the admin and a single X.509 provider returns no keys from `resolveKeys`. The key attestation path in `AttestationValidatorUtil` has the same shape, so this PR does not make it worse.",
+    "fix": "Call `validateX509Chain` for every attestation, also when `x5c` is absent. It then throws when X.509 trust is configured and no chain is sent, and returns `null` for JWKS-only setups, so the `kid` fallback still works there. Apply the same change to the key attestation path.",
+    "context": [
+     [
+      " ",
+      324,
+      323,
+      "                .issuer(issuer)"
+     ],
+     [
+      " ",
+      325,
+      324,
+      "                .build();"
+     ],
+     [
+      "-",
+      326,
+      null,
+      "        JWK jwk = new TrustMaterialResolver().resolveKey(context.getSession(), configValue, request)"
+     ],
+     [
+      "+",
+      null,
+      325,
+      "        TrustMaterialResolver resolver = new TrustMaterialResolver();"
+     ],
+     [
+      "+",
+      null,
+      326,
+      ""
+     ],
+     [
+      "+",
+      null,
+      327,
+      "        if (x5c != null && !x5c.isEmpty()) {"
+     ]
+    ]
+   }
+  ]
  },
  "54522": {
   "sha": "cc6361d5459ed630fee45108dab1da7e2eecfa77",
@@ -37,72 +86,74 @@
    "List signature verification rejects symmetric and unknown algorithms. It only trusts the configured certificates and ignores any key material in the list header.",
    "The integration tests cover service type and status scoping, renewed CAs, end entity entries, refresh after withdrawal, recovery after a failed download, and isolation from other trust providers."
   ],
-  "findings": []
+  "findings": [],
+  "discussed": "2026-11-03T10:36:06Z"
  },
  "54367": {
   "sha": "cff0d20b6126b46b808ee5c869ac0c9131124101",
   "notes": [],
-  "date": "2026-11-03",
+  "discussed": "2026-11-03T14:47:40Z",
+  "date": "2026-11-04",
+  "model": "claude-opus-5-5",
+  "effort": "high",
   "verdict": "approve",
-  "headline": "Replay and freshness checks for ABCA PoP JWTs are correct and follow the DPoP pattern.",
-  "summary": "The PR rejects Client Attestation PoP JWTs whose `jti` was already used or whose `iat` falls outside a 10 second lifetime plus 15 second skew. The replay entry is stored in `SingleUseObjectProvider` only after the PoP signature verifies, so an unauthenticated caller cannot fill the cache. The key includes the realm and the client_id, and the lifespan covers the inclusive boundary. Both points Copilot raised are fixed, and the tests cover replay, fresh `jti` reuse of the attestation and a stale `iat`.",
-  "eudi": "EUDI wallets that already mint a new PoP for each PAR, token and refresh request keep working. A wallet that reuses a PoP or whose clock is off by more than 15 seconds now gets `invalid_client_attestation`.",
+  "headline": "Sound ABCA PoP replay and freshness checks that mirror the existing DPoP design.",
+  "summary": "The PR rejects Client Attestation PoP JWTs whose `jti` was already used and PoPs whose `iat` falls outside a 10 second lifetime plus 15 second skew window. The replay entry is recorded only after the signature check, so unsigned tokens cannot fill the cache. The key is namespaced by realm, `jti` and issuer, and the lifespan covers the inclusive boundary that Copilot flagged. I traced every client authentication call site and found that each request runs the authenticator once. A legitimate request therefore never trips its own replay check.",
+  "eudi": "EUDI wallets now have to mint a fresh PoP for each PAR, token and refresh request, as draft-ietf-oauth-attestation-based-client-auth-07 section 5.2 expects. The common wallet libraries already do this. The hard coded 25 second window matches the DPoP window that HAIP token requests already have to pass.",
   "good": [
-   "`rejectReplay` runs after signature verification, so only PoPs signed with the attested `cnf` key reach the shared cache.",
-   "The cache key is namespaced by realm and issuer, and the TTL covers the inclusive JPA expiry boundary.",
-   "The HAIP tests now mint a fresh PoP for each client authenticated request, which matches how wallets should behave."
+   "`rejectReplay` runs after the PoP signature is verified, so only proofs signed by the attested instance key consume cache entries.",
+   "The cache key is hashed and scoped by realm, `jti` and issuer, and the lifespan math holds even when the two `Time.currentTime()` calls differ by a second.",
+   "The HAIP conformance tests now mint a fresh PoP per request, and new tests cover replay, a fresh `jti` and a stale `iat`."
   ],
   "findings": [
    {
     "severity": "followup",
     "file": "services/src/main/java/org/keycloak/authentication/authenticators/client/AttestationBasedClientAuthenticator.java",
-    "line": 110,
-    "title": "The PoP lifetime and clock skew are fixed constants with no admin setting.",
-    "impact": "A deployment whose wallets run on phones with a clock off by more than 15 seconds has no way to widen the window, and every token request from those wallets fails.",
-    "detail": "The Javadoc says the values are aligned with `DPoPUtil`, but DPoP lets an admin change lifetime and skew through `DPoPUtil.Validator`. ABCA hardcodes them, so the only fix for a skewed wallet population is a code change.",
-    "fix": "In a later PR, read the lifetime and skew from realm or client configuration and keep the current values as defaults.",
+    "line": 116,
+    "title": "The PoP lifetime and clock skew are named defaults but cannot be configured.",
+    "impact": "A wallet on a corporate managed phone whose clock is more than 15 seconds off fails ABCA at endpoints such as PAR, where no DPoP proof is checked, and the admin has no setting to relax the window.",
+    "detail": "Dominik Schlosser raised this in a review comment, and the code still hard codes `DEFAULT_POP_LIFETIME_SECONDS` and `DEFAULT_POP_CLOCK_SKEW_SECONDS`. The impact on this PR is limited. `DPoPUtil` uses the same fixed 10 plus 15 second window, and HAIP token requests carry a DPoP proof, so a wallet with a skewed clock already fails at the token endpoint today. The `DEFAULT_` prefix still suggests an override exists when none does.",
+    "fix": "In a later PR, add one realm or authenticator setting for the proof lifetime and clock skew, and apply it to both the ABCA PoP check and `DPoPUtil.Validator`. Alternatively, drop the `DEFAULT_` prefix until such a setting exists.",
     "context": [
      [
-      " ",
-      101,
-      105,
+      "+",
+      null,
+      111,
       ""
      ],
      [
       "+",
       null,
-      106,
+      112,
       "    /**"
      ],
      [
       "+",
       null,
-      107,
-      "     * Maximum acceptable age of a Client Attestation PoP JWT based on its {@code iat} claim,"
+      113,
+      "     * Allowed clock skew when validating PoP {@code iat},"
      ],
      [
       "+",
       null,
-      108,
-      "     * aligned with {@link org.keycloak.services.util.DPoPUtil#DEFAULT_PROOF_LIFETIME}."
+      114,
+      "     * aligned with {@link org.keycloak.services.util.DPoPUtil#DEFAULT_ALLOWED_CLOCK_SKEW}."
      ],
      [
       "+",
       null,
-      109,
+      115,
       "     */"
      ],
      [
       "+",
       null,
-      110,
-      "    public static final int DEFAULT_POP_LIFETIME_SECONDS = 10;"
+      116,
+      "    public static final int DEFAULT_POP_CLOCK_SKEW_SECONDS = 15;"
      ]
     ]
    }
-  ],
-  "model": "claude-opus-5-5",
-  "effort": "medium"
+  ]
  },
  "54282": {
   "sha": "4cadfdfee81323305f47a1279249848a337b099f",
@@ -167,7 +218,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-30T15:15:40Z"
  },
  "53652": {
   "sha": "e2247b7a4129a48cb37379629e755cfad3cf4093",
@@ -184,7 +236,8 @@
   ],
   "findings": [],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": ""
  },
  "53645": {
   "sha": "ce2e633618925dbe0ab6f43c650ec08c80c0c459",
@@ -201,7 +254,8 @@
   ],
   "findings": [],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-07T13:14:49Z"
  },
  "50897": {
   "sha": "d90773836c4685e21e769732e8655faa788cc658",
@@ -266,7 +320,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-08T10:22:11Z"
  },
  "53046": {
   "sha": "b0a87c7da0a9a6664c91e0c749a3b4c40e1f1ff7",
@@ -283,7 +338,8 @@
   ],
   "findings": [],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": ""
  },
  "44207": {
   "sha": "062132a158775860c51c57346a5faf12d95d7b3a",
@@ -442,89 +498,139 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2025-12-12T14:24:58Z"
  },
  "53476": {
   "sha": "453f53585d65bc2acfa85cb13ac2796b43c1ba46",
   "notes": [],
-  "date": "2026-11-03",
+  "discussed": "2026-11-03T16:56:48Z",
+  "date": "2026-11-04",
+  "model": "claude-opus-5-5",
+  "effort": "high",
   "verdict": "approve",
-  "headline": "Opt-in check that the proof key is attested_keys[0] is correct and well tested.",
-  "summary": "The PR adds the client scope attribute `vc.key_attestation.proof_key_index`. When it is set to 0, a JWT proof that carries a `key_attestation` must be signed by `attested_keys[0]`. When it is unset, the existing membership check from OpenID4VCI 1.0 Appendix D still applies. The admin save path rejects values other than 0 with HTTP 400, and the unit and integration tests cover both modes. I found nothing that must change before merge.",
-  "eudi": "EUDI issuers can now enforce the ETSI TS 119 472-3 rule that the proof is signed with the first attested key. Wallets that sign each proof of a batch with a different attested key will be rejected once the option is on, so only enable it where wallets follow the ETSI rule.",
+  "headline": "The opt-in `attested_keys[0]` check is correct and leaves the default behaviour unchanged.",
+  "summary": "The PR adds the optional `vc.key_attestation.proof_key_index` attribute. When it is set to 0, the key that signs a JWT proof must be the first entry in `attested_keys`. Without it, the existing membership check still applies. The value is checked in the admin save path and again when the metadata is parsed, and the tests cover the validator, the parser and the admin REST path. Two follow-ups raised by Dominik Schlosser remain open, but neither is made worse by this PR.",
+  "eudi": "Issuers that follow ETSI TS 119 472-3 can now insist that the proof key is the first attested key. EUDI wallets that send `kid` as a position still fail before this check runs, so the option is not yet usable with the reference wallet.",
   "good": [
-   "The default behaviour is unchanged, so existing credential configurations and wallets keep working.",
-   "Invalid values are rejected at save time with HTTP 400, so a bad value cannot break issuer metadata for the whole realm.",
-   "The error message says where the proof key was actually found, which makes wallet interop problems easy to debug."
+   "The default path keeps the existing membership check, so current configurations behave as before.",
+   "An unsupported value is rejected with HTTP 400 before it is stored, so it cannot break issuer discovery for the realm.",
+   "The error message says where the proof key was actually found, which makes wallet bugs easy to diagnose."
   ],
   "findings": [
    {
     "severity": "followup",
     "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/keybinding/JwtProofValidator.java",
-    "line": 205,
-    "title": "With index 0 enforced, one JWT proof still yields only one bound key.",
-    "impact": "An EUDI wallet that sends one JWT proof with a key attestation for several keys, as the ETSI rule implies, gets a single credential instead of a batch.",
-    "detail": "`validateSingleJwtProof` returns only the signing key, so each JWT proof produces one credential. Before this option, a wallet could get a batch by sending several proofs that share one attestation, each signed by a different attested key. With `proof_key_index` set to 0, every proof after the first fails because its signer is not `attested_keys[0]`. The remaining way to get a batch is one proof per attestation, which needs one attestation per key. The ETSI model, where the first key proves possession and the issuer binds credentials to all attested keys, is not implemented. This does not make the default path worse, but it limits batch issuance for issuers that turn the option on.",
-    "fix": "In a later PR, when `requiredProofKeyIndex` is 0 and the proof is valid, return all `attested_keys` as binding keys, like the `attestation` proof type does. Cap the result at the batch size from the issuer metadata.",
+    "line": 169,
+    "title": "A `kid` that gives a position in `attested_keys` is looked up as a key id.",
+    "impact": "The EUDI reference wallet sends `\"kid\": \"0\"` with no `jwk`, and its proof is rejected before the new index check runs.",
+    "detail": "Dominik Schlosser raised this in the approving review. The example in OpenID4VCI 1.0 Appendix F.1 uses `\"kid\": \"0\"` next to a key attestation whose attested keys carry no `kid`, so the value is a position. The code compares the header `kid` with each attested key's `kid` and throws `No attested key found matching kid`. This happened before the PR too, so the PR does not make it worse. It does mean the new option cannot help with that wallet yet.",
+    "fix": "When a key attestation is present and no attested key carries the given `kid`, read a numeric `kid` as the position in `attested_keys`, then run the index check on the key found there.",
     "context": [
      [
       " ",
       null,
-      200,
-      "        if (!signatureVerifierContext.verify(jwsInput.getEncodedSignatureInput().getBytes(StandardCharsets.UTF_8),"
+      164,
+      "        } else if (jwsHeader.getKeyId() != null) {"
      ],
      [
       " ",
       null,
-      201,
-      "                jwsInput.getSignature())) {"
+      165,
+      "            if (attestationInfo.isPresent()) {"
      ],
      [
       " ",
       null,
-      202,
-      "            throw new VCIssuerException(ErrorType.INVALID_PROOF, \"Could not verify signature of provided proof\");"
+      166,
+      "                List<JWK> attestedKeys = attestationInfo.attestedKeys();"
      ],
      [
       " ",
       null,
-      203,
-      "        }"
-     ],
-     [
-      " ",
-      null,
-      204,
+      167,
       ""
      ],
      [
       " ",
       null,
-      205,
-      "        return jwk;"
+      168,
+      "                // Resolve key from attestation using kid"
+     ],
+     [
+      " ",
+      null,
+      169,
+      "                jwk = attestedKeys.stream()"
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/keybinding/JwtProofValidator.java",
+    "line": 370,
+    "title": "With the option on, the JWT proof binds only one credential instead of one per attested key.",
+    "impact": "A wallet that sends one JWT proof with a key attestation for several keys gets a single credential, and a wallet that sends one proof per key fails the whole request.",
+    "detail": "Dominik Schlosser raised this in the approving review. ETSI TS 119 472-3 CRED-REQ-PROC-4.6.2.1-04 asks for one credential per entry in `attested_keys` and allows only one JWT proof. OpenID4VCI 1.0 Appendix F.1 recommends the same. The JWT proof validator returns only the signing key. A batch of proofs that share one attestation fails because only the proof signed by `attested_keys[0]` passes the index check. The attestation proof type already returns all attested keys.",
+    "fix": "When `proof_key_index` is 0 and the proof check passes, return every key in `attested_keys` from the JWT proof validator, in the same way as the attestation proof validator.",
+    "context": [
+     [
+      "+",
+      null,
+      365,
+      "    /**"
+     ],
+     [
+      "+",
+      null,
+      366,
+      "     * The proof key must be included in attested_keys (OpenID4VCI Appendix D). When a required index is"
+     ],
+     [
+      "+",
+      null,
+      367,
+      "     * configured, the key has to occupy exactly that position, as mandated by ETSI TS 119 472-3 and"
+     ],
+     [
+      "+",
+      null,
+      368,
+      "     * Regulation (EU) 2026/1731 (TR_KA-6)."
+     ],
+     [
+      "+",
+      null,
+      369,
+      "     */"
+     ],
+     [
+      "+",
+      null,
+      370,
+      "    void validateProofKeyAttestation(List<JWK> attestedKeys, JWK proofKey, Integer requiredIndex) {"
      ]
     ]
    }
-  ],
-  "model": "claude-opus-5-5",
-  "effort": "medium"
+  ]
  },
  "53484": {
   "sha": "22560b49827610e2225c38c670aad920319d36b4",
   "notes": [],
-  "date": "2026-11-03",
-  "verdict": "approve",
-  "headline": "Correct removal of DEBUG logs that leaked ABCA attestation and PoP JWTs.",
-  "summary": "The PR deletes two `debugf` calls in `AttestationBasedClientAuthenticator.authenticateClient()` that wrote the raw `OAuth-Client-Attestation` and `OAuth-Client-Attestation-PoP` header values to the log. Control flow and validation are unchanged, and `logger` is still the inherited field from `AbstractClientAuthenticator`, so nothing is left unused. The remaining exception messages in the file name claims, kids and client ids but never the raw JWTs, so `errorValidatingAssertion` does not reintroduce the leak. Nothing needs to change before merge.",
-  "eudi": "Wallet providers' client attestations sent with HAIP 1.0 token requests no longer end up in Keycloak DEBUG logs, so log access alone no longer yields a reusable client attestation. Issuance behaviour for EUDI wallets is unchanged.",
-  "good": [
-   "The change is a minimal deletion with no behaviour change.",
-   "It also removes the misuse of concatenated values as a `debugf` format string.",
-   "The description scopes the similar OID4VCI logging to a separate issue instead of growing this PR."
-  ],
-  "findings": [],
+  "discussed": "2026-11-03T14:44:39Z",
+  "date": "2026-11-04",
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "high",
+  "verdict": "approve",
+  "headline": "Clean removal of DEBUG logs that exposed usable ABCA client credentials.",
+  "summary": "The PR deletes the two `debugf` calls in `AttestationBasedClientAuthenticator.authenticateClient()` that wrote the raw `OAuth-Client-Attestation` and `OAuth-Client-Attestation-PoP` JWTs to the log. Control flow and validation stay the same. The inherited `logger` field in `AbstractClientAuthenticator` stays in use by other authenticators, so nothing is left dangling. The remaining failure path logs only the exception, and the exception messages built in the validation methods hold no header values.",
+  "eudi": "Wallet providers that authenticate wallet instances to a Keycloak issuer with HAIP client attestations no longer leak replayable attestation and PoP pairs into DEBUG logs. This matters because the PoP has no `jti` replay check or `iat` freshness check yet, so a logged pair would stay usable for the full attestation lifetime.",
+  "good": [
+   "The change is minimal and removes the credential exposure without touching validation logic.",
+   "The removal also ends the misuse of untrusted input as a `debugf` format string.",
+   "The description scopes the OID4VCI logging cleanup to a separate change, which keeps this PR small."
+  ],
+  "findings": []
  },
  "53332": {
   "sha": "63fc71bd7b6257945fa0c91f5eb25b12a7cd63ed",
@@ -583,7 +689,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": ""
  },
  "53415": {
   "sha": "9993d4a4d261654ef495305bc03028e3fc5cb8c7",
@@ -695,7 +802,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-01T13:31:55Z"
  },
  "53531": {
   "sha": "8b32fdde9246caee8b0e417d0e0be7907ac9f568",
@@ -712,7 +820,8 @@
   ],
   "findings": [],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-05T11:27:17Z"
  },
  "53737": {
   "sha": "ff22e0e2eeacd0ab8a0c4393c4cf599616357d94",
@@ -771,7 +880,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": ""
  },
  "53588": {
   "sha": "001b758af2e890cac430d5057090da0803984caf",
@@ -836,7 +946,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-06T15:37:03Z"
  },
  "53894": {
   "sha": "5cbed3777a2c5c94b42eca2a6fda821330aa3da4",
@@ -901,7 +1012,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-19T08:59:42Z"
  },
  "53864": {
   "sha": "1a2375a4aac63de87e8ed5ea4b12e8e966f73b4a",
@@ -1013,7 +1125,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-12T14:49:51Z"
  },
  "53730": {
   "sha": "75c858ddb1e1c88bce769a9db7b1c1143bfdcfa2",
@@ -1125,7 +1238,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-09T10:09:31Z"
  },
  "53978": {
   "sha": "0693a92044416e529fd8db5b1854aac0f3efa351",
@@ -1272,7 +1386,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-10-19T07:55:30Z"
  },
  "54096": {
   "sha": "ecbaab72276e4d06208f99a021282d8c1fc7015c",
@@ -1372,7 +1487,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": ""
  },
  "54034": {
   "sha": "22dd276d65668be8c3e3040814326991156e3682",
@@ -1578,7 +1694,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": ""
  },
  "54513": {
   "sha": "f2fcbc1dc75211a091087e4845f08f08c5dd06b3",
@@ -1643,7 +1760,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": ""
  },
  "54560": {
   "sha": "42a4d7e2228374616456be00acd31b8e4d1276b9",
@@ -1708,7 +1826,8 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": "2026-11-02T18:47:25Z"
  },
  "43478": {
   "sha": "d50760c5897c221d827ef66aea9aecb47a5d9357",
@@ -1819,6 +1938,7 @@
    }
   ],
   "model": "claude-opus-5-5",
-  "effort": "medium"
+  "effort": "medium",
+  "discussed": ""
  }
 }
