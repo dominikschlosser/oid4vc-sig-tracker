@@ -285,6 +285,7 @@ def review_page(it, rv, head):
 <title>Review of #{it["n"]}</title>
 <link rel="icon" href="../logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../style.css">
+<script src="../version.js" defer></script>
 <script src="../account.js" defer></script>
 <script src="../review.js" defer></script>
 </head>

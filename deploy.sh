@@ -9,9 +9,12 @@ fi
 . ./deploy.env
 H=$DEPLOY_HOST D=$DEPLOY_DIR
 # Each file is renamed into place, so a reload during a deploy never reads a half-written file.
-FILES="index.html logo.svg logo.png demo-logo.svg account.js app.js review.js style.css items.json"
+FILES="index.html logo.svg logo.png demo-logo.svg version.js account.js app.js review.js style.css items.json"
+# Open pages compare version.txt with the one they loaded and offer a reload. It goes up last.
+(cd site && cat $FILES && find reviews -type f | sort | xargs cat) | shasum | cut -c1-16 > site/version.txt
 ssh $H "rm -rf $D/.upload && mkdir $D/.upload"
 (cd site && scp -q $FILES $H:$D/.upload/)
 ssh $H "cd $D && for f in $FILES; do mv .upload/\$f \$f; done && rmdir .upload"
 # Replacing the folder drops pages of PRs that are no longer open.
 COPYFILE_DISABLE=1 tar --no-xattrs -C site -czf - reviews | ssh $H "cd $D && rm -rf reviews.new && mkdir reviews.new && tar -xzf - -C reviews.new --strip-components=1 && rm -rf reviews && mv reviews.new reviews"
+scp -q site/version.txt $H:$D/.version.txt && ssh $H "mv $D/.version.txt $D/version.txt"

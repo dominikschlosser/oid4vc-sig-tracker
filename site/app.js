@@ -153,6 +153,7 @@ function matches(r) {
   }
   if (state.fix === "none" && r.prs.length) return false;
   if (state.who === "member" && ![r, ...r.prs].some((x) => x.sig)) return false;
+  if (state.who === "other" && [r, ...r.prs].some((x) => x.sig)) return false;
   // Until the account and its searches are known, a personal filter from the URL waits instead of hiding everything.
   if (me && state.who === "opened" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me)) return false;
   if (mine && state.who === "involved" && ![r, ...r.prs].some((x) => mine.involved.has(x.n))) return false;
@@ -334,7 +335,7 @@ function render() {
 function activeFilters() {
   const out = [];
   for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "who"]) {
-    if (state[k] === DEFAULTS[k] || (k === "who" && state.who !== "member" && !me)) continue;
+    if (state[k] === DEFAULTS[k] || (k === "who" && !["member", "other"].includes(state.who) && !me)) continue;
     const name = $(`f-${k}`).closest("label").firstChild.textContent.trim(), value = $(`f-${k}`).selectedOptions[0].textContent;
     out.push([value.startsWith(name) ? value : `${name}: ${value}`, { [k]: DEFAULTS[k] }]);
   }
@@ -447,7 +448,7 @@ function gaps(list) {
 async function signedIn() {
   const acct = await window.account;
   if (!acct || !acct.login) {
-    if (state.who && state.who !== "member") filterBy({ who: "" });
+    if (state.who && !["member", "other"].includes(state.who)) filterBy({ who: "" });
     return;
   }
   me = acct.login.toLowerCase();

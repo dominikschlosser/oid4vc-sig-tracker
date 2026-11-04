@@ -334,3 +334,4 @@ button.f.rv-state { font-size: 12px; font-weight: 600; }
 .sig-pop p { margin: 0 0 8px; color: var(--muted); }
 .sig-pop ul { margin: 0; padding-left: 16px; }
 .sig-pop li { margin-bottom: 4px; }
+.reload-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px); padding: 10px 12px 10px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); box-shadow: 0 8px 24px rgba(13, 30, 70, .2); font-size: 14px; }

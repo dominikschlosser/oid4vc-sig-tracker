@@ -14,3 +14,4 @@ review-out-*.json
 new-ratings.json
 todo.txt
 deploy.env
+site/version.txt
