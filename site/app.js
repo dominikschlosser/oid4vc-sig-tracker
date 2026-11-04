@@ -455,6 +455,20 @@ async function signedIn() {
     el("b", {}, String(n)), el("span", {}, "PRs waiting for your review"), el("span", { class: "go", "aria-hidden": "true" }, "Show →")));
 }
 
+// The daily run starts at 7:30, so data older than a day and a half means a run failed.
+function fetched(at) {
+  const box = $("fetched");
+  const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const days = Math.round((day(new Date()) - day(at)) / 864e5);
+  const time = at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const when = days === 0 ? "today" : days === 1 ? "yesterday" : at.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+  box.dateTime = at.toISOString();
+  box.title = `Last fetched from GitHub on ${at.toLocaleString()}. The tracker updates every morning.`;
+  box.textContent = `Updated ${when}, ${time}`;
+  box.classList.toggle("stale", Date.now() - at > 36 * 36e5);
+  box.hidden = false;
+}
+
 async function main() {
   const data = await (await fetch("items.json")).json();
   try {
@@ -466,7 +480,7 @@ async function main() {
   specs = data.specs;
   byNumber = new Map(all.map((i) => [i.n, i]));
   rows = group(all);
-  $("fetched").textContent = `Updated ${data.fetched.slice(0, 10)}.`;
+  fetched(new Date(data.fetched));
   $("f-topic").append(...[...new Set(rows.flatMap((r) => r.topics))].sort().map((t) => el("option", { value: t }, t)));
   $("docs").replaceChildren(...data.docs.map((d) => el("li", {}, ext(d.url, d.name), ` ${d.version}`)));
   summary();
