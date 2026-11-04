@@ -150,7 +150,7 @@ function matches(r) {
   }
   if (state.fix === "none" && r.prs.length) return false;
   // Until the account and its searches are known, a mine filter from the URL waits instead of hiding everything.
-  if (state.sig && ![r, ...r.prs].some((x) => x.sig && (state.sig === "any" || x.pr === (state.sig === "pr")))) return false;
+  if (state.sig && ![r, ...r.prs].some((x) => x.sig)) return false;
   if (me && state.mine === "opened" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me)) return false;
   if (mine && state.mine === "involved" && ![r, ...r.prs].some((x) => mine.involved.has(x.n))) return false;
   if (mine && state.mine === "requested" && !r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))) return false;
