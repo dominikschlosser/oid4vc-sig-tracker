@@ -17,7 +17,7 @@
   "effort": "medium"
  },
  "54522": {
-  "sha": "8e3be3c9d2b136057ef62b54a687282278eac137",
+  "sha": "cc6361d5459ed630fee45108dab1da7e2eecfa77",
   "notes": [
    "Rejecting a list that fails to download or verify is deliberate. It fails closed, and failedRefreshRejectsTheListUntilAValidListIsAvailable tests it. Letting the load error escape so that other trust providers never get a chance is not deliberate.",
    "Subordinate CAs as trust anchors are deliberate, because EUDI LoTEs list issuing CAs.",
@@ -25,67 +25,19 @@
    "trustListServiceStatuses has no default on purpose, because Keycloak is not EUDI specific. With nothing configured, services that carry a status are not trusted.",
    "x5c support in AttestationBasedClientAuthenticator and the rule that X.509 trust requires x5c are left out on purpose, because they overlap with the approved #52883. They come back in a follow-up after #52883 is merged."
   ],
-  "date": "2026-11-03",
+  "date": "2026-11-04",
   "model": "claude-opus-5-5",
   "effort": "high",
   "verdict": "approve",
-  "headline": "Solid fail closed ETSI LoTE trust provider for key attestations and OID4VP.",
-  "summary": "The PR adds an `etsi-trust-list` trust material identity provider. It downloads a signed ETSI TS 119 602 LoTE, verifies it against pinned signing certificates, and exposes the listed CA certificates of the configured service types as X.509 trust anchors. It also lets `X509TrustMaterial` accept subordinate CAs. The loader checks the algorithm, the LoTE type, `NextUpdate` and the service status, fails closed on errors without blocking other providers, and the integration tests cover each of these rules. I found nothing that must change before merge.",
-  "eudi": "Keycloak can now use EUDI Wallet Provider, PID Provider and PubEAA LoTEs as trust anchors for WUA key attestations in OID4VCI and for issuer chains in OID4VP. Client attestation through ABCA cannot use these lists until the announced follow up adds `x5c` support.",
+  "headline": "Signed ETSI LoTE trust provider that fails closed and is well tested.",
+  "summary": "The PR adds an `etsi-trust-list` trust material identity provider. It downloads a signed ETSI TS 119 602 List of Trusted Entities, verifies it against pinned signing certificates, enforces `LoTEType`, service types, service statuses and `NextUpdate`, and exposes the listed CA certificates as X.509 trust anchors for key attestations and OID4VP. It also lets `X509TrustMaterial` accept subordinate CAs as anchors, which the `CertPathBuilder` based validator handles correctly. I found nothing that must change before merge.",
+  "eudi": "Keycloak can now take wallet provider and PID or EAA provider trust from the official EUDI LoTE distribution points instead of hand-maintained PEM bundles. Client attestations with `x5c` still need #52883, and revocation and lists of trusted lists are separate follow-ups.",
   "good": [
-   "Lists that fail to download or verify, or that are past `NextUpdate`, stop contributing trust without hiding the other configured trust providers.",
-   "Only pinned signing certificates verify the list, and symmetric and `none` algorithms are rejected before verification.",
-   "The tests are precise. The service scope test lists a root CA under the wrong service type, so a regression in type filtering would be caught."
+   "Every failure path fails closed: a bad signature, a wrong `LoTEType`, a missing or past `NextUpdate`, or an unparsable list. A failed refresh drops the cached anchors instead of keeping them.",
+   "List signature verification rejects symmetric and unknown algorithms. It only trusts the configured certificates and ignores any key material in the list header.",
+   "The integration tests cover service type and status scoping, renewed CAs, end entity entries, refresh after withdrawal, recovery after a failed download, and isolation from other trust providers."
   ],
-  "findings": [
-   {
-    "severity": "nit",
-    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderFactory.java",
-    "line": 113,
-    "title": "The provider is offered to ABCA, which cannot use it yet.",
-    "impact": "An admin who runs only `CLIENT_AUTH_ABCA` and selects this provider as attester trust gets a failed client authentication on every token request.",
-    "detail": "`isSupported` enables the factory when only `CLIENT_AUTH_ABCA` is on. `AttestationBasedClientAuthenticator.findAttesterKey` still resolves keys only by `kid`, and `EtsiTrustListIdentityProvider.resolveKeys` returns nothing, so the call ends in `No matching key found for kid`. The author defers ABCA `x5c` support to after #52883 on purpose. The PR description still says that `AttestationBasedClientAuthenticator` now validates `x5c` chains, and this diff does not touch that class.",
-    "fix": "Correct the PR description. Either drop `CLIENT_AUTH_ABCA` from `isSupported` until the follow up lands, or add one sentence to the docs saying that client attestation cannot use this provider yet.",
-    "context": [
-     [
-      "+",
-      null,
-      108,
-      "        return PROVIDER_ID;"
-     ],
-     [
-      "+",
-      null,
-      109,
-      "    }"
-     ],
-     [
-      "+",
-      null,
-      110,
-      ""
-     ],
-     [
-      "+",
-      null,
-      111,
-      "    @Override"
-     ],
-     [
-      "+",
-      null,
-      112,
-      "    public boolean isSupported(Config.Scope config) {"
-     ],
-     [
-      "+",
-      null,
-      113,
-      "        return Profile.isFeatureEnabled(Profile.Feature.OID4VC_VCI) || Profile.isFeatureEnabled(Profile.Feature.OID4VC_VP)"
-     ]
-    ]
-   }
-  ]
+  "findings": []
  },
  "54367": {
   "sha": "cff0d20b6126b46b808ee5c869ac0c9131124101",
