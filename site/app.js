@@ -300,14 +300,7 @@ function titleCell(r) {
   if (r.comments) meta.append(` · ${r.comments} ${r.comments === 1 ? "comment" : "comments"}`);
   if (r.same) meta.append(" · also ", ...r.same.flatMap((n, k) => [k ? ", " : "", ext(`https://github.com/keycloak/keycloak/issues/${n}`, `#${n}`)]));
 
-  const epicOf = (n) => () => fresh({ parent: String(n), state: "", sort: state.sort, dir: state.dir });
-  return el("td", { class: "c-title" },
-    r.pr && el("span", { class: "kind" }, "PR"),
-    ext(r.url, r.title),
-    meta,
-    r.parent && state.parent !== String(r.parent) && el("div", { class: "meta" }, "Part of ",
-      el("button", { type: "button", class: "linkish", title: "Show all sub-issues of this epic", onclick: epicOf(r.parent) },
-        `#${r.parent} ${r.parentTitle.length > 60 ? r.parentTitle.slice(0, 57) + "…" : r.parentTitle}`)));
+  return el("td", { class: "c-title" }, r.pr && el("span", { class: "kind" }, "PR"), ext(r.url, r.title), meta);
 }
 
 function rowEl(r) {

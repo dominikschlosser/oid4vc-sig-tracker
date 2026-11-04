@@ -103,8 +103,6 @@ td.c-num a { font-variant-numeric: tabular-nums; text-decoration: none; }
 .rv-state { font-size: 12px; font-weight: 600; color: var(--muted); }
 .rv-none { color: var(--high); } .rv-changes { color: var(--blocker); } .rv-approved { color: var(--open); } .rv-reviewed { color: var(--accent); }
 .rv-who { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.linkish { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-align: left; }
-.linkish:hover { text-decoration: underline; }
 .subs { display: flex; align-items: center; gap: 8px; margin-top: 5px; background: none; border: 0; padding: 0; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
 .subs:hover { color: var(--accent); }
 .subs-bar { width: 90px; height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; display: inline-flex; }
