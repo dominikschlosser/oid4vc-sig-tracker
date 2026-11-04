@@ -17,7 +17,7 @@ const REVIEW_RANK = { approved: 0, changes: 1, reviewed: 2, draft: 3, none: 4 };
 // Within a relevance level, the next PR to act on is one ready to merge, then one nobody has reviewed.
 const NEXT_RANK = { approved: 2, none: 1, reviewed: 0 };
 const AI_RANK = { major: 2, minor: 1, clean: 0 };
-const DEFAULTS = { q: "", state: "open", rating: "", basis: "", topic: "", review: "", fix: "", ai: "", sig: "", mine: "", parent: "", sort: "rating", dir: "desc" };
+const DEFAULTS = { q: "", state: "open", rating: "", basis: "", topic: "", review: "", fix: "", ai: "", who: "", parent: "", sort: "rating", dir: "desc" };
 // One vendored PR changes 1.5 million lines, so the scale tops out here.
 const SCALE_LINES = 5000;
 
@@ -149,11 +149,11 @@ function matches(r) {
     if (state.ai === "none" ? !open.some((p) => !p.ai) : !open.some((p) => p.ai && (state.ai === "any" || p.ai.level === state.ai || (state.ai === "fix" && p.ai.level !== "clean")))) return false;
   }
   if (state.fix === "none" && r.prs.length) return false;
-  // Until the account and its searches are known, a mine filter from the URL waits instead of hiding everything.
-  if (state.sig && ![r, ...r.prs].some((x) => x.sig)) return false;
-  if (me && state.mine === "opened" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me)) return false;
-  if (mine && state.mine === "involved" && ![r, ...r.prs].some((x) => mine.involved.has(x.n))) return false;
-  if (mine && state.mine === "requested" && !r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))) return false;
+  if (state.who === "member" && ![r, ...r.prs].some((x) => x.sig)) return false;
+  // Until the account and its searches are known, a personal filter from the URL waits instead of hiding everything.
+  if (me && state.who === "opened" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me)) return false;
+  if (mine && state.who === "involved" && ![r, ...r.prs].some((x) => mine.involved.has(x.n))) return false;
+  if (mine && state.who === "requested" && !r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))) return false;
   if (state.q) {
     const prs = r.prs.map((p) => `${p.n} ${p.title} ${p.author}`).join(" ");
     const hay = `${r.n} ${r.title} ${r.author} ${r.labels.join(" ")} ${r.topics.join(" ")} ${r.note} ${r.milestone} ${(r.same || []).join(" ")} ${prs}`.toLowerCase();
@@ -330,8 +330,8 @@ function render() {
 // The filters in use, each with the patch that removes it.
 function activeFilters() {
   const out = [];
-  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "sig", "mine"]) {
-    if (state[k] === DEFAULTS[k] || (k === "mine" && !me)) continue;
+  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "who"]) {
+    if (state[k] === DEFAULTS[k] || (k === "who" && state.who !== "member" && !me)) continue;
     const name = $(`f-${k}`).closest("label").firstChild.textContent.trim(), value = $(`f-${k}`).selectedOptions[0].textContent;
     out.push([value.startsWith(name) ? value : `${name}: ${value}`, { [k]: DEFAULTS[k] }]);
   }
@@ -342,7 +342,7 @@ function activeFilters() {
 
 function syncControls() {
   $("q").value = state.q;
-  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "sig", "mine", "sort"]) $(`f-${k}`).value = state[k];
+  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "who", "sort"]) $(`f-${k}`).value = state[k];
   for (const th of document.querySelectorAll("th[data-sort]")) {
     th.setAttribute("aria-sort", th.dataset.sort === state.sort ? (state.dir === "asc" ? "ascending" : "descending") : "none");
   }
@@ -443,16 +443,16 @@ function gaps(list) {
 async function signedIn() {
   const acct = await window.account;
   if (!acct || !acct.login) {
-    if (state.mine) filterBy({ mine: "" });
+    if (state.who && state.who !== "member") filterBy({ who: "" });
     return;
   }
   me = acct.login.toLowerCase();
-  $("f-mine-label").hidden = false;
+  $("f-who-you").hidden = false;
   update();
   mine = await acct.mine;
   update();
   const n = rows.filter((r) => isOpen(r) && !isEpic(r) && r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))).length;
-  $("stats").append(el("button", { type: "button", class: "stat", title: "Show the PRs waiting for your review", onclick: () => fresh({ mine: "requested" }) },
+  $("stats").append(el("button", { type: "button", class: "stat", title: "Show the PRs waiting for your review", onclick: () => fresh({ who: "requested" }) },
     el("b", {}, String(n)), el("span", {}, "PRs waiting for your review"), el("span", { class: "go", "aria-hidden": "true" }, "Show →")));
 }
 
@@ -468,6 +468,14 @@ function fetched(at) {
   box.textContent = `Updated ${when}, ${time}`;
   box.classList.toggle("stale", Date.now() - at > 36 * 36e5);
   box.hidden = false;
+}
+
+function sigMembers(sig) {
+  const companies = Map.groupBy(sig.members, (m) => m.company);
+  $("sig-pop").replaceChildren(
+    el("p", {}, "OAuth SIG members with a GitHub link in ", ext(sig.source, "members.adoc"), ". People listed there without a link don't count."),
+    el("ul", {}, ...[...companies].map(([company, ms]) => el("li", {}, el("b", {}, company), " ",
+      ...ms.flatMap((m, k) => [k ? ", " : "", ext(`https://github.com/${m.login}`, m.name || m.login, m.login)])))));
 }
 
 async function main() {
@@ -487,9 +495,10 @@ async function main() {
   summary();
   epics();
   gaps(data.gaps);
+  sigMembers(data.sig);
 
   $("q").addEventListener("input", (e) => filterBy({ q: e.target.value }));
-  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "sig", "mine"]) $(`f-${k}`).addEventListener("change", (e) => filterBy({ [k]: e.target.value }));
+  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "who"]) $(`f-${k}`).addEventListener("change", (e) => filterBy({ [k]: e.target.value }));
   $("f-sort").addEventListener("change", (e) => filterBy({ sort: e.target.value, dir: "desc" }));
   $("reset").addEventListener("click", () => fresh({}));
   $("copy-status").addEventListener("click", copyStatus);

@@ -19,9 +19,9 @@
       <details class="me" id="me-menu" hidden>
         <summary><img class="me-avatar" id="me-avatar" alt="" width="24" height="24"><span id="me-login"></span></summary>
         <div class="me-pop">
-          <a href="#mine=involved">Involving me</a>
-          <a href="#mine=requested">Waiting for my review</a>
-          <a href="#mine=opened">Opened by me</a>
+          <a href="#who=involved">Involving me</a>
+          <a href="#who=requested">Waiting for my review</a>
+          <a href="#who=opened">Opened by me</a>
           <hr>
           <button type="button" id="signout">Sign out</button>
         </div>
@@ -101,8 +101,8 @@
       <label>Review <select id="f-review"><option value="">All</option><option value="next">Review or merge next</option><option value="none">No review yet</option><option value="reviewed">Reviewed</option><option value="changes">Changes requested</option><option value="approved">Approved</option></select></label>
       <label>PR <select id="f-fix"><option value="">All</option><option value="open">Has an open PR</option><option value="none">No PR yet</option></select></label>
       <label>AI review <select id="f-ai"><option value="">All</option><option value="any">Reviewed</option><option value="clean">Merge as is</option><option value="fix">Fix first</option><option value="major">Has a must fix</option><option value="none">Not reviewed yet</option></select></label>
-      <label title="A Keycloak OAuth SIG member with a GitHub account in the members list opened the issue or one of its PRs">Author <select id="f-sig"><option value="">Anyone</option><option value="member">SIG member</option></select></label>
-      <label id="f-mine-label" hidden>Mine <select id="f-mine"><option value="">All</option><option value="involved">Involving me</option><option value="requested">Waiting for my review</option><option value="opened">Opened by me</option></select></label>
+      <label>People <select id="f-who"><option value="">Anyone</option><option value="member" title="A Keycloak OAuth SIG member opened the issue or one of its PRs">SIG member</option><optgroup id="f-who-you" label="You" hidden><option value="opened">Opened by me</option><option value="involved">Involving me</option><option value="requested">Waiting for my review</option></optgroup></select></label>
+      <details class="sig-who"><summary>Who counts?</summary><div class="sig-pop" id="sig-pop"></div></details>
       <label class="narrow">Sort <select id="f-sort"><option value="rating">Relevance</option><option value="review">Review</option><option value="ai">AI review</option><option value="size">PR size</option><option value="updated">Updated</option><option value="n">Number</option></select></label>
     </div>
     <div class="result-line"><span class="active-line"><span id="count"></span><span id="active"></span></span><span class="tools"><button type="button" id="copy-status" title="The shown list as Markdown, for example for the Keycloak OAuth SIG notes in HackMD">Copy as Markdown</button><button type="button" id="reset">Reset filters</button></span></div>

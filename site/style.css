@@ -327,3 +327,10 @@ button.f.rv-state { font-size: 12px; font-weight: 600; }
 .pr-top { padding-top: 16px; }
 @media (max-width: 760px) { .site-repo span { display: none; } .site-brand { font-size: 14px; } }
 @media (max-width: 480px) { #me-login { display: none; } .me summary { padding-right: 8px; } .site-brand { white-space: nowrap; } }
+.sig-who { position: relative; align-self: center; }
+.sig-who summary { color: var(--accent); cursor: pointer; list-style: none; font-size: 13px; }
+.sig-who summary::-webkit-details-marker { display: none; }
+.sig-pop { position: absolute; left: 0; top: calc(100% + 6px); z-index: 10; width: min(360px, 80vw); max-height: 60vh; overflow: auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); box-shadow: 0 8px 24px rgba(13, 30, 70, .16); font-size: 13px; }
+.sig-pop p { margin: 0 0 8px; color: var(--muted); }
+.sig-pop ul { margin: 0; padding-left: 16px; }
+.sig-pop li { margin-bottom: 4px; }

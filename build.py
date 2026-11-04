@@ -10,7 +10,8 @@ reviewed = {int(n): v for n, v in json.load(open("ratings.json")).items()}
 demos = {int(n): u for n, u in json.load(open("demos.json")).items()}
 # Claude Code reviews of open PRs, from review.py.
 reviews = json.load(open("reviews.json")) if os.path.exists("reviews.json") else {}
-sig = {m["login"].lower() for m in json.load(open("sig-members.json"))["members"]}
+sig_members = json.load(open("sig-members.json"))
+sig = {m["login"].lower() for m in sig_members["members"]}
 same = dict(tuple(int(x) for x in l.split()) for l in open("same.tsv") if l.strip())
 specs = {s["id"]: s for s in json.load(open("specs.json"))}
 
@@ -230,7 +231,7 @@ def site_bar():
 <a class="signin" id="signin" href="#" hidden>{GITHUB_MARK} Sign in</a>
 <details class="me" id="me-menu" hidden>
 <summary><img class="me-avatar" id="me-avatar" alt="" width="24" height="24"><span id="me-login"></span></summary>
-<div class="me-pop"><a href="../#mine=involved">Involving me</a><a href="../#mine=requested">Waiting for my review</a><a href="../#mine=opened">Opened by me</a><hr><button type="button" id="signout">Sign out</button></div>
+<div class="me-pop"><a href="../#who=involved">Involving me</a><a href="../#who=requested">Waiting for my review</a><a href="../#who=opened">Opened by me</a><hr><button type="button" id="signout">Sign out</button></div>
 </details>
 </div>
 </div></div>'''
@@ -322,7 +323,7 @@ for g in gaps:
     g["specs"] = cite(g["specs"])
 used = sorted({r for it in items for r in it["specs"]} | {r for g in gaps for r in g["specs"]})
 json.dump({"fetched": raw["fetched"], "items": items, "specs": {r: {"rule": rule(specs[r]), **{k: specs[r][k] for k in ("doc", "ref", "url", "text")}} for r in used},
-           "docs": json.load(open("spec-docs.json")), "gaps": gaps}, open("site/items.json", "w"), separators=(",", ":"))
+           "docs": json.load(open("spec-docs.json")), "gaps": gaps, "sig": sig_members}, open("site/items.json", "w"), separators=(",", ":"))
 # Open work without a hand rating, for rate.py. Epics and PRs attached to an open issue take no rating of their own.
 parents = {it["parent"] for it in items if it["parent"]}
 attached = {n for it in items if not it["pr"] and it["state"] == "open" for n in it["links"]}
