@@ -205,13 +205,13 @@
   "note": "Admin permissions for credential management."
  },
  "46212": {
-  "rating": "blocker",
+  "rating": "high",
   "basis": "legal",
   "specs": [
    "arf-vcr-01"
   ],
-  "note": "Issuers of PIDs and qualified attestations need status lists. Keycloak has none.",
-  "why": "Credentials valid for more than 24 hours need a status list. The only workaround is reissuing every credential each day, and no issuer can sustain that."
+  "note": "Issuers of PIDs and qualified attestations need status lists. Keycloak has no status list of its own.",
+  "why": "Credentials valid for more than 24 hours need a status list. It is not a blocker because a custom protocol mapper can add a status claim that points to an external status list server."
  },
  "46264": {
   "rating": "medium",
@@ -226,7 +226,7 @@
    "vci-3-5-mitigations",
    "vci-4-1-1-tx-code"
   ],
-  "note": "Basic tx_code works. Delivery channels and a per-offer setting are open."
+  "note": "Keycloak removed tx_code, and #47652 restores it. Delivery channels and a per-offer setting are open."
  },
  "46489": {
   "rating": "low",
@@ -308,12 +308,13 @@
   "note": "Offers by reference work with wallets and keep the QR code small."
  },
  "47652": {
-  "rating": "medium",
+  "rating": "high",
   "basis": "security",
   "specs": [
-   "vci-4-1-1-tx-code"
+   "vci-3-5-mitigations"
   ],
-  "note": "tx_code is the main protection against stolen pre-authorized offers."
+  "note": "tx_code is the main protection against stolen pre-authorized offers. Keycloak removed it, and this issue restores it.",
+  "why": "Without tx_code, anyone who gets hold of a pre-authorized offer link or QR code receives the credential, and OID4VCI asks for a mitigation. It is not a blocker because deployments can use the authorization code flow, which HAIP requires anyway."
  },
  "47787": {
   "rating": "low",
@@ -809,5 +810,14 @@
   "basis": "hygiene",
   "specs": [],
   "note": "This PR fixes a flaky admin UI test for the OID4VC section. It has no effect on issuance or verification."
+ },
+ "53864": {
+  "rating": "high",
+  "basis": "security",
+  "specs": [
+   "vci-3-5-mitigations"
+  ],
+  "note": "Restores tx_code for pre-authorized offers.",
+  "why": "Without tx_code, anyone who gets hold of a pre-authorized offer link or QR code receives the credential, and OID4VCI asks for a mitigation. It is not a blocker because deployments can use the authorization code flow, which HAIP requires anyway."
  }
 }
