@@ -56,11 +56,12 @@ GitHub has no narrower scope for review comments than `public_repo`. The service
 update.sh runs these steps:
 
 1. fetch.py reads GitHub with gh and writes raw.json.
-2. build.py writes site/items.json, plus unrated.json with open items that have no rating yet.
-3. rate.py asks headless Claude Code (rate-prompt.md) to rate those items. It merges valid answers into ratings.json.
-4. review.py reviews open pull requests whose head commit has no review yet, the most relevant first. `python3 review.py N` reviews pull request N now. For each one it checks out the head commit as a worktree of cache/keycloak.git, writes the diff and the comments into .pr/, runs headless Claude Code (review-prompt.md) and deletes the worktree. Claude may only read inside the checkout and write .pr/review.json. The results go into reviews.json.
-5. build.py runs again and writes a page per review into site/reviews/. deploy.sh copies the site to your server.
-6. push.sh commits ratings.json and reviews.json when they changed and pushes them, if deploy.env sets PUSH_DATA=yes.
+2. members.py reads the [OAuth SIG member list](https://github.com/keycloak/keycloak-oauth-sig/blob/main/members.adoc) into sig-members.json for the SIG filter. Run it by hand to update the list now.
+3. build.py writes site/items.json, plus unrated.json with open items that have no rating yet.
+4. rate.py asks headless Claude Code (rate-prompt.md) to rate those items. It merges valid answers into ratings.json.
+5. review.py reviews open pull requests with a new commit or a new comment by a person since their last review, the most relevant first. `python3 review.py N` reviews pull request N now. For each one it checks out the head commit as a worktree of cache/keycloak.git, writes the diff and the comments into .pr/, runs headless Claude Code (review-prompt.md) and deletes the worktree. Claude may only read inside the checkout and write .pr/review.json. The results go into reviews.json.
+6. build.py runs again and writes a page per review into site/reviews/. deploy.sh copies the site to your server.
+7. push.sh commits ratings.json, reviews.json and sig-members.json when they changed and pushes them, if deploy.env sets PUSH_DATA=yes.
 
 Files:
 
@@ -69,6 +70,7 @@ Files:
 - review-notes.json: design decisions a pull request author confirmed, as a list per pull request number. review.py gives them to the reviewer and reviews the pull request again when they change.
 - specs.json and spec-docs.json: verified requirement quotes the ratings cite.
 - gaps.json: EUDI requirements with no Keycloak issue yet.
+- sig-members.json: GitHub logins of the OAuth SIG members. Members listed without a GitHub link don't count.
 - same.tsv: a duplicate issue, then the issue it folds into.
 - demos.json: pull request number and the demo URL that runs its branch.
 

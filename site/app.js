@@ -17,7 +17,7 @@ const REVIEW_RANK = { approved: 0, changes: 1, reviewed: 2, draft: 3, none: 4 };
 // Within a relevance level, the next PR to act on is one ready to merge, then one nobody has reviewed.
 const NEXT_RANK = { approved: 2, none: 1, reviewed: 0 };
 const AI_RANK = { major: 2, minor: 1, clean: 0 };
-const DEFAULTS = { q: "", state: "open", rating: "", basis: "", topic: "", review: "", fix: "", ai: "", mine: "", parent: "", sort: "rating", dir: "desc" };
+const DEFAULTS = { q: "", state: "open", rating: "", basis: "", topic: "", review: "", fix: "", ai: "", sig: "", mine: "", parent: "", sort: "rating", dir: "desc" };
 // One vendored PR changes 1.5 million lines, so the scale tops out here.
 const SCALE_LINES = 5000;
 
@@ -150,6 +150,7 @@ function matches(r) {
   }
   if (state.fix === "none" && r.prs.length) return false;
   // Until the account and its searches are known, a mine filter from the URL waits instead of hiding everything.
+  if (state.sig && ![r, ...r.prs].some((x) => x.sig && (state.sig === "any" || x.pr === (state.sig === "pr")))) return false;
   if (me && state.mine === "opened" && ![r, ...r.prs].some((x) => x.author.toLowerCase() === me)) return false;
   if (mine && state.mine === "involved" && ![r, ...r.prs].some((x) => mine.involved.has(x.n))) return false;
   if (mine && state.mine === "requested" && !r.prs.some((p) => isOpen(p) && mine.requested.has(p.n))) return false;
@@ -329,7 +330,7 @@ function render() {
 // The filters in use, each with the patch that removes it.
 function activeFilters() {
   const out = [];
-  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "mine"]) {
+  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "sig", "mine"]) {
     if (state[k] === DEFAULTS[k] || (k === "mine" && !me)) continue;
     const name = $(`f-${k}`).closest("label").firstChild.textContent.trim(), value = $(`f-${k}`).selectedOptions[0].textContent;
     out.push([value.startsWith(name) ? value : `${name}: ${value}`, { [k]: DEFAULTS[k] }]);
@@ -341,7 +342,7 @@ function activeFilters() {
 
 function syncControls() {
   $("q").value = state.q;
-  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "mine", "sort"]) $(`f-${k}`).value = state[k];
+  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "sig", "mine", "sort"]) $(`f-${k}`).value = state[k];
   for (const th of document.querySelectorAll("th[data-sort]")) {
     th.setAttribute("aria-sort", th.dataset.sort === state.sort ? (state.dir === "asc" ? "ascending" : "descending") : "none");
   }
@@ -488,7 +489,7 @@ async function main() {
   gaps(data.gaps);
 
   $("q").addEventListener("input", (e) => filterBy({ q: e.target.value }));
-  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "mine"]) $(`f-${k}`).addEventListener("change", (e) => filterBy({ [k]: e.target.value }));
+  for (const k of ["state", "rating", "basis", "topic", "review", "fix", "ai", "sig", "mine"]) $(`f-${k}`).addEventListener("change", (e) => filterBy({ [k]: e.target.value }));
   $("f-sort").addEventListener("change", (e) => filterBy({ sort: e.target.value, dir: "desc" }));
   $("reset").addEventListener("click", () => fresh({}));
   $("copy-status").addEventListener("click", copyStatus);

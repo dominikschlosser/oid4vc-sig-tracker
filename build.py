@@ -10,6 +10,7 @@ reviewed = {int(n): v for n, v in json.load(open("ratings.json")).items()}
 demos = {int(n): u for n, u in json.load(open("demos.json")).items()}
 # Claude Code reviews of open PRs, from review.py.
 reviews = json.load(open("reviews.json")) if os.path.exists("reviews.json") else {}
+sig = {m["login"].lower() for m in json.load(open("sig-members.json"))["members"]}
 same = dict(tuple(int(x) for x in l.split()) for l in open("same.tsv") if l.strip())
 specs = {s["id"]: s for s in json.load(open("specs.json"))}
 
@@ -97,6 +98,7 @@ for i in raw["items"]:
     it = {
         "n": i["number"], "pr": pr, "title": i["title"].strip(), "url": i["url"], "state": state,
         "draft": i.get("isDraft", False), "author": (i["author"] or {}).get("login", "ghost"),
+        "sig": (i["author"] or {}).get("login", "").lower() in sig,
         "created": i["createdAt"][:10], "updated": i["updatedAt"][:10], "closed": (i["closedAt"] or "")[:10],
         "parent": (i.get("parent") or {}).get("number"), "parentTitle": (i.get("parent") or {}).get("title", ""),
         "subs": [i["subIssuesSummary"]["completed"], i["subIssuesSummary"]["total"]] if (i.get("subIssuesSummary") or {}).get("total") else None,

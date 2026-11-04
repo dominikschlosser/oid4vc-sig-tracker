@@ -1,0 +1,100 @@
+{
+ "source": "https://github.com/keycloak/keycloak-oauth-sig/blob/main/members.adoc",
+ "members": [
+  {
+   "login": "andriimurashkin",
+   "name": "Andrii Murashkin",
+   "company": "Adorsys"
+  },
+  {
+   "login": "DmitryMishchuk",
+   "name": "Dmytro Mishchuk",
+   "company": "Adorsys"
+  },
+  {
+   "login": "francis-pouatcha",
+   "name": "Francis Pouatcha",
+   "company": "Adorsys"
+  },
+  {
+   "login": "HryhoriiHevorkian",
+   "name": "Hryhorii",
+   "company": "Adorsys"
+  },
+  {
+   "login": "valb3r",
+   "name": "Valentyn Berezin",
+   "company": "Adorsys"
+  },
+  {
+   "login": "guymoyo",
+   "name": "Guy Moyo",
+   "company": "Adorsys"
+  },
+  {
+   "login": "arunganesh-a",
+   "name": "Arun Ganesh",
+   "company": "BANFICO"
+  },
+  {
+   "login": "kannan-ra",
+   "name": "Kannan Rasappan",
+   "company": "BANFICO"
+  },
+  {
+   "login": "pritish-nitb",
+   "name": "Pritish Joshi",
+   "company": "BANFICO"
+  },
+  {
+   "login": "ansari-haseb",
+   "name": "Haseb Ansari",
+   "company": "BANFICO"
+  },
+  {
+   "login": "tnorimat",
+   "name": "Takashi Norimatsu",
+   "company": "Hitachi"
+  },
+  {
+   "login": "VinodAnandan",
+   "name": "Vinod Anandan",
+   "company": "Independent"
+  },
+  {
+   "login": "brothwellIntegral",
+   "name": "Brendan Rothwell",
+   "company": "Integral Technology Solutions"
+  },
+  {
+   "login": "wadahiro",
+   "name": "Hiroyuki Wada",
+   "company": "Nomura Research Institute"
+  },
+  {
+   "login": "akoserwal",
+   "name": "Abhishek Koserwal",
+   "company": "Red Hat"
+  },
+  {
+   "login": "mposolda",
+   "name": "Marek Posolda",
+   "company": "Red Hat"
+  },
+  {
+   "login": "stianst",
+   "name": "Stian Thorgersen",
+   "company": "Red Hat"
+  },
+  {
+   "login": "thomasdarimont",
+   "name": "Thomas Darimont",
+   "company": "Identity Tailor GmbH"
+  },
+  {
+   "login": "wistefan",
+   "name": "Stefan Wiedemann",
+   "company": "Seamware"
+  }
+ ]
+}

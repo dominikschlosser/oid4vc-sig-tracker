@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 export PATH="/opt/homebrew/bin:/usr/bin:/bin"
 date
 python3 fetch.py
+python3 members.py || true
 python3 build.py
 python3 rate.py
 python3 review.py || echo "review.py failed, the page is deployed without new reviews"
