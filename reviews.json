@@ -92,28 +92,28 @@
  "54367": {
   "sha": "cff0d20b6126b46b808ee5c869ac0c9131124101",
   "notes": [],
-  "discussed": "2026-11-03T14:47:40Z",
-  "date": "2026-11-04",
+  "discussed": "2026-11-04T11:12:36Z",
+  "date": "2026-11-05",
   "model": "claude-opus-5-5",
   "effort": "high",
   "verdict": "approve",
-  "headline": "Sound ABCA PoP replay and freshness checks that mirror the existing DPoP design.",
-  "summary": "The PR rejects Client Attestation PoP JWTs whose `jti` was already used and PoPs whose `iat` falls outside a 10 second lifetime plus 15 second skew window. The replay entry is recorded only after the signature check, so unsigned tokens cannot fill the cache. The key is namespaced by realm, `jti` and issuer, and the lifespan covers the inclusive boundary that Copilot flagged. I traced every client authentication call site and found that each request runs the authenticator once. A legitimate request therefore never trips its own replay check.",
-  "eudi": "EUDI wallets now have to mint a fresh PoP for each PAR, token and refresh request, as draft-ietf-oauth-attestation-based-client-auth-07 section 5.2 expects. The common wallet libraries already do this. The hard coded 25 second window matches the DPoP window that HAIP token requests already have to pass.",
+  "headline": "Sound jti replay and iat freshness checks for ABCA PoP JWTs, mirroring DPoP.",
+  "summary": "The PR rejects Client Attestation PoP JWTs whose `iat` falls outside a 10s lifetime plus 15s skew window. It also records each PoP `jti` in `SingleUseObjectProvider` under a realm and ABCA namespaced key. The replay entry is written only after the PoP signature verifies, so an attacker cannot burn a wallet's `jti`. The lifespan covers the inclusive window edge on both JPA and Infinispan. Both points Copilot raised are fixed, and nothing here needs to change before merge.",
+  "eudi": "EUDI wallets that mint a fresh PoP for each PAR, token and refresh request keep working. Wallets that reuse one PoP across requests now fail with `invalid_client_attestation`. The window matches the DPoP proof window that HAIP wallets already meet at the same token request.",
   "good": [
-   "`rejectReplay` runs after the PoP signature is verified, so only proofs signed by the attested instance key consume cache entries.",
-   "The cache key is hashed and scoped by realm, `jti` and issuer, and the lifespan math holds even when the two `Time.currentTime()` calls differ by a second.",
-   "The HAIP conformance tests now mint a fresh PoP per request, and new tests cover replay, a fresh `jti` and a stale `iat`."
+   "`rejectReplay` runs after the PoP signature check and namespaces the cache key by realm and `iss`.",
+   "The replay lifespan is never zero or negative, unlike the DPoP code it copies, so the stores never throw `IllegalArgumentException` at the window edge.",
+   "Tests cover replay, a fresh `jti` and a stale `iat`, and the HAIP tests now mint a PoP per request."
   ],
   "findings": [
    {
     "severity": "followup",
     "file": "services/src/main/java/org/keycloak/authentication/authenticators/client/AttestationBasedClientAuthenticator.java",
     "line": 116,
-    "title": "The PoP lifetime and clock skew are named defaults but cannot be configured.",
-    "impact": "A wallet on a corporate managed phone whose clock is more than 15 seconds off fails ABCA at endpoints such as PAR, where no DPoP proof is checked, and the admin has no setting to relax the window.",
-    "detail": "Dominik Schlosser raised this in a review comment, and the code still hard codes `DEFAULT_POP_LIFETIME_SECONDS` and `DEFAULT_POP_CLOCK_SKEW_SECONDS`. The impact on this PR is limited. `DPoPUtil` uses the same fixed 10 plus 15 second window, and HAIP token requests carry a DPoP proof, so a wallet with a skewed clock already fails at the token endpoint today. The `DEFAULT_` prefix still suggests an override exists when none does.",
-    "fix": "In a later PR, add one realm or authenticator setting for the proof lifetime and clock skew, and apply it to both the ABCA PoP check and `DPoPUtil.Validator`. Alternatively, drop the `DEFAULT_` prefix until such a setting exists.",
+    "title": "The PoP lifetime and clock skew are hard coded constants that admins cannot override.",
+    "impact": "A wallet on a phone whose clock is more than 15s ahead or 25s behind cannot authenticate, and the admin has no setting to widen the window.",
+    "detail": "dominikschlosser raised this in review and the code is unchanged. The author answered that the values match `DPoPUtil`, which is also not configurable. That answer holds for HAIP flows. The token and refresh requests carry a DPoP proof with the same `iat` window, so a skewed wallet already fails there, and this PR adds no new failure for those flows. The PAR request and any ABCA client that does not use DPoP now have a time check they did not have before. The constants are named `DEFAULT_` but there is nothing they are a default for.",
+    "fix": "In a later PR, add one realm or SPI setting for proof lifetime and clock skew that both `DPoPUtil` and the ABCA authenticator read. Until then, rename the constants without the `DEFAULT_` prefix.",
     "context": [
      [
       "+",
@@ -150,6 +150,53 @@
       null,
       116,
       "    public static final int DEFAULT_POP_CLOCK_SKEW_SECONDS = 15;"
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/authentication/authenticators/client/AttestationBasedClientAuthenticator.java",
+    "line": 541,
+    "title": "Rejecting a reused PoP changes behaviour without a release note.",
+    "impact": "A wallet integrator who built against the old Keycloak behaviour, which accepted one PoP with a 5 minute `exp` for both PAR and token requests, gets `invalid_client_attestation` after upgrading.",
+    "detail": "Keycloak's own test wallet minted one PoP and reused it for PAR, token and refresh requests until this PR. Integrators who copied that pattern will break. ABCA is still an experimental feature, so the break is acceptable, but it should be visible to them.",
+    "fix": "Add a short note to the release notes for the next version. The note should say that each request now needs a fresh PoP with a unique `jti` and an `iat` within 10s plus 15s skew.",
+    "context": [
+     [
+      "+",
+      null,
+      536,
+      "        String hashKey = \"abca-pop\\n\" + realmId + \"\\n\" + attestationPoPJwt.getId() + \"\\n\" + attestationPoPJwt.getIssuer();"
+     ],
+     [
+      "+",
+      null,
+      537,
+      "        String hashString = Hex.encodeHexString(HashUtils.hash(\"SHA1\", hashKey.getBytes(StandardCharsets.UTF_8)));"
+     ],
+     [
+      "+",
+      null,
+      538,
+      "        // +1 covers the inclusive freshness boundary where JPA treats expire <= now as expired"
+     ],
+     [
+      "+",
+      null,
+      539,
+      "        int lifespan = Math.max(1, (int) (attestationPoPJwt.getIat() + DEFAULT_POP_LIFETIME_SECONDS"
+     ],
+     [
+      "+",
+      null,
+      540,
+      "                + DEFAULT_POP_CLOCK_SKEW_SECONDS - Time.currentTime()) + 1);"
+     ],
+     [
+      "+",
+      null,
+      541,
+      "        if (!singleUseCache.putIfAbsent(hashString, lifespan)) {"
      ]
     ]
    }
@@ -502,30 +549,30 @@
   "discussed": "2025-12-12T14:24:58Z"
  },
  "53476": {
-  "sha": "453f53585d65bc2acfa85cb13ac2796b43c1ba46",
+  "sha": "181f5d1fe7660fb2c544a1a472863d643e66f65f",
   "notes": [],
-  "discussed": "2026-11-03T16:56:48Z",
-  "date": "2026-11-04",
+  "discussed": "2026-11-04T10:57:50Z",
+  "date": "2026-11-05",
   "model": "claude-opus-5-5",
   "effort": "high",
   "verdict": "approve",
-  "headline": "The opt-in `attested_keys[0]` check is correct and leaves the default behaviour unchanged.",
-  "summary": "The PR adds the optional `vc.key_attestation.proof_key_index` attribute. When it is set to 0, the key that signs a JWT proof must be the first entry in `attested_keys`. Without it, the existing membership check still applies. The value is checked in the admin save path and again when the metadata is parsed, and the tests cover the validator, the parser and the admin REST path. Two follow-ups raised by Dominik Schlosser remain open, but neither is made worse by this PR.",
-  "eudi": "Issuers that follow ETSI TS 119 472-3 can now insist that the proof key is the first attested key. EUDI wallets that send `kid` as a position still fail before this check runs, so the option is not yet usable with the reference wallet.",
+  "headline": "The opt-in check that the proof key is attested_keys[0] is correct and backward compatible.",
+  "summary": "The PR adds the optional `vc.key_attestation.proof_key_index` scope attribute. When it is set to 0, a JWT proof is accepted only if its signing key is `attested_keys[0]`. Without it, the existing membership check stays as it was. The admin create and update paths and realm import reject any value other than 0 with HTTP 400, so a bad value cannot reach `SupportedCredentialConfiguration.parse` and break issuer metadata for the whole realm. The two gaps that remain were raised by dominikschlosser, already existed before this PR and are tracked in issue 54634.",
+  "eudi": "EUDI issuers can now enforce the ETSI TS 119 472-3 rule that the JWT proof key is `attested_keys[0]`. Wallets that send `kid` as a position in `attested_keys`, like the EUDI reference wallet, are still rejected before this check runs.",
   "good": [
-   "The default path keeps the existing membership check, so current configurations behave as before.",
-   "An unsupported value is rejected with HTTP 400 before it is stored, so it cannot break issuer discovery for the realm.",
-   "The error message says where the proof key was actually found, which makes wallet bugs easy to diagnose."
+   "The default membership check is unchanged, so existing configurations keep working.",
+   "`validateProofKeyIndex` uses the same parsing as the model getter, so values that would break metadata are rejected with HTTP 400 before they are stored.",
+   "Unit tests cover the accept and reject cases with and without a required index, and the error message names the index where the key was found."
   ],
   "findings": [
    {
     "severity": "followup",
     "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/keybinding/JwtProofValidator.java",
     "line": 169,
-    "title": "A `kid` that gives a position in `attested_keys` is looked up as a key id.",
-    "impact": "The EUDI reference wallet sends `\"kid\": \"0\"` with no `jwk`, and its proof is rejected before the new index check runs.",
-    "detail": "Dominik Schlosser raised this in the approving review. The example in OpenID4VCI 1.0 Appendix F.1 uses `\"kid\": \"0\"` next to a key attestation whose attested keys carry no `kid`, so the value is a position. The code compares the header `kid` with each attested key's `kid` and throws `No attested key found matching kid`. This happened before the PR too, so the PR does not make it worse. It does mean the new option cannot help with that wallet yet.",
-    "fix": "When a key attestation is present and no attested key carries the given `kid`, read a numeric `kid` as the position in `attested_keys`, then run the index check on the key found there.",
+    "title": "A `kid` header is matched against attested key `kid` values, not read as an index into `attested_keys`.",
+    "impact": "An EUDI reference wallet sends `\"kid\": \"0\"` with a key attestation whose keys have no `kid`, and Keycloak rejects the proof.",
+    "detail": "dominikschlosser raised this in their review. The OpenID4VCI 1.0 Appendix F.1 example uses `\"kid\": \"0\"` with no `jwk`, and the attested keys in Appendix D.1 have no `kid`. So `\"0\"` refers to the position in `attested_keys`. `validateSingleJwtProof` looks for an attested key whose `kid` is `\"0\"` and fails with `No attested key found matching kid` before `validateProofKeyAttestation` runs. This existed before the PR. It matters more now because wallets that follow ETSI are the main users of the new option. The author tracks it in issue 54634.",
+    "fix": "When a key attestation is present and no attested key has a matching `kid`, read a numeric `kid` as the index into `attested_keys`.",
     "context": [
      [
       " ",
@@ -568,47 +615,94 @@
    {
     "severity": "followup",
     "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/keybinding/JwtProofValidator.java",
-    "line": 370,
-    "title": "With the option on, the JWT proof binds only one credential instead of one per attested key.",
-    "impact": "A wallet that sends one JWT proof with a key attestation for several keys gets a single credential, and a wallet that sends one proof per key fails the whole request.",
-    "detail": "Dominik Schlosser raised this in the approving review. ETSI TS 119 472-3 CRED-REQ-PROC-4.6.2.1-04 asks for one credential per entry in `attested_keys` and allows only one JWT proof. OpenID4VCI 1.0 Appendix F.1 recommends the same. The JWT proof validator returns only the signing key. A batch of proofs that share one attestation fails because only the proof signed by `attested_keys[0]` passes the index check. The attestation proof type already returns all attested keys.",
-    "fix": "When `proof_key_index` is 0 and the proof check passes, return every key in `attested_keys` from the JWT proof validator, in the same way as the attestation proof validator.",
+    "line": 205,
+    "title": "A JWT proof with a key attestation binds only the proof key, not every attested key.",
+    "impact": "A wallet that sends one JWT proof with a key attestation for a batch of keys gets a single credential instead of a batch.",
+    "detail": "dominikschlosser raised this in their review. ETSI TS 119 472-3 CRED-REQ-PROC-4.6.2.1-04 requires one credential per entry in `attested_keys`, and OpenID4VCI 1.0 Appendix F.1 recommends the same. ETSI also allows only one JWT proof, so with the new option on, batch issuance from a JWT proof is impossible. The `attestation` proof type already returns all attested keys. This is existing behaviour and is tracked in issue 54634.",
+    "fix": "Return all `attested_keys` from `validateSingleJwtProof` once the proof key has been validated against the attestation, as `AttestationProofValidator` already does.",
     "context": [
      [
-      "+",
+      " ",
       null,
-      365,
-      "    /**"
+      200,
+      "        if (!signatureVerifierContext.verify(jwsInput.getEncodedSignatureInput().getBytes(StandardCharsets.UTF_8),"
      ],
      [
-      "+",
+      " ",
       null,
-      366,
-      "     * The proof key must be included in attested_keys (OpenID4VCI Appendix D). When a required index is"
+      201,
+      "                jwsInput.getSignature())) {"
      ],
      [
-      "+",
+      " ",
       null,
-      367,
-      "     * configured, the key has to occupy exactly that position, as mandated by ETSI TS 119 472-3 and"
+      202,
+      "            throw new VCIssuerException(ErrorType.INVALID_PROOF, \"Could not verify signature of provided proof\");"
      ],
      [
-      "+",
+      " ",
       null,
-      368,
-      "     * Regulation (EU) 2026/1731 (TR_KA-6)."
+      203,
+      "        }"
      ],
      [
-      "+",
+      " ",
       null,
-      369,
-      "     */"
+      204,
+      ""
      ],
      [
-      "+",
+      " ",
       null,
-      370,
-      "    void validateProofKeyAttestation(List<JWK> attestedKeys, JWK proofKey, Integer requiredIndex) {"
+      205,
+      "        return jwk;"
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "js/apps/admin-ui/src/client-scopes/details/ScopeForm.tsx",
+    "line": 886,
+    "title": "The admin console has no field for `vc.key_attestation.proof_key_index`.",
+    "impact": "An admin who sets up an ETSI compliant issuer in the console cannot turn the check on and must use the admin REST API.",
+    "detail": "The other key attestation settings, such as `vc.key_attestations_required` and its key storage and user authentication values, have fields in `ScopeForm.tsx`. The new attribute is also missing from `OID4VC_ATTRIBUTE_KEYS` in `oid4vciAttributes.ts`.",
+    "fix": "Add a switch next to the key attestation settings that stores `0` when it is on and removes the attribute when it is off.",
+    "context": [
+     [
+      " ",
+      null,
+      881,
+      ""
+     ],
+     [
+      " ",
+      null,
+      882,
+      "                      return true;"
+     ],
+     [
+      " ",
+      null,
+      883,
+      "                    },"
+     ],
+     [
+      " ",
+      null,
+      884,
+      "                  }}"
+     ],
+     [
+      " ",
+      null,
+      885,
+      "                />"
+     ],
+     [
+      " ",
+      null,
+      886,
+      "                <DefaultSwitchControl"
      ]
     ]
    }
@@ -1940,5 +2034,178 @@
   "model": "claude-opus-5-5",
   "effort": "medium",
   "discussed": ""
+ },
+ "54638": {
+  "sha": "2eaf2851159b043d9f4271628e859eacde07b0d8",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-05",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "verdict": "comment",
+  "headline": "Several JWT proofs that share one key attestation now produce duplicate credentials for the same keys.",
+  "summary": "The PR makes the JWT and attestation proof validators bind every key in `attested_keys`, as OpenID4VCI 1.0 Appendix F.1 and F.3 recommend. It resolves a numeric proof `kid` as a position in `attested_keys` and caps the batch by credentials instead of proofs. The fan out from one key per proof to one credential per attested key is clean. Key data is never shared across users, and each credential is built separately, so salts and generated ids stay unique. One case is new and wrong: when a wallet sends several JWT proofs that carry the same key attestation, the endpoint adds the full attested key list once per proof. The wallet then gets duplicate credentials bound to the same keys.",
+  "eudi": "EUDI wallets that send one proof with a WUA listing several keys now receive one PID or attestation per key, which batch issuance and unlinkability under the ARF need. Wallets that still send one JWT proof per key, each carrying the WUA, get linkable duplicates until the endpoint deduplicates the keys.",
+  "good": [
+   "Proof validation now returns the keys and the endpoint does the binding, so one proof can fan out into several credentials without duplicating mapper logic.",
+   "Positional `kid` resolution still needs a signature from the resolved attested key, and an exact `kid` match takes precedence, so a positional `kid` cannot select a key the signer does not hold.",
+   "End to end tests cover multi key issuance for both the `jwt` and `attestation` proof types and check each `cnf` key in order."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerEndpoint.java",
+    "line": 1056,
+    "title": "Several JWT proofs carrying the same key attestation produce duplicate credentials per attested key.",
+    "impact": "Suppose a realm has `batch_size` 10 and a wallet sends three JWT proofs, each signed by one key and each carrying the same WUA with those three keys. The wallet then gets nine credentials, three bound to each key, instead of three unlinkable ones.",
+    "detail": "The endpoint calls `prepareCredentials` once per proof. With this PR `JwtProofValidator.validateSingleJwtProof` returns the whole `attested_keys` list for every proof that has a `key_attestation`. Each proof therefore adds one context per attested key, and the cap at line 1064 only cuts the list at `batch_size`. Before this PR the same request produced one credential per proof. Credentials that share a `cnf` key are linkable, which defeats the purpose of batch issuance. The wallet also receives more credentials than it asked for. This proof pattern was the only way to get several credentials from one WUA before this PR, so existing wallets may still use it. No test sends more than one JWT proof with a key attestation.",
+    "fix": "Collect the keys from all proofs into one list, deduplicate them by key material with `jwkMaterialEquals` or the JWK thumbprint, and only then build one context per distinct key. Add an end to end test with two JWT proofs that carry the same attestation and assert two credentials with distinct `cnf` keys.",
+    "context": [
+     [
+      "+",
+      null,
+      1054,
+      "                    // Creating credentials with keybinding to the current proof"
+     ],
+     [
+      " ",
+      1058,
+      1055,
+      "                    credentialRequest.setProofs(proofForIteration);"
+     ],
+     [
+      "-",
+      1059,
+      null,
+      "                    VCIssuanceContext vcIssuanceContext = prepareCredential(authResult, supportedCredential, tokenAuthDetail, credentialRequest, eventBuilder);"
+     ],
+     [
+      "-",
+      1060,
+      null,
+      "                    vcIssuanceContexts.add(vcIssuanceContext);"
+     ],
+     [
+      "-",
+      1061,
+      null,
+      "                    verifiedProofCNonces.putAll(vcIssuanceContext.getVerifiedCNonces());"
+     ],
+     [
+      "+",
+      null,
+      1056,
+      "                    vcIssuanceContexts.addAll(prepareCredentials(authResult, supportedCredential, tokenAuthDetail, credentialRequest, eventBuilder));"
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerEndpoint.java",
+    "line": 1030,
+    "title": "A single proof can now yield two credentials when the issuer does not advertise batch issuance.",
+    "impact": "Take a realm without `batch_size`, which is the default setup. A wallet that sends one attestation proof, or one JWT proof whose WUA lists several keys, receives two credentials even though the metadata omits `batch_credential_issuance`.",
+    "detail": "When `batch_credential_issuance` is absent, `maxBatchSize` falls back to `BATCH_CREDENTIAL_ISSUANCE_DEFAULT_MAX_BATCH_SIZE`, which is 2. The fallback already existed for multi proof requests. This PR makes it reachable from a single proof. OpenID4VCI 1.0 Section 12.2.4 says an issuer that omits `batch_credential_issuance` does not support batch issuance. That conflicts with issuing more than one credential per request.",
+    "fix": "Use a limit of 1 when `getBatchCredentialIssuance()` is null, so only the first attested key is bound. Otherwise advertise batch issuance whenever more than one credential can be returned.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -1027,44 +1027,49 @@ public class OID4VCIssuerEndpoint {"
+     ],
+     [
+      " ",
+      1027,
+      1027,
+      "            throw new BadRequestException(getErrorResponse(ErrorType.INVALID_PROOF, \"Proof values must not be null or blank\"));"
+     ],
+     [
+      " ",
+      1028,
+      1028,
+      "        }"
+     ],
+     [
+      " ",
+      1029,
+      1029,
+      ""
+     ],
+     [
+      "+",
+      null,
+      1030,
+      "        int maxBatchSize = Optional.ofNullable(issuerMetadata.getBatchCredentialIssuance())"
+     ]
+    ]
+   }
+  ]
+ },
+ "54656": {
+  "sha": "b6ef0e3fa25e5d5d60d60290c756c084a3ec07bc",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-05",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "verdict": "approve",
+  "headline": "Direct client scope lookup by name is correct and safe to merge.",
+  "summary": "The PR adds `getClientScopeByName` to `RealmModel` and `ClientScopeProvider` as default methods. It implements the lookup with an indexed JPA query and an ID only name cache that checks every hit against the current scope name. The callers in `KeycloakModelUtils`, the client scope policy import and the OID4VC user credential admin endpoints now use it. The cache design heals itself after a rename, a removal or a rollback, and it needs no new cluster invalidation events, so I found nothing that must change.",
+  "eudi": "Issuers with many credential configurations no longer load every client scope when an admin updates or revokes a user credential by scope name. Issuance and presentation behaviour does not change.",
+  "good": [
+   "The cache hit path compares the cached scope name with the requested name, so stale name keys fall back to the database without new invalidation events.",
+   "The JPA lookup compares the name again in Java, which keeps the old case sensitive behaviour on case insensitive collations.",
+   "The tests check query and entity load statistics, and they cover rename, removal and recreation under the same name."
+  ],
+  "findings": [
+   {
+    "severity": "nit",
+    "file": "model/infinispan/src/main/java/org/keycloak/models/cache/infinispan/RealmCacheSession.java",
+    "line": 1409,
+    "title": "The miss path and the fallback path do not compare the name of the scope they return.",
+    "impact": "The lookup can return a scope that another node renamed a moment ago, but only if the rename lands between the database query and the cache read.",
+    "detail": "Copilot raised this, and the code still has it. The cache hit path at line 1394 checks `clientScope.getName()`. The miss path at line 1409 and `getClientScopeByNameFromDelegate` at line 1415 return `getClientScopeById` without that check. A fresher `CachedClientScope` can be in the cache at that moment. The window is very small and the stored name key heals itself on the next hit. The old stream filter checked the name after it resolved the scope through the cache, so this is a small change in behaviour.",
+    "fix": "Run the same `Objects.equals(name, clientScope.getName())` check in both paths and return `null` or the delegate result when it fails.",
+    "context": [
+     [
+      "+",
+      null,
+      1404,
+      "        if (model == null) {"
+     ],
+     [
+      "+",
+      null,
+      1405,
+      "            return null;"
+     ],
+     [
+      "+",
+      null,
+      1406,
+      "        }"
+     ],
+     [
+      "+",
+      null,
+      1407,
+      "        logger.tracev(\"adding client scope by name cache miss: {0}\", name);"
+     ],
+     [
+      "+",
+      null,
+      1408,
+      "        cache.addRevisioned(new ClientScopeListQuery(loaded, cacheKey, realm, Set.of(model.getId())), startupRevision);"
+     ],
+     [
+      "+",
+      null,
+      1409,
+      "        return getClientScopeById(realm, model.getId());"
+     ]
+    ]
+   }
+  ]
  }
 }
