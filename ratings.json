@@ -828,5 +828,14 @@
   ],
   "note": "Keycloak rejects JWT proofs whose kid gives the position of the attested key, as the EUDI reference wallet sends them. With several attested keys it also issues only one credential instead of a batch.",
   "why": "A PID or attestation provider that requires key attestations can't issue to wallets built on the EUDI reference wallet when they use the jwt proof type. It is High and not Blocker because wallets can use the attestation proof type, which already works, or send the key as jwk."
+ },
+ "54683": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "abca-7-1-trusted-attester"
+  ],
+  "note": "ABCA attestations without x5c fall back to a kid lookup, so a key from another configured JWKS provider can bypass a client's X.509 trust policy. An attacker would need the signing key of another configured attester.",
+  "why": ""
  }
 }

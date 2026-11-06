@@ -74,20 +74,209 @@
    "trustListServiceStatuses has no default on purpose, because Keycloak is not EUDI specific. With nothing configured, services that carry a status are not trusted.",
    "x5c support in AttestationBasedClientAuthenticator and the rule that X.509 trust requires x5c are left out on purpose, because they overlap with the approved #52883. They come back in a follow-up after #52883 is merged."
   ],
-  "date": "2026-11-04",
+  "discussed": "2026-11-05T10:31:02Z",
+  "date": "2026-11-06",
   "model": "claude-opus-5-5",
   "effort": "high",
   "verdict": "approve",
-  "headline": "Signed ETSI LoTE trust provider that fails closed and is well tested.",
-  "summary": "The PR adds an `etsi-trust-list` trust material identity provider. It downloads a signed ETSI TS 119 602 List of Trusted Entities, verifies it against pinned signing certificates, enforces `LoTEType`, service types, service statuses and `NextUpdate`, and exposes the listed CA certificates as X.509 trust anchors for key attestations and OID4VP. It also lets `X509TrustMaterial` accept subordinate CAs as anchors, which the `CertPathBuilder` based validator handles correctly. I found nothing that must change before merge.",
-  "eudi": "Keycloak can now take wallet provider and PID or EAA provider trust from the official EUDI LoTE distribution points instead of hand-maintained PEM bundles. Client attestations with `x5c` still need #52883, and revocation and lists of trusted lists are separate follow-ups.",
+  "headline": "Sound fail-closed ETSI LoTE trust provider. Only reviewer nits and small follow-ups remain.",
+  "summary": "The PR adds an `etsi-trust-list` identity provider. It downloads a signed ETSI TS 119 602 LoTE, verifies it against pinned certificates, checks `LoTEType`, service type, status and `NextUpdate`, and exposes the listed CA certificates as X.509 trust anchors for key attestations and OID4VP. It also relaxes `X509TrustMaterial` so subordinate CAs can be anchors. Download, signature, type and expiry failures all fail closed, and the cache expiry follows the earlier of the refresh interval and `NextUpdate`. The open review comments from Awambeng are still in the code, but none of them blocks a merge.",
+  "eudi": "Keycloak can now use the EUDI Wallet Providers and PID or PubEAA Providers lists as trust sources for wallet unit attestations and presented credentials, which is a prerequisite for EUDI issuer and verifier deployments. Client attestation still needs #52883, and LoTL discovery, CRL checks and listed end entity certificates come in later PRs.",
   "good": [
-   "Every failure path fails closed: a bad signature, a wrong `LoTEType`, a missing or past `NextUpdate`, or an unparsable list. A failed refresh drops the cached anchors instead of keeping them.",
-   "List signature verification rejects symmetric and unknown algorithms. It only trusts the configured certificates and ignores any key material in the list header.",
-   "The integration tests cover service type and status scoping, renewed CAs, end entity entries, refresh after withdrawal, recovery after a failed download, and isolation from other trust providers."
+   "Every failure path of the loader fails closed, and a broken list does not disable the other trust providers of a client.",
+   "The list signature is checked only against pinned asymmetric keys, so `none`, HMAC and attacker keys are rejected.",
+   "The integration tests cover service scope, statuses, wrong LoTE type, wrong signer, missing or past `NextUpdate`, refresh and recovery."
   ],
-  "findings": [],
-  "discussed": "2026-11-03T10:36:06Z"
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java",
+    "line": 46,
+    "title": "The provider does not override `reloadKeys()`, as Awambeng pointed out.",
+    "impact": "When a Wallet Provider CA is withdrawn from the list after a compromise, `GET /identity-providers/{alias}/reload-keys` returns false and the old list stays trusted for up to the refresh interval.",
+    "detail": "`DefaultTrustIdentityProvider` overrides `reloadKeys()` to call `PublicKeyStorageProvider.reloadKeys` with its loader. The ETSI provider keeps the interface default, which returns false. The admin can still save the provider or clear the realm keys cache to force a reload, so this only removes a convenience.",
+    "fix": "Override `reloadKeys()` and call `PublicKeyStorageProvider.reloadKeys(modelKey, new EtsiTrustListPublicKeyLoader(session, config))` with the same model key as `listedCertificates()`.",
+    "context": [
+     [
+      "+",
+      null,
+      41,
+      " * HAIP requires the signing certificate in x5c and keeps the trust anchor out of it, so an artifact"
+     ],
+     [
+      "+",
+      null,
+      42,
+      " * needs a chain to a listed CA. No key can be selected by kid and listed end entity certificates are"
+     ],
+     [
+      "+",
+      null,
+      43,
+      " * ignored."
+     ],
+     [
+      "+",
+      null,
+      44,
+      " */"
+     ],
+     [
+      "+",
+      null,
+      45,
+      "public class EtsiTrustListIdentityProvider implements TrustMaterialIdentityProvider<EtsiTrustListIdentityProviderConfig> {"
+     ],
+     [
+      "+",
+      null,
+      46,
+      ""
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java",
+    "line": 152,
+    "title": "The test lists contain only the fields that the mapping reads, as Awambeng noted.",
+    "impact": "If a later change makes the Jackson mapping strict or renames a nested record, real lists such as the German sandbox lists stop loading and every attestation is rejected.",
+    "detail": "`trustList` builds only `LoTEType`, `NextUpdate` and the service entries. Published lists also carry `TrustedEntityInformation`, `ServiceHistory`, `ListIssueDateTime`, `SchemeTerritory` and more. No test parses such a document.",
+    "fix": "Add one test that loads a full LoTE document, for example a fixture shaped like a published Wallet Providers list, re-signed with the test signer.",
+    "context": [
+     [
+      "+",
+      null,
+      147,
+      "            this.content = content;"
+     ],
+     [
+      "+",
+      null,
+      148,
+      "        }"
+     ],
+     [
+      "+",
+      null,
+      149,
+      "    }"
+     ],
+     [
+      "+",
+      null,
+      150,
+      ""
+     ],
+     [
+      "+",
+      null,
+      151,
+      "    public static String trustList(KeyPair signer, String loteType, Instant nextUpdate, List<Map<String, Object>> services) {"
+     ],
+     [
+      "+",
+      null,
+      152,
+      "        Map<String, Object> scheme = new HashMap<>();"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java",
+    "line": 67,
+    "title": "Two validation errors send the admin in the wrong direction, as Awambeng pointed out.",
+    "impact": "An admin who enters only whitespace as signing certificates, or `abc` as refresh interval, gets a misleading error message.",
+    "detail": "The empty check for the signing certificates sits inside the `try`, so its exception is wrapped as \"must be a valid PEM bundle\". `getRefreshInterval()` returns -1 for an unparseable value, so `abc` is reported as \"must be a positive number of seconds\".",
+    "fix": "Move the empty check out of the `try`, and report an unparseable refresh interval with its own message.",
+    "context": [
+     [
+      "+",
+      null,
+      62,
+      "            throw new IllegalArgumentException(\"The trust list LoTE type is required\");"
+     ],
+     [
+      "+",
+      null,
+      63,
+      "        }"
+     ],
+     [
+      "+",
+      null,
+      64,
+      "        if (getServiceTypes().isEmpty()) {"
+     ],
+     [
+      "+",
+      null,
+      65,
+      "            throw new IllegalArgumentException(\"At least one trust list service type is required\");"
+     ],
+     [
+      "+",
+      null,
+      66,
+      "        }"
+     ],
+     [
+      "+",
+      null,
+      67,
+      "        try {"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "docs/documentation/server_admin/topics/oid4vci/proofs.adoc",
+    "line": 137,
+    "title": "The documentation leaves out three points that Awambeng asked to state.",
+    "impact": "Admins and auditors may expect stricter list validation, or wonder why a list with statuses trusts nothing.",
+    "detail": "The section does not say that services with a status are ignored when no statuses are configured. It does not say that the signature is checked as a plain JWS against the configured certificates instead of full JAdES Baseline B validation of clause E.4. It also does not say that the clause 6.8.0 match of the signer `C` and `O` against `SchemeTerritory` and `SchemeOperatorName` is skipped.",
+    "fix": "Add one sentence for each point to the ETSI trust lists section.",
+    "context": [
+     [
+      "+",
+      null,
+      132,
+      ""
+     ],
+     [
+      "+",
+      null,
+      133,
+      "Trust list URL:: The URL of the signed list in its JSON Web Signature form."
+     ],
+     [
+      "+",
+      null,
+      134,
+      "Trust list signing certificates:: A PEM bundle of the certificates allowed to sign the list. A list is used only when one of these certificates verifies its signature. To rotate the signing key, configure the old and the new certificate."
+     ],
+     [
+      "+",
+      null,
+      135,
+      "LoTE type:: The required type of the list, for example `+http://uri.etsi.org/19602/LoTEType/EUWalletProvidersList+`. {project_name} rejects a list whose `LoTEType` value does not match."
+     ],
+     [
+      "+",
+      null,
+      136,
+      "Service types:: The service type identifiers whose certificates are trusted, for example `+http://uri.etsi.org/19602/SvcType/WalletSolution/Issuance+`."
+     ],
+     [
+      "+",
+      null,
+      137,
+      "Service statuses:: Services with one of these statuses are trusted. Services without a status are always trusted."
+     ]
+    ]
+   }
+  ]
  },
  "54367": {
   "sha": "cff0d20b6126b46b808ee5c869ac0c9131124101",
@@ -2143,69 +2332,21 @@
   ]
  },
  "54656": {
-  "sha": "b6ef0e3fa25e5d5d60d60290c756c084a3ec07bc",
+  "sha": "791ea28bc97acd2aa6f89850cd9bcb92e7b87ba7",
   "notes": [],
   "discussed": "",
-  "date": "2026-11-05",
+  "date": "2026-11-06",
   "model": "claude-opus-5-5",
   "effort": "high",
   "verdict": "approve",
-  "headline": "Direct client scope lookup by name is correct and safe to merge.",
-  "summary": "The PR adds `getClientScopeByName` to `RealmModel` and `ClientScopeProvider` as default methods. It implements the lookup with an indexed JPA query and an ID only name cache that checks every hit against the current scope name. The callers in `KeycloakModelUtils`, the client scope policy import and the OID4VC user credential admin endpoints now use it. The cache design heals itself after a rename, a removal or a rollback, and it needs no new cluster invalidation events, so I found nothing that must change.",
-  "eudi": "Issuers with many credential configurations no longer load every client scope when an admin updates or revokes a user credential by scope name. Issuance and presentation behaviour does not change.",
+  "headline": "Direct client scope lookup by name is correct and the cache entries heal themselves.",
+  "summary": "The PR adds `getClientScopeByName` to `RealmModel` and `ClientScopeProvider` as default methods. It adds a JPA query on realm and name, and a cache layer that keeps only the scope ID per name and checks every hit against the current name of the cached scope. Callers that filtered `getClientScopesStream()` by name now use the new lookup, including the OID4VC user credential admin endpoints. I traced rename, removal, recreation under the same name, same transaction additions and concurrent renames through `RealmCacheSession` and found no path that returns a wrong or stale scope.",
+  "eudi": "Nothing changes for issuance or presentation. The OID4VC admin endpoints that assign or remove a user's credential by scope name keep the same semantics and no longer load every client scope of the realm.",
   "good": [
-   "The cache hit path compares the cached scope name with the requested name, so stale name keys fall back to the database without new invalidation events.",
-   "The JPA lookup compares the name again in Java, which keeps the old case sensitive behaviour on case insensitive collations.",
-   "The tests check query and entity load statistics, and they cover rename, removal and recreation under the same name."
+   "A cached name entry is checked against the name of the scope resolved through the ID cache. Rename and removal invalidations already reach every cluster node that way, so the name keys need no cluster invalidation of their own.",
+   "Misses are not cached, and a stale hit adds the key to `invalidations`, so a scope recreated under the same name is found and the stale entry is removed at the end of the transaction.",
+   "The SPI additions are default methods that keep the old filtering, so custom `RealmModel` and `ClientScopeProvider` implementations keep working."
   ],
-  "findings": [
-   {
-    "severity": "nit",
-    "file": "model/infinispan/src/main/java/org/keycloak/models/cache/infinispan/RealmCacheSession.java",
-    "line": 1409,
-    "title": "The miss path and the fallback path do not compare the name of the scope they return.",
-    "impact": "The lookup can return a scope that another node renamed a moment ago, but only if the rename lands between the database query and the cache read.",
-    "detail": "Copilot raised this, and the code still has it. The cache hit path at line 1394 checks `clientScope.getName()`. The miss path at line 1409 and `getClientScopeByNameFromDelegate` at line 1415 return `getClientScopeById` without that check. A fresher `CachedClientScope` can be in the cache at that moment. The window is very small and the stored name key heals itself on the next hit. The old stream filter checked the name after it resolved the scope through the cache, so this is a small change in behaviour.",
-    "fix": "Run the same `Objects.equals(name, clientScope.getName())` check in both paths and return `null` or the delegate result when it fails.",
-    "context": [
-     [
-      "+",
-      null,
-      1404,
-      "        if (model == null) {"
-     ],
-     [
-      "+",
-      null,
-      1405,
-      "            return null;"
-     ],
-     [
-      "+",
-      null,
-      1406,
-      "        }"
-     ],
-     [
-      "+",
-      null,
-      1407,
-      "        logger.tracev(\"adding client scope by name cache miss: {0}\", name);"
-     ],
-     [
-      "+",
-      null,
-      1408,
-      "        cache.addRevisioned(new ClientScopeListQuery(loaded, cacheKey, realm, Set.of(model.getId())), startupRevision);"
-     ],
-     [
-      "+",
-      null,
-      1409,
-      "        return getClientScopeById(realm, model.getId());"
-     ]
-    ]
-   }
-  ]
+  "findings": []
  }
 }

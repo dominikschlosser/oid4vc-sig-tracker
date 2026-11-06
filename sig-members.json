@@ -2,34 +2,29 @@
  "source": "https://github.com/keycloak/keycloak-oauth-sig/blob/main/members.adoc",
  "members": [
   {
-   "login": "andriimurashkin",
-   "name": "Andrii Murashkin",
-   "company": "Adorsys"
+   "login": "IngridPuppet",
+   "name": "Ingrid Kamga",
+   "company": "adorsys"
   },
   {
-   "login": "DmitryMishchuk",
-   "name": "Dmytro Mishchuk",
-   "company": "Adorsys"
+   "login": "Ogenbertrand",
+   "name": "Bertrand Ogen",
+   "company": "adorsys"
   },
   {
-   "login": "francis-pouatcha",
-   "name": "Francis Pouatcha",
-   "company": "Adorsys"
+   "login": "Awambeng",
+   "name": "Awambeng Rodrick",
+   "company": "adorsys"
   },
   {
-   "login": "HryhoriiHevorkian",
-   "name": "Hryhorii",
-   "company": "Adorsys"
+   "login": "forkimenjeckayang",
+   "name": "Forkim Enjeckayang",
+   "company": "adorsys"
   },
   {
-   "login": "valb3r",
-   "name": "Valentyn Berezin",
-   "company": "Adorsys"
-  },
-  {
-   "login": "guymoyo",
-   "name": "Guy Moyo",
-   "company": "Adorsys"
+   "login": "Vitalisn4",
+   "name": "Vitalis Ngam",
+   "company": "adorsys"
   },
   {
    "login": "arunganesh-a",
