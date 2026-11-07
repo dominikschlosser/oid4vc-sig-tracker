@@ -2348,5 +2348,118 @@
    "The SPI additions are default methods that keep the old filtering, so custom `RealmModel` and `ClientScopeProvider` implementations keep working."
   ],
   "findings": []
+ },
+ "54786": {
+  "sha": "d5ce5351ab4a1b3d1fd71d3667bba0c0ffd5d943",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-07",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "verdict": "comment",
+  "headline": "Product docs still walk through the experimental REST credential offer endpoint for Valera.",
+  "summary": "The PR shows the OID4VCI chapter, which is a preview feature, in product builds. It wraps the experimental content in `project_community` blocks: pre-authorized code, mdoc and the `preAuthorized` AIA option. It also adds the missing `auditing-user-events` anchor. The conditionals are well formed and every xref to a hidden anchor is hidden as well. However, the Valera wallet test still uses the experimental `oid4vc-vci-rest-credential-offer` endpoint as its main path in product output, which goes against the goal in the PR title.",
+  "eudi": "There is no runtime effect. Product readers of EUDI pilots get the SD-JWT VC authorization code flow docs and no longer see pre-authorized or mdoc material that the product does not support.",
+  "good": [
+   "Every xref to a community-only anchor, such as `_oid4vci_pre_authorized_code_flow` and `_oid4vci_lissi_wallet_preauthz_flow`, sits inside the same conditional. Product builds therefore get no dangling links.",
+   "The wallet test tables have product variants that list only the Authorization Code Flow. They do not simply drop rows.",
+   "The new `[#auditing-user-events]` anchor fixes the troubleshooting links in the wallet section."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "docs/documentation/server_admin/topics/oid4vci/wallet-integration.adoc",
+    "line": 151,
+    "title": "The Valera test in product docs still depends on the experimental REST credential offer endpoint.",
+    "impact": "A product reader who follows the Valera test must enable `oid4vc-vci-rest-credential-offer`, which is `Type.EXPERIMENTAL` in `Profile.java` and unsupported in the product.",
+    "detail": "The PR hides pre-authorized code and mdoc content because those features are experimental. `OID4VC_VCI_REST_CREDENTIAL_OFFER` has the same type, yet lines 151 to 167 and 234 to 235 stay visible in product builds. They include the `create-credential-offer` curl example and the step that tells the reader to enable the experimental feature. The new warning admits the problem but leaves the experimental path as the only worked example for Valera. The note at line 143 already recommends the AIA, and the Lissi section shows that the Account Console AIA works for the authorization code flow.",
+    "fix": "Wrap the REST endpoint warning, the curl example and step 234 in `ifeval::[{project_community}==true]`. For product builds, point the reader to the Account Console *Issue to wallet* AIA, as the Lissi authorization code section does.",
+    "context": [
+     [
+      "+",
+      null,
+      146,
+      "or <<_oid4vci_lissi_wallet_preauthz_flow,Lissi wallet Pre-authorized code section>>"
+     ],
+     [
+      "+",
+      null,
+      147,
+      "endif::[]"
+     ],
+     [
+      "+",
+      null,
+      148,
+      "for the details."
+     ],
+     [
+      " ",
+      137,
+      149,
+      "===="
+     ],
+     [
+      " ",
+      138,
+      150,
+      ""
+     ],
+     [
+      "+",
+      null,
+      151,
+      "WARNING: The REST credential-offer endpoint requires the experimental `oid4vc-vci-rest-credential-offer` feature. Do not use it in production environments."
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "docs/documentation/server_admin/topics/oid4vci/vc-issuer-configuration.adoc",
+    "line": 70,
+    "title": "Some product text still refers to two flows or to pre-authorized code.",
+    "impact": "A product reader sees the heading `Two Core Flows` and then only one flow, and is pointed at a flow the product docs no longer describe.",
+    "detail": "The heading and intro at lines 70 to 72 promise two flows, but only the authorization code flow is shown in product builds. Line 262 says the offer lifespan applies to pre-authorized code flows. Line 403 says `Credential Offer Required` is useful for pre-authorized code flows. Line 192 of `wallet-integration.adoc` says the wallet steps are the same for both tested flows.",
+    "fix": "Wrap these phrases in community conditionals or reword them so they do not depend on the hidden flow.",
+    "context": [
+     [
+      " ",
+      null,
+      65,
+      "* Verifiable diplomas and certificates issued by educational institutions, which employers can instantly verify without contacting the school."
+     ],
+     [
+      " ",
+      null,
+      66,
+      "* Employee badges issued as VCs for secure office access and remote authentication."
+     ],
+     [
+      " ",
+      null,
+      67,
+      "* Event tickets that are tamper-evident and verifiable offline."
+     ],
+     [
+      " ",
+      null,
+      68,
+      "* Membership credentials for professional associations, granting access to gated content or conference venues."
+     ],
+     [
+      " ",
+      null,
+      69,
+      ""
+     ],
+     [
+      " ",
+      null,
+      70,
+      "=== How Credential Issuance Works: Two Core Flows"
+     ]
+    ]
+   }
+  ]
  }
 }

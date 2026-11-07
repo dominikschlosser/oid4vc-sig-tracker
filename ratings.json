@@ -837,5 +837,12 @@
   ],
   "note": "ABCA attestations without x5c fall back to a kid lookup, so a key from another configured JWKS provider can bypass a client's X.509 trust policy. An attacker would need the signing key of another configured attester.",
   "why": ""
+ },
+ "54786": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This PR puts the OID4VCI preview sections into the published documentation and leaves the experimental parts out. It changes the docs and has no effect on issuance or verification.",
+  "why": ""
  }
 }
