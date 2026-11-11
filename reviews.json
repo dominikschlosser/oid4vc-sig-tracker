@@ -279,113 +279,66 @@
   ]
  },
  "54367": {
-  "sha": "cff0d20b6126b46b808ee5c869ac0c9131124101",
+  "sha": "01f8da570acf44e8f3b8572fb785bafb86ffa4f5",
   "notes": [],
   "discussed": "2026-11-04T11:12:36Z",
-  "date": "2026-11-05",
+  "date": "2026-11-11",
   "model": "claude-opus-5-5",
   "effort": "high",
   "verdict": "approve",
-  "headline": "Sound jti replay and iat freshness checks for ABCA PoP JWTs, mirroring DPoP.",
-  "summary": "The PR rejects Client Attestation PoP JWTs whose `iat` falls outside a 10s lifetime plus 15s skew window. It also records each PoP `jti` in `SingleUseObjectProvider` under a realm and ABCA namespaced key. The replay entry is written only after the PoP signature verifies, so an attacker cannot burn a wallet's `jti`. The lifespan covers the inclusive window edge on both JPA and Infinispan. Both points Copilot raised are fixed, and nothing here needs to change before merge.",
-  "eudi": "EUDI wallets that mint a fresh PoP for each PAR, token and refresh request keep working. Wallets that reuse one PoP across requests now fail with `invalid_client_attestation`. The window matches the DPoP proof window that HAIP wallets already meet at the same token request.",
+  "headline": "Correct jti replay and iat freshness checks for ABCA PoP, matching DPoP.",
+  "summary": "The PR rejects Client Attestation PoP JWTs whose `iat` falls outside a 10s lifetime plus 15s skew window. It also records each PoP `jti` in `SingleUseObjectProvider` so a second use fails. The replay entry is written only after the signature check, so a forged PoP cannot fill the cache. The key carries a namespace, the realm id and the client id. The lifespan covers the whole accepted window and is never zero. The checks are sound and the tests cover the main behaviour.",
+  "eudi": "EUDI wallets already build a fresh PoP for every PAR and token request, so they keep working. A captured PoP can no longer be replayed against the token endpoint. Challenge binding through a server nonce is still missing, as the description says.",
   "good": [
-   "`rejectReplay` runs after the PoP signature check and namespaces the cache key by realm and `iss`.",
-   "The replay lifespan is never zero or negative, unlike the DPoP code it copies, so the stores never throw `IllegalArgumentException` at the window edge.",
-   "Tests cover replay, a fresh `jti` and a stale `iat`, and the HAIP tests now mint a PoP per request."
+   "The replay entry is written after the PoP signature is verified, so unauthenticated requests cannot use up `jti` values.",
+   "The cache key is namespaced by `abca-pop`, the realm id and the issuer, and the lifespan is clamped to at least one second.",
+   "The HAIP conformance tests now mint a fresh PoP for each token and refresh request, which matches how real wallets behave."
   ],
   "findings": [
    {
     "severity": "followup",
     "file": "services/src/main/java/org/keycloak/authentication/authenticators/client/AttestationBasedClientAuthenticator.java",
-    "line": 116,
-    "title": "The PoP lifetime and clock skew are hard coded constants that admins cannot override.",
-    "impact": "A wallet on a phone whose clock is more than 15s ahead or 25s behind cannot authenticate, and the admin has no setting to widen the window.",
-    "detail": "dominikschlosser raised this in review and the code is unchanged. The author answered that the values match `DPoPUtil`, which is also not configurable. That answer holds for HAIP flows. The token and refresh requests carry a DPoP proof with the same `iat` window, so a skewed wallet already fails there, and this PR adds no new failure for those flows. The PAR request and any ABCA client that does not use DPoP now have a time check they did not have before. The constants are named `DEFAULT_` but there is nothing they are a default for.",
-    "fix": "In a later PR, add one realm or SPI setting for proof lifetime and clock skew that both `DPoPUtil` and the ABCA authenticator read. Until then, rename the constants without the `DEFAULT_` prefix.",
+    "line": 550,
+    "title": "No test replays a PoP near the end of its accepted window.",
+    "impact": "A later edit to the lifespan arithmetic could let a captured PoP be replayed between second 10 and second 25 after `iat`, and no test would notice.",
+    "detail": "Copilot raised this in review and the tests still lack it. `testClientAttestationPoPReplayRejected` replays right away, so it would still pass if the cache entry expired after only `DEFAULT_POP_LIFETIME_SECONDS`. The current code is correct. The gap is that nothing pins it down. No test covers an `iat` in the future within the skew either.",
+    "fix": "Add a test that builds a PoP with `iat` about 20 seconds in the past, uses it once, and checks that the replay fails with `already been used`. Add one case with `iat` slightly in the future.",
     "context": [
      [
       "+",
       null,
-      111,
-      ""
+      545,
+      "        // Namespace + realm isolate ABCA PoP jtis from other single-use entries and other realms"
      ],
      [
       "+",
       null,
-      112,
-      "    /**"
+      546,
+      "        String realmId = session.getContext().getRealm().getId();"
      ],
      [
       "+",
       null,
-      113,
-      "     * Allowed clock skew when validating PoP {@code iat},"
-     ],
-     [
-      "+",
-      null,
-      114,
-      "     * aligned with {@link org.keycloak.services.util.DPoPUtil#DEFAULT_ALLOWED_CLOCK_SKEW}."
-     ],
-     [
-      "+",
-      null,
-      115,
-      "     */"
-     ],
-     [
-      "+",
-      null,
-      116,
-      "    public static final int DEFAULT_POP_CLOCK_SKEW_SECONDS = 15;"
-     ]
-    ]
-   },
-   {
-    "severity": "followup",
-    "file": "services/src/main/java/org/keycloak/authentication/authenticators/client/AttestationBasedClientAuthenticator.java",
-    "line": 541,
-    "title": "Rejecting a reused PoP changes behaviour without a release note.",
-    "impact": "A wallet integrator who built against the old Keycloak behaviour, which accepted one PoP with a 5 minute `exp` for both PAR and token requests, gets `invalid_client_attestation` after upgrading.",
-    "detail": "Keycloak's own test wallet minted one PoP and reused it for PAR, token and refresh requests until this PR. Integrators who copied that pattern will break. ABCA is still an experimental feature, so the break is acceptable, but it should be visible to them.",
-    "fix": "Add a short note to the release notes for the next version. The note should say that each request now needs a fresh PoP with a unique `jti` and an `iat` within 10s plus 15s skew.",
-    "context": [
-     [
-      "+",
-      null,
-      536,
+      547,
       "        String hashKey = \"abca-pop\\n\" + realmId + \"\\n\" + attestationPoPJwt.getId() + \"\\n\" + attestationPoPJwt.getIssuer();"
      ],
      [
       "+",
       null,
-      537,
+      548,
       "        String hashString = Hex.encodeHexString(HashUtils.hash(\"SHA1\", hashKey.getBytes(StandardCharsets.UTF_8)));"
      ],
      [
       "+",
       null,
-      538,
+      549,
       "        // +1 covers the inclusive freshness boundary where JPA treats expire <= now as expired"
      ],
      [
       "+",
       null,
-      539,
+      550,
       "        int lifespan = Math.max(1, (int) (attestationPoPJwt.getIat() + DEFAULT_POP_LIFETIME_SECONDS"
-     ],
-     [
-      "+",
-      null,
-      540,
-      "                + DEFAULT_POP_CLOCK_SKEW_SECONDS - Time.currentTime()) + 1);"
-     ],
-     [
-      "+",
-      null,
-      541,
-      "        if (!singleUseCache.putIfAbsent(hashString, lifespan)) {"
      ]
     ]
    }
@@ -1983,25 +1936,28 @@
  "54513": {
   "sha": "f2fcbc1dc75211a091087e4845f08f08c5dd06b3",
   "notes": [],
-  "date": "2026-11-03",
+  "discussed": "2026-11-10T12:05:46Z",
+  "date": "2026-11-11",
+  "model": "claude-opus-5-5",
+  "effort": "high",
   "verdict": "comment",
-  "headline": "Issuer display works, but unknown JSON fields silently drop the whole display.",
-  "summary": "The PR adds an `oid4vci.display` realm attribute that is parsed into `DisplayObject` elements and published as the top level `display` of the Credential Issuer Metadata, in both JSON and signed form. Validation for missing logo `uri`, empty arrays and duplicate locales is mirrored in the admin UI and on the server, and integration and UI tests cover the main paths. One gap remains: the server parser rejects unknown fields that the admin UI accepts, so a saved value can vanish from the metadata with only a server log warning.",
-  "eudi": "EUDI wallets can now show the issuer name and logo from the Credential Issuer Metadata, which helps users recognise the PID or attestation provider during issuance. No trust decisions depend on this data, so the change carries no security risk for EUDI deployments.",
+  "headline": "Issuer display works, but any unknown field silently removes the whole display.",
+  "summary": "The PR adds the `oid4vci.display` realm attribute and publishes it as the top level `display` of the Credential Issuer Metadata, in both the JSON and the signed form. It validates logo `uri` and locale uniqueness on the server and in the admin UI, and it documents the attribute. The approach matches the existing `issuer_info` handling and is small and well tested. One mismatch between UI validation and server parsing should be fixed before merge.",
+  "eudi": "EUDI wallets can now show the issuer name and logo from metadata, which the ARF expects for user trust decisions. Admins must keep to the known fields, or the display disappears without any visible error.",
   "good": [
-   "Server side validation matches OpenID4VCI 1.0 Section 12.2.4 for logo `uri` and one element per locale.",
-   "Invalid configuration degrades to an omitted `display` instead of breaking the metadata endpoint.",
-   "Tests cover unsigned metadata, signed metadata and the invalid fallback cases."
+   "Validation enforces the OpenID4VCI 1.0 Section 12.2.4 rules for one object per locale and a required logo `uri`.",
+   "Integration tests cover unsigned metadata, signed metadata and several invalid inputs.",
+   "Invalid configuration falls back to omitting `display` instead of breaking the metadata endpoint."
   ],
   "findings": [
    {
     "severity": "minor",
     "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerWellKnownProvider.java",
     "line": 223,
-    "title": "Unknown fields make the server drop the display that the admin UI accepted.",
-    "impact": "An admin who types `alt-text` instead of `alt_text`, or adds any extra member, gets \"Realm successfully updated\" while wallets see no issuer name or logo.",
-    "detail": "`JsonSerialization.mapper` keeps Jackson's default `FAIL_ON_UNKNOWN_PROPERTIES`, and unlike `CredentialIssuer.IssuerInfo` neither `DisplayObject` nor `DisplayObject.LogoObject` has `@JsonIgnoreProperties(ignoreUnknown = true)`. Any unknown member throws in `readValue`, so `getIssuerDisplay` returns null and only logs a warning. The admin UI validator in `TokensTab.tsx` accepts such input, so the admin gets no feedback that the setting has no effect.",
-    "fix": "Add `@JsonIgnoreProperties(ignoreUnknown = true)` to `DisplayObject` and `LogoObject`, as `IssuerInfo` already does, and add a test with an unknown member that expects the display to be published.",
+    "title": "Any unknown property makes the server drop the whole issuer display.",
+    "impact": "An admin pastes a display entry with an extra member, such as a custom wallet attribute or a typo like `logo_uri`, the admin UI saves it, and the published metadata has no `display` at all.",
+    "detail": "`JsonSerialization.mapper` keeps the Jackson default `FAIL_ON_UNKNOWN_PROPERTIES`, and neither `DisplayObject` nor `DisplayObject.LogoObject` has `@JsonIgnoreProperties(ignoreUnknown = true)`. Any member outside the known fields throws `UnrecognizedPropertyException`. `getIssuerDisplay` catches it and returns null. The admin UI validator only checks the object shape, logo `uri` and locale uniqueness, so it accepts such input and reports success. The only signal is a warning in the server log on each metadata request. IngridPuppet raised the related point that wallets rely on additional non-normative display fields, and the code currently rejects them instead of passing them on.",
+    "fix": "Either keep unknown members and publish them through `@JsonAnySetter` and `@JsonAnyGetter` on `DisplayObject` and `LogoObject`, which also covers the reviewer request, or at least ignore unknown members so the known ones are still published. Add a test case with an extra member.",
     "context": [
      [
       "+",
@@ -2041,10 +1997,7 @@
      ]
     ]
    }
-  ],
-  "model": "claude-opus-5-5",
-  "effort": "medium",
-  "discussed": ""
+  ]
  },
  "54560": {
   "sha": "42a4d7e2228374616456be00acd31b8e4d1276b9",
@@ -2457,6 +2410,339 @@
       null,
       70,
       "=== How Credential Issuance Works: Two Core Flows"
+     ]
+    ]
+   }
+  ]
+ },
+ "54930": {
+  "sha": "073c009c20dca045a99d8f9d36e6447bae8adf44",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-11",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "verdict": "changes",
+  "headline": "The CA:TRUE rule strips issuing CAs from signed metadata when the root is omitted.",
+  "summary": "The PR lets `java-keystore` load chains that do not end in a self-signed certificate. It also drops the topmost certificate from the signed issuer metadata `x5c` when that certificate is self-signed or has CA:TRUE. The keystore relaxation is sound and useful. The CA:TRUE rule cannot tell a trust anchor from an ordinary issuing CA, and it now disagrees with the SD-JWT VC and mdoc signers for the same key.",
+  "eudi": "A PID or attestation provider whose root CA is in the trusted list and who configures `[signer, issuing CA]` would publish signed metadata that wallets cannot chain to the root. A provider whose anchor is a non-self-signed CA is already served by configuring only the leaf, which this PR makes loadable.",
+  "good": [
+   "`validateCertificateChain` now validates the path below the anchor and checks the anchor's validity separately, so a lone CA-issued leaf and non-self-signed anchors can be loaded.",
+   "The metadata tests compare the exact `x5c` subjects for four chain shapes and verify the JWS signature.",
+   "The admin guide states the difference between the metadata and SD-JWT VC filtering openly."
+  ],
+  "findings": [
+   {
+    "severity": "major",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerWellKnownProvider.java",
+    "line": 374,
+    "title": "`isTrustAnchor` treats every CA:TRUE certificate as a trust anchor, so an issuing CA is dropped from the metadata `x5c`.",
+    "impact": "An issuer with a three-tier PKI that configures `[signer, issuing CA]` and leaves out the root, which is the usual way to configure a chain and is now accepted by the keystore, publishes signed metadata with only the leaf, and wallets that trust the root reject it.",
+    "detail": "Every intermediate CA has CA:TRUE, so `certificate.getBasicConstraints() >= 0` cannot show that the topmost certificate is the anchor. Before this PR, `[signer, issuing CA]` could not be loaded, so the case never came up. With the relaxed `validateCertificateChain` it now loads, and `addCertificateHeaders` strips the issuing CA. RFC 7515 section 4.1.6 and HAIP 1.0 require the chain up to, but not including, the anchor, so the wallet can no longer build the path. The author's reason is AS-AP-10-056: the trust anchor must not be in `x5c`. This PR already meets that requirement for a non-self-signed anchor, because the admin can now configure the leaf alone. The CA:TRUE rule also makes the three signers disagree. `SdJwtCredentialSigner.addHaipX5cHeader` and `MdocCredential.requireCertificateChain` only strip self-signed certificates. So `[leaf, CA anchor]` gives correct metadata but SD-JWT VC and mdoc headers that include the anchor. `[leaf, issuing CA]` gives correct credentials but broken metadata. No single keystore with a non-self-signed top works for both.",
+    "fix": "Drop the CA:TRUE condition and keep stripping only a trailing self-signed certificate, which matches the credential signers. Tell admins to configure the leaf alone, or the leaf plus intermediates, when the anchor is not self-signed. If an explicit non-self-signed anchor in the keystore must be supported, add an explicit provider setting and apply the same rule in the SD-JWT VC and mdoc signers. Update the V2 test and the admin guide to match.",
+    "context": [
+     [
+      "+",
+      null,
+      369,
+      "     * whether it is self-signed or is marked as a CA (basic constraint CA:TRUE)."
+     ],
+     [
+      "+",
+      null,
+      370,
+      "     *"
+     ],
+     [
+      "+",
+      null,
+      371,
+      "     * @throws GeneralSecurityException if the certificate cannot be inspected"
+     ],
+     [
+      "+",
+      null,
+      372,
+      "     */"
+     ],
+     [
+      "+",
+      null,
+      373,
+      "    private static boolean isTrustAnchor(X509Certificate certificate) throws GeneralSecurityException {"
+     ],
+     [
+      "+",
+      null,
+      374,
+      "        return CertificateUtils.isSelfSigned(certificate) || certificate.getBasicConstraints() >= 0;"
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "tests/base/src/test/java/org/keycloak/tests/oid4vc/OID4VCIssuerWellKnownProviderTest.java",
+    "line": 495,
+    "title": "No test checks that the metadata and the credentials put the same chain in their headers for one keystore.",
+    "impact": "A future change to one of the three filtering places would let the metadata and the issued credentials drift apart without any test failing.",
+    "detail": "The new tests cover only the signed metadata. The SD-JWT VC and mdoc header filtering is not run against the new chain variants, so the inconsistency described above goes unnoticed.",
+    "fix": "Move the anchor filtering into one shared helper used by all three signers, and add a test that issues an SD-JWT VC and an mdoc with the V2 and V3 keystores and compares their headers with the metadata `x5c`.",
+    "context": [
+     [
+      " ",
+      null,
+      490,
+      "                .getMetadata();"
+     ],
+     [
+      " ",
+      null,
+      491,
+      ""
+     ],
+     [
+      " ",
+      null,
+      492,
+      "        assertEquals(expectedIssuer, credentialIssuer.getCredentialIssuer());"
+     ],
+     [
+      " ",
+      null,
+      493,
+      "        assertEquals(endpoints.getOid4vcCredential(), credentialIssuer.getCredentialEndpoint());"
+     ],
+     [
+      " ",
+      null,
+      494,
+      "        assertNull(credentialIssuer.getDisplay(), \"Display was not configured\");"
+     ],
+     [
+      " ",
+      null,
+      495,
+      "        assertEquals(1, credentialIssuer.getAuthorizationServers().size());"
+     ]
+    ]
+   }
+  ]
+ },
+ "54895": {
+  "sha": "a425cb985673deceae1d772492534ab07b57cca2",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-11",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "verdict": "approve",
+  "headline": "Small backward compatible SPI hook that lets well-known providers pick their media type.",
+  "summary": "The PR adds a default `getMediaType()` to `WellKnownProvider` and uses it in `RealmsResource.getWellKnownResponse`. It also removes `@Produces` from both GET well-known methods so that a provider type such as `application/entity-statement+jwt` no longer gets a 406. Providers that return `null` keep the old String to `application/jwt` and object to `application/json` inference, so OIDC, UMA, OAuth2 and both OID4VCI providers return the same types as before. The change is minimal and the tests cover both endpoints and the unchanged default.",
+  "eudi": "OID4VCI issuer metadata keeps its JSON default and its signed `application/jwt` variant from OID4VCI 1.0 Section 12.2.2 unchanged. The hook makes it possible to serve OpenID Federation entity configurations with the correct media type, which EUDI trust setups based on federation need.",
+  "good": [
+   "The PR uses a default interface method instead of special casing provider classes in `RealmsResource`, so existing and third party providers keep working.",
+   "The PR states the one behaviour change openly. An unrelated `Accept` type now gets the document instead of a 406, which no metadata spec forbids.",
+   "The tests cover both the realm path and the server metadata path, with `*/*` and with the provider's own media type."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerWellKnownProvider.java",
+    "line": 169,
+    "title": "The OID4VCI provider still sets `Content-Type` by hand instead of using the new hook.",
+    "impact": "A later change to the JSON or JWT branch can make the manual header and the inferred type disagree without any test noticing.",
+    "detail": "`getMetadataResponse` writes `Content-Type` through `getHttpResponse().setHeader` at lines 169 and 178. `RealmsResource` then sets the type again from the String or object inference. Today both agree, but the type is now decided in two places.",
+    "fix": "In a later PR, let `OID4VCIssuerWellKnownProvider` return the chosen type from `getMediaType()` and drop the manual header calls.",
+    "context": [
+     [
+      " ",
+      null,
+      164,
+      "                && acceptHeader.toLowerCase(Locale.ROOT).contains(MediaType.APPLICATION_JWT);"
+     ],
+     [
+      " ",
+      null,
+      165,
+      ""
+     ],
+     [
+      " ",
+      null,
+      166,
+      "        if (preferJwt) {"
+     ],
+     [
+      " ",
+      null,
+      167,
+      "            Optional<String> signedJwt = generateSignedMetadata(issuer, session);"
+     ],
+     [
+      " ",
+      null,
+      168,
+      "            if (signedJwt.isPresent()) {"
+     ],
+     [
+      " ",
+      null,
+      169,
+      "                session.getContext().getHttpResponse().setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JWT);"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/wellknown/WellKnownProvider.java",
+    "line": 29,
+    "title": "The javadoc does not say that a non String config needs a JSON compatible media type.",
+    "impact": "A custom provider that returns a POJO together with a type like `application/entity-statement+jwt` gets a 500 because no message body writer matches.",
+    "detail": "`Response.ok(config).type(mediaType)` lets JAX-RS pick the writer by media type. Jackson only writes JSON types, so an object config with a JWT type fails at serialization time.",
+    "fix": "Add one sentence to the javadoc that a custom type for an object config must be a JSON type, and that a JWT type needs a String config.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -26,4 +26,15 @@ public interface WellKnownProvider extends Provider {"
+     ],
+     [
+      " ",
+      26,
+      26,
+      ""
+     ],
+     [
+      " ",
+      27,
+      27,
+      "    Object getConfig();"
+     ],
+     [
+      " ",
+      28,
+      28,
+      ""
+     ],
+     [
+      "+",
+      null,
+      29,
+      "    /**"
+     ]
+    ]
+   }
+  ]
+ },
+ "54854": {
+  "sha": "bb1a6147d566b61d6d0fc9f37ec037dff3713173",
+  "notes": [],
+  "discussed": "2026-11-09T05:07:48Z",
+  "date": "2026-11-11",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "verdict": "approve",
+  "headline": "Solid OIDC Core conformance coverage in CI, with two follow-ups on browser matching and retry budget.",
+  "summary": "The PR runs the OpenID Foundation OIDC Core Config, Basic, Implicit, Hybrid, Form Post and Dynamic OP plans against Keycloak as three new CI matrix jobs. It adds a CONNECT tunnel so Keycloak can fetch suite URLs, a test-only script mapper that trims ID token claims, and default retries for all conformance modules. The PR changes no production code. The test design is careful and the earlier Copilot points on the tunnel, the claims script and cancelling a run before a retry are fixed. Two points are left for later PRs.",
+  "eudi": "The PR adds no OID4VCI or OID4VP behaviour. The existing VCI and VP suites now share the broader login page pattern and the default retries, which makes them less flaky but also hides intermittent failures behind a retry notice.",
+  "good": [
+   "`ConformanceApiClient.run` now cancels an unfinished module and waits for its browser before a retry, so attempts do not share a live module.",
+   "`SuiteTunnel` only accepts `CONNECT` for the suite's internal authority, keeps TLS end to end, and closes tracked sockets on shutdown.",
+   "The ID token script keeps email claims that the client requested in `claims.id_token`, as OIDC Core 5.5 requires."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "test-framework/conformance-runner/src/main/java/org/keycloak/testframework/conformance/runner/BrowserInteraction.java",
+    "line": 61,
+    "title": "The broadened `loginPage()` pattern lets the optional login task run on consent pages.",
+    "impact": "A module that reuses the SSO session but still shows the consent page fails in CI because the login task tries to fill a missing `username` field.",
+    "detail": "`loginPage()` now matches every URL under `/realms/<realm>/`, including the `login-actions/required-action` consent page. The optional login task in `Login`, `DenyConsent` and `LoginWithConsent` is skipped only when its URL does not match, so on an SSO visit that lands on consent it runs its `TEXT username` command and the browser task fails. The current module lists pass, so this is latent, and it also applies to the existing VCI and VP interactions that share this context. Copilot raised this point and the code still has it.",
+    "fix": "Match the login task on the authorization endpoint and `login-actions/authenticate*` only, or start the login task with an optional `WAIT` for `username` so it does nothing on other pages.",
+    "context": [
+     [
+      " ",
+      53,
+      56,
+      "            return \"https://*/realms/\" + realm + \"/protocol/openid-connect/auth*\";"
+     ],
+     [
+      " ",
+      54,
+      57,
+      "        }"
+     ],
+     [
+      " ",
+      55,
+      58,
+      ""
+     ],
+     [
+      "+",
+      null,
+      59,
+      "        // Keycloak renders the login form on the authorization endpoint for a plain authorization request, and under"
+     ],
+     [
+      "+",
+      null,
+      60,
+      "        // login-actions once the flow has been restarted (e.g. after resolving a PAR request_uri), so match both"
+     ],
+     [
+      " ",
+      56,
+      61,
+      "        String loginPage() {"
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "tests/conformance/src/test/java/org/keycloak/tests/conformance/AbstractConformanceTest.java",
+    "line": 130,
+    "title": "Retries have no overall budget, so a broad regression can push a suite past the CI job timeout.",
+    "impact": "A PR that changes the login page markup makes every browser module time out in its waits four times, and the 45 minute job is cancelled without a report of which modules failed.",
+    "detail": "Every module is retried up to 3 times by default, in every suite including the existing VCI and VP ones. A passing `OidcDynamicTest` run takes about 470 s for 117 modules. When a regression makes all modules fail through browser or state timeouts, each attempt takes much longer and the run is multiplied by four. The job then hits `timeout-minutes: 45` instead of failing with a list of broken modules.",
+    "fix": "Stop retrying in a test class once a few modules have failed all attempts, or cap the total number of retries per suite run.",
+    "context": [
+     [
+      "-",
+      109,
+      null,
+      "        if (!result.finishedWith(moduleVariant.expectedResult())) {"
+     ],
+     [
+      "-",
+      110,
+      null,
+      "            LOGGER.errorf(\"Full logs of failed conformance module %s:%n%s\", result.module(), result.logs().toPrettyString());"
+     ],
+     [
+      "-",
+      111,
+      null,
+      "            Assertions.fail(result.failureSummary());"
+     ],
+     [
+      "+",
+      null,
+      128,
+      "        ConformanceResult expectedResult = moduleVariant.expectedResult();"
+     ],
+     [
+      "+",
+      null,
+      129,
+      ""
+     ],
+     [
+      "+",
+      null,
+      130,
+      "        int attempts = 1 + Math.max(0, Config.get(RETRIES_PROPERTY, DEFAULT_RETRIES, Integer.class));"
      ]
     ]
    }

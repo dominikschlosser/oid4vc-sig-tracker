@@ -844,5 +844,14 @@
   "specs": [],
   "note": "This PR puts the OID4VCI preview sections into the published documentation and leaves the experimental parts out. It changes the docs and has no effect on issuance or verification.",
   "why": ""
+ },
+ "54890": {
+  "rating": "medium",
+  "basis": "usable",
+  "specs": [
+   "arf-issu-22"
+  ],
+  "note": "The German sandbox wallet rejects signed issuer metadata whose x5c chain ends in a trust anchor that is not self-signed. Admins can avoid this by leaving the anchor out of the configured certificate chain.",
+  "why": ""
  }
 }
