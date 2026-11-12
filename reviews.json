@@ -2418,28 +2418,28 @@
  "54930": {
   "sha": "073c009c20dca045a99d8f9d36e6447bae8adf44",
   "notes": [],
-  "discussed": "",
-  "date": "2026-11-11",
+  "discussed": "2026-11-11T14:41:17Z",
+  "date": "2026-11-12",
   "model": "claude-opus-5-5",
   "effort": "high",
   "verdict": "changes",
-  "headline": "The CA:TRUE rule strips issuing CAs from signed metadata when the root is omitted.",
-  "summary": "The PR lets `java-keystore` load chains that do not end in a self-signed certificate. It also drops the topmost certificate from the signed issuer metadata `x5c` when that certificate is self-signed or has CA:TRUE. The keystore relaxation is sound and useful. The CA:TRUE rule cannot tell a trust anchor from an ordinary issuing CA, and it now disagrees with the SD-JWT VC and mdoc signers for the same key.",
-  "eudi": "A PID or attestation provider whose root CA is in the trusted list and who configures `[signer, issuing CA]` would publish signed metadata that wallets cannot chain to the root. A provider whose anchor is a non-self-signed CA is already served by configuring only the leaf, which this PR makes loadable.",
+  "headline": "The `CA:TRUE` check strips every issuing CA from signed metadata `x5c` when the root is omitted.",
+  "summary": "The PR lets the java-keystore provider load chains that do not end in a self-signed certificate. It also makes signed issuer metadata drop the topmost non-leaf certificate when it is self-signed or has `CA:TRUE`. The keystore change is sound and on its own already lets admins omit a non-self-signed trust anchor. The metadata heuristic cannot tell an issuing CA from a trust anchor, because every valid intermediate has `CA:TRUE`. So it removes certificates that wallets need to build the path.",
+  "eudi": "EUDI issuers usually sign with a leaf from an issuing CA under a root or Access CA that the wallet holds from a trusted list. With this PR the configured chain `[leaf, issuing CA]` produces signed metadata with only the leaf, and wallets cannot verify it.",
   "good": [
-   "`validateCertificateChain` now validates the path below the anchor and checks the anchor's validity separately, so a lone CA-issued leaf and non-self-signed anchors can be loaded.",
-   "The metadata tests compare the exact `x5c` subjects for four chain shapes and verify the JWS signature.",
-   "The admin guide states the difference between the metadata and SD-JWT VC filtering openly."
+   "The keystore validation now checks the anchor's validity itself and validates only the path below the anchor, which is the correct PKIX setup.",
+   "The metadata tests compare the exact `x5c` subjects and verify the JWS signature instead of only counting certificates.",
+   "The test helpers keep each chain in its own keystore and remove the provider after each test."
   ],
   "findings": [
    {
     "severity": "major",
     "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerWellKnownProvider.java",
     "line": 374,
-    "title": "`isTrustAnchor` treats every CA:TRUE certificate as a trust anchor, so an issuing CA is dropped from the metadata `x5c`.",
-    "impact": "An issuer with a three-tier PKI that configures `[signer, issuing CA]` and leaves out the root, which is the usual way to configure a chain and is now accepted by the keystore, publishes signed metadata with only the leaf, and wallets that trust the root reject it.",
-    "detail": "Every intermediate CA has CA:TRUE, so `certificate.getBasicConstraints() >= 0` cannot show that the topmost certificate is the anchor. Before this PR, `[signer, issuing CA]` could not be loaded, so the case never came up. With the relaxed `validateCertificateChain` it now loads, and `addCertificateHeaders` strips the issuing CA. RFC 7515 section 4.1.6 and HAIP 1.0 require the chain up to, but not including, the anchor, so the wallet can no longer build the path. The author's reason is AS-AP-10-056: the trust anchor must not be in `x5c`. This PR already meets that requirement for a non-self-signed anchor, because the admin can now configure the leaf alone. The CA:TRUE rule also makes the three signers disagree. `SdJwtCredentialSigner.addHaipX5cHeader` and `MdocCredential.requireCertificateChain` only strip self-signed certificates. So `[leaf, CA anchor]` gives correct metadata but SD-JWT VC and mdoc headers that include the anchor. `[leaf, issuing CA]` gives correct credentials but broken metadata. No single keystore with a non-self-signed top works for both.",
-    "fix": "Drop the CA:TRUE condition and keep stripping only a trailing self-signed certificate, which matches the credential signers. Tell admins to configure the leaf alone, or the leaf plus intermediates, when the anchor is not self-signed. If an explicit non-self-signed anchor in the keystore must be supported, add an explicit provider setting and apply the same rule in the SD-JWT VC and mdoc signers. Update the V2 test and the admin guide to match.",
+    "title": "`isTrustAnchor` treats every intermediate CA as a trust anchor and removes it from the metadata `x5c`.",
+    "impact": "An issuer that configures `[leaf, issuing CA]` and leaves the root out, as the old docs said and the SD-JWT note in this PR still says, publishes signed metadata that wallets holding only the root reject.",
+    "detail": "RFC 5280 Section 4.2.1.9 requires `cA` TRUE on every certificate that signs other certificates, and path validation in Section 6.1.4 rejects an intermediate without it. So `getBasicConstraints() >= 0` holds for every valid intermediate, and the check reduces to always dropping the topmost non-leaf certificate. RFC 7515 Section 4.1.6 and the HAIP 1.0 `x5c` rules need the chain to let the wallet reach its trust anchor. The issuing CA is part of that path, so dropping it breaks validation. The only case the PR keeps is V4 with a non-CA intermediate. That chain is invalid under RFC 5280, so it is no real protection. The keystore change in this PR already solves the issue in #54890 without the heuristic. The admin omits the non-self-signed anchor, and the metadata, SD-JWT VC and mdoc paths then all emit the same correct chain. With the heuristic, a deployment whose anchor is non-self-signed and sits above an issuing CA has no working keystore layout. `[leaf, issuing CA, anchor]` puts the anchor into the SD-JWT VC and mdoc `x5c`, because `SdJwtCredentialSigner` and `MdocCredential` strip only self-signed certificates. `[leaf, issuing CA]` loses the issuing CA from the metadata.",
+    "fix": "Drop the `getBasicConstraints()` clause and keep removing only trailing self-signed certificates, as `SdJwtCredentialSigner.addHaipX5cHeader` and `MdocCredential.requireCertificateChain` do. Document that a non-self-signed trust anchor is left out of the keystore. If explicit control is needed later, add an explicit setting rather than inferring the anchor from `CA:TRUE`. Replace the V2 and V4 metadata tests with a `[leaf, CA:TRUE intermediate]` case that expects both certificates in `x5c`.",
     "context": [
      [
       "+",
@@ -2480,49 +2480,49 @@
     ]
    },
    {
-    "severity": "followup",
-    "file": "tests/base/src/test/java/org/keycloak/tests/oid4vc/OID4VCIssuerWellKnownProviderTest.java",
-    "line": 495,
-    "title": "No test checks that the metadata and the credentials put the same chain in their headers for one keystore.",
-    "impact": "A future change to one of the three filtering places would let the metadata and the issued credentials drift apart without any test failing.",
-    "detail": "The new tests cover only the signed metadata. The SD-JWT VC and mdoc header filtering is not run against the new chain variants, so the inconsistency described above goes unnoticed.",
-    "fix": "Move the anchor filtering into one shared helper used by all three signers, and add a test that issues an SD-JWT VC and an mdoc with the V2 and V3 keystores and compares their headers with the metadata `x5c`.",
+    "severity": "minor",
+    "file": "docs/documentation/server_admin/topics/oid4vci/vc-issuer-configuration.adoc",
+    "line": 21,
+    "title": "The docs give opposite rules for the same keystore chain in metadata and in SD-JWT VCs.",
+    "impact": "An admin who follows the note cannot find one keystore layout that yields a correct `x5c` for both signed metadata and issued SD-JWT VCs.",
+    "detail": "The note says signed metadata removes a trailing `CA:TRUE` certificate, so the anchor has to be appended. In the same paragraph it says a non-self-signed anchor must be left out of the configured chain for SD-JWT VCs. The same realm ES256 key normally signs both. Step 2 on line 10 also uses \"Eventually\" where \"Finally\" is meant.",
+    "fix": "Once the metadata filter matches the SD-JWT VC filter, state one rule: append a self-signed root if you want, and leave a non-self-signed trust anchor out of the keystore.",
     "context": [
      [
       " ",
       null,
-      490,
-      "                .getMetadata();"
+      16,
+      "The key properties of VCs:"
      ],
      [
       " ",
       null,
-      491,
+      17,
       ""
      ],
      [
       " ",
       null,
-      492,
-      "        assertEquals(expectedIssuer, credentialIssuer.getCredentialIssuer());"
+      18,
+      "- **Tamper-evident**: Any alteration invalidates the cryptographic signature."
      ],
      [
       " ",
       null,
-      493,
-      "        assertEquals(endpoints.getOid4vcCredential(), credentialIssuer.getCredentialEndpoint());"
+      19,
+      "- **Privacy-preserving**: Support selective disclosure (e.g., prove you are over 18 without revealing your exact birthdate)."
      ],
      [
       " ",
       null,
-      494,
-      "        assertNull(credentialIssuer.getDisplay(), \"Display was not configured\");"
+      20,
+      "- **Offline-verifiable**: A verifier can check the credential's validity without contacting the issuer."
      ],
      [
       " ",
       null,
-      495,
-      "        assertEquals(1, credentialIssuer.getAuthorizationServers().size());"
+      21,
+      "- **Holder-controlled**: The individual receiving the credential controls when and with whom to share it."
      ]
     ]
    }
@@ -2638,75 +2638,28 @@
  "54854": {
   "sha": "bb1a6147d566b61d6d0fc9f37ec037dff3713173",
   "notes": [],
-  "discussed": "2026-11-09T05:07:48Z",
-  "date": "2026-11-11",
+  "discussed": "2026-11-11T10:37:16Z",
+  "date": "2026-11-12",
   "model": "claude-opus-5-5",
   "effort": "high",
-  "verdict": "approve",
-  "headline": "Solid OIDC Core conformance coverage in CI, with two follow-ups on browser matching and retry budget.",
-  "summary": "The PR runs the OpenID Foundation OIDC Core Config, Basic, Implicit, Hybrid, Form Post and Dynamic OP plans against Keycloak as three new CI matrix jobs. It adds a CONNECT tunnel so Keycloak can fetch suite URLs, a test-only script mapper that trims ID token claims, and default retries for all conformance modules. The PR changes no production code. The test design is careful and the earlier Copilot points on the tunnel, the claims script and cancelling a run before a retry are fixed. Two points are left for later PRs.",
-  "eudi": "The PR adds no OID4VCI or OID4VP behaviour. The existing VCI and VP suites now share the broader login page pattern and the default retries, which makes them less flaky but also hides intermittent failures behind a retry notice.",
+  "verdict": "comment",
+  "headline": "Solid OIDC conformance coverage, but default retries now also hide flaky VCI and VP failures.",
+  "summary": "The PR adds the OpenID Connect Core Config, Basic, Implicit, Hybrid, Form Post and Dynamic certification plans to the conformance CI matrix. It also adds shared infrastructure: retries, a pre-start hook, a CONNECT tunnel so Keycloak can fetch suite URLs, and a script mapper that removes claims the suite warns about. No production code changes. Two of the points lhanusov raised in the changes requested review are still open in the code: retries are on by default for every suite, and a failed cancellation still leads to a retry.",
+  "eudi": "No issuer or verifier code changes. The existing OID4VCI and OID4VP conformance suites now retry failed modules three times by default, so an intermittent issuance or presentation regression can pass CI unnoticed.",
   "good": [
-   "`ConformanceApiClient.run` now cancels an unfinished module and waits for its browser before a retry, so attempts do not share a live module.",
-   "`SuiteTunnel` only accepts `CONNECT` for the suite's internal authority, keeps TLS end to end, and closes tracked sockets on shutdown.",
-   "The ID token script keeps email claims that the client requested in `claims.id_token`, as OIDC Core 5.5 requires."
+   "Each module variant is its own JUnit test with an explicit expected result, and every REVIEW and SKIPPED outcome is documented next to its module list.",
+   "The tunnel accepts only `CONNECT` requests for the suite's internal authority, and TLS stays end to end between Keycloak and the suite.",
+   "An unfinished module is cancelled before the next attempt, so a timed out run does not keep its browser running against the same alias."
   ],
   "findings": [
    {
-    "severity": "followup",
-    "file": "test-framework/conformance-runner/src/main/java/org/keycloak/testframework/conformance/runner/BrowserInteraction.java",
-    "line": 61,
-    "title": "The broadened `loginPage()` pattern lets the optional login task run on consent pages.",
-    "impact": "A module that reuses the SSO session but still shows the consent page fails in CI because the login task tries to fill a missing `username` field.",
-    "detail": "`loginPage()` now matches every URL under `/realms/<realm>/`, including the `login-actions/required-action` consent page. The optional login task in `Login`, `DenyConsent` and `LoginWithConsent` is skipped only when its URL does not match, so on an SSO visit that lands on consent it runs its `TEXT username` command and the browser task fails. The current module lists pass, so this is latent, and it also applies to the existing VCI and VP interactions that share this context. Copilot raised this point and the code still has it.",
-    "fix": "Match the login task on the authorization endpoint and `login-actions/authenticate*` only, or start the login task with an optional `WAIT` for `username` so it does nothing on other pages.",
-    "context": [
-     [
-      " ",
-      53,
-      56,
-      "            return \"https://*/realms/\" + realm + \"/protocol/openid-connect/auth*\";"
-     ],
-     [
-      " ",
-      54,
-      57,
-      "        }"
-     ],
-     [
-      " ",
-      55,
-      58,
-      ""
-     ],
-     [
-      "+",
-      null,
-      59,
-      "        // Keycloak renders the login form on the authorization endpoint for a plain authorization request, and under"
-     ],
-     [
-      "+",
-      null,
-      60,
-      "        // login-actions once the flow has been restarted (e.g. after resolving a PAR request_uri), so match both"
-     ],
-     [
-      " ",
-      56,
-      61,
-      "        String loginPage() {"
-     ]
-    ]
-   },
-   {
-    "severity": "followup",
+    "severity": "minor",
     "file": "tests/conformance/src/test/java/org/keycloak/tests/conformance/AbstractConformanceTest.java",
     "line": 130,
-    "title": "Retries have no overall budget, so a broad regression can push a suite past the CI job timeout.",
-    "impact": "A PR that changes the login page markup makes every browser module time out in its waits four times, and the 45 minute job is cancelled without a report of which modules failed.",
-    "detail": "Every module is retried up to 3 times by default, in every suite including the existing VCI and VP ones. A passing `OidcDynamicTest` run takes about 470 s for 117 modules. When a regression makes all modules fail through browser or state timeouts, each attempt takes much longer and the run is multiplied by four. The job then hits `timeout-minutes: 45` instead of failing with a list of broken modules.",
-    "fix": "Stop retrying in a test class once a few modules have failed all attempts, or cap the total number of retries per suite run.",
+    "title": "Retries are on by default for the existing VCI and VP suites too.",
+    "impact": "An intermittent OID4VCI or OID4VP regression, such as a nonce or DPoP race that fails one run in four, turns green in CI after a retry.",
+    "detail": "`conformance()` lives in the shared base class and reads `kc.test.conformance.retries` with a default of 3, so `Oid4VpTestSuite`, `Oid4VciHaipTestSuite` and `Oid4VciNonHaipTestSuite` change behaviour without opting in. The only trace of a retry is a `System.out` line prefixed `[conformance retry]`. CI does not surface that line, so a module that passes only on retry looks the same as one that passes first time. lhanusov asked in the review for retries to be opt-in for OIDC first, and the code still applies them to every subclass.",
+    "fix": "Default to 0 retries in `AbstractConformanceTest`. Add a protected `defaultRetries()` hook that `AbstractOidcConformanceTest` overrides to return 3. Keep the `kc.test.conformance.retries` option as an override.",
     "context": [
      [
       "-",
@@ -2743,6 +2696,147 @@
       null,
       130,
       "        int attempts = 1 + Math.max(0, Config.get(RETRIES_PROPERTY, DEFAULT_RETRIES, Integer.class));"
+     ]
+    ]
+   },
+   {
+    "severity": "minor",
+    "file": "test-framework/conformance-runner/src/main/java/org/keycloak/testframework/conformance/runner/ConformanceApiClient.java",
+    "line": 225,
+    "title": "A failed cancellation is only suppressed, so the next attempt still starts on the same alias.",
+    "impact": "When the suite is slow and `DELETE` fails or the module does not reach FINISHED within a minute, the old browser can still post to `/test/a/keycloak/callback` while the retry runs, and that retry fails for no Keycloak reason.",
+    "detail": "`cancelModule` catches every `RuntimeException` and adds it to the original failure as a suppressed exception. `AbstractConformanceTest.conformance()` then treats it like any other failure and retries straight away with the same `keycloak` alias and the same registered callback. `waitForBrowserStopped` also returns as soon as the log has been quiet for 5 seconds. The browser tasks wait up to 10 seconds without logging, so 5 quiet seconds do not prove the browser has stopped. lhanusov raised both points and asked for coverage of cancellation failure. The state check of the new module rejects a stale response, so this causes false failures rather than false passes. It still defeats the purpose of the retries.",
+    "fix": "Tell the caller when cancellation fails, for example with a dedicated exception type that `conformance()` rethrows without retrying. Make the quiet period longer than the longest browser task timeout, for example 15 seconds.",
+    "context": [
+     [
+      "+",
+      null,
+      220,
+      "                waitForBrowserStopped(planId, moduleId);"
+     ],
+     [
+      "+",
+      null,
+      221,
+      "            } else if (response.statusCode() != 404) {"
+     ],
+     [
+      "+",
+      null,
+      222,
+      "                throw new IllegalStateException(\"Conformance API DELETE \" + request.uri() + idContext(planId, moduleId)"
+     ],
+     [
+      "+",
+      null,
+      223,
+      "                        + \" returned HTTP \" + response.statusCode() + \": \" + response.body());"
+     ],
+     [
+      "+",
+      null,
+      224,
+      "            }"
+     ],
+     [
+      "+",
+      null,
+      225,
+      "        } catch (RuntimeException e) {"
+     ]
+    ]
+   },
+   {
+    "severity": "followup",
+    "file": "test-framework/conformance-runner/src/main/java/org/keycloak/testframework/conformance/SuiteTunnel.java",
+    "line": 48,
+    "title": "`SuiteTunnel` has no unit test and starts for every suite.",
+    "impact": "A change that breaks the tunnel shutdown or the error handling only shows up as Dynamic plan failures, and `oidcc-registration-sector-bad` would still pass because Keycloak cannot fetch the document.",
+    "detail": "The tunnel's half-close and error paths were reworked twice during review, and nothing tests them. `OpenIdConformanceServer` creates the tunnel in its constructor, so the VCI and VP runs also open a listener they never use. lhanusov asked for both changes. The Dynamic plan does exercise the happy path end to end, so this can wait.",
+    "fix": "Add a small socket test for the 403 rejection, half-close forwarding and `close()` unblocking workers. Create the tunnel lazily in `keycloakProxyMapping()`.",
+    "context": [
+     [
+      "+",
+      null,
+      43,
+      " * URLs on {@link OpenIdConformanceServer#INTERNAL_BASE_URI}, which only resolves on the containers' network, while"
+     ],
+     [
+      "+",
+      null,
+      44,
+      " * Keycloak runs on the Docker host. Keycloak's outgoing HTTP client sends the requests for that host through this proxy"
+     ],
+     [
+      "+",
+      null,
+      45,
+      " * ({@link #keycloakProxyMapping}), which tunnels them (HTTP CONNECT) to the suite's port published on the Docker host."
+     ],
+     [
+      "+",
+      null,
+      46,
+      " * TLS stays end to end between Keycloak and the suite."
+     ],
+     [
+      "+",
+      null,
+      47,
+      " */"
+     ],
+     [
+      "+",
+      null,
+      48,
+      "final class SuiteTunnel implements AutoCloseable {"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "tests/conformance/src/test/java/org/keycloak/tests/conformance/ConformanceServerConfig.java",
+    "line": 73,
+    "title": "`additionalTrustedCertificates()` has no caller.",
+    "impact": "No runtime effect. The hook is unused API that reviewers have to reason about.",
+    "detail": "No subclass of `ConformanceServerConfig` exists in this PR. The author plans FAPI and logout plans next, which explains keeping the class in the shared package. The hook itself is still speculative, and lhanusov asked for it to be removed.",
+    "fix": "Remove the hook and add it with the FAPI PR that needs client certificate CAs.",
+    "context": [
+     [
+      "+",
+      null,
+      68,
+      "    }"
+     ],
+     [
+      "+",
+      null,
+      69,
+      ""
+     ],
+     [
+      "+",
+      null,
+      70,
+      "    /**"
+     ],
+     [
+      "+",
+      null,
+      71,
+      "     * PEM encoded certificates the server trusts in addition to the suite's TLS certificate."
+     ],
+     [
+      "+",
+      null,
+      72,
+      "     */"
+     ],
+     [
+      "+",
+      null,
+      73,
+      "    protected List<String> additionalTrustedCertificates() {"
      ]
     ]
    }
