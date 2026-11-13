@@ -2636,207 +2636,179 @@
   ]
  },
  "54854": {
-  "sha": "bb1a6147d566b61d6d0fc9f37ec037dff3713173",
+  "sha": "820da0663118b604fdf1c35031ea4f097ee7c79b",
   "notes": [],
-  "discussed": "2026-11-11T10:37:16Z",
-  "date": "2026-11-12",
+  "discussed": "2026-11-12T11:59:23Z",
+  "date": "2026-11-13",
   "model": "claude-opus-5-5",
   "effort": "high",
-  "verdict": "comment",
-  "headline": "Solid OIDC conformance coverage, but default retries now also hide flaky VCI and VP failures.",
-  "summary": "The PR adds the OpenID Connect Core Config, Basic, Implicit, Hybrid, Form Post and Dynamic certification plans to the conformance CI matrix. It also adds shared infrastructure: retries, a pre-start hook, a CONNECT tunnel so Keycloak can fetch suite URLs, and a script mapper that removes claims the suite warns about. No production code changes. Two of the points lhanusov raised in the changes requested review are still open in the code: retries are on by default for every suite, and a failed cancellation still leads to a retry.",
-  "eudi": "No issuer or verifier code changes. The existing OID4VCI and OID4VP conformance suites now retry failed modules three times by default, so an intermittent issuance or presentation regression can pass CI unnoticed.",
+  "verdict": "approve",
+  "headline": "Adds OIDC Core conformance suites with careful retries and only small follow-ups remain.",
+  "summary": "The PR runs the OpenID Connect Core Config, Basic, Implicit, Hybrid, Form Post and Dynamic certification plans against Keycloak as three new jobs of the manual conformance workflow. It adds opt-in retries with a fresh suite alias for every attempt, stops a failed module before it runs again, and tunnels Keycloak's outgoing requests to the suite's internal host. All changes are test code, the points from the earlier review rounds are addressed, and the new runner parts have focused unit tests. I found nothing that must change before merge.",
+  "eudi": "The PR changes no production code, so EUDI deployments are not affected. The OID4VCI and OID4VP tests only see the broader login page pattern and the stop of a failed module, and they still run without retries.",
   "good": [
-   "Each module variant is its own JUnit test with an explicit expected result, and every REVIEW and SKIPPED outcome is documented next to its module list.",
-   "The tunnel accepts only `CONNECT` requests for the suite's internal authority, and TLS stays end to end between Keycloak and the suite.",
-   "An unfinished module is cancelled before the next attempt, so a timed out run does not keep its browser running against the same alias."
+   "Retries are opt-in for the OIDC tests, and every attempt uses its own suite alias and redirect URI, so a late callback cannot reach another run.",
+   "A failed module is stopped and awaited before a retry, and a failed stop ends the test instead of retrying.",
+   "`SuiteTunnel`, `ConformanceAttempts` and the cleanup in `ConformanceApiClient` have unit tests against fakes that cover shutdown, reset and timeout paths."
   ],
   "findings": [
    {
-    "severity": "minor",
-    "file": "tests/conformance/src/test/java/org/keycloak/tests/conformance/AbstractConformanceTest.java",
-    "line": 130,
-    "title": "Retries are on by default for the existing VCI and VP suites too.",
-    "impact": "An intermittent OID4VCI or OID4VP regression, such as a nonce or DPoP race that fails one run in four, turns green in CI after a retry.",
-    "detail": "`conformance()` lives in the shared base class and reads `kc.test.conformance.retries` with a default of 3, so `Oid4VpTestSuite`, `Oid4VciHaipTestSuite` and `Oid4VciNonHaipTestSuite` change behaviour without opting in. The only trace of a retry is a `System.out` line prefixed `[conformance retry]`. CI does not surface that line, so a module that passes only on retry looks the same as one that passes first time. lhanusov asked in the review for retries to be opt-in for OIDC first, and the code still applies them to every subclass.",
-    "fix": "Default to 0 retries in `AbstractConformanceTest`. Add a protected `defaultRetries()` hook that `AbstractOidcConformanceTest` overrides to return 3. Keep the `kc.test.conformance.retries` option as an override.",
+    "severity": "followup",
+    "file": "test-framework/conformance-runner/src/main/java/org/keycloak/testframework/conformance/runner/BrowserInteraction.java",
+    "line": 62,
+    "title": "The shared `loginPage()` pattern now matches every page of the realm, so optional login tasks also run on consent and error pages.",
+    "impact": "A later authorization that reuses the SSO session and lands on the consent page, as `LoginWithConsent` or `DenyConsent` can, fails in the login task instead of reaching the consent step.",
+    "detail": "The pattern changed from `login-actions/authenticate*` to `/realms/<realm>/*`. The suite runs an optional task whenever its URL pattern matches, and the login task then types into `username`, which the consent page does not have. Copilot raised this and the code still has it. The covered modules pass because consent is granted on the first visit, so this PR is not broken by it, but the FAPI PRs the author plans will reuse these helpers.",
+    "fix": "Run the optional login task only on pages that render the login form, for example by narrowing its pattern or by checking for the `username` field before typing.",
     "context": [
      [
-      "-",
-      109,
-      null,
-      "        if (!result.finishedWith(moduleVariant.expectedResult())) {"
-     ],
-     [
-      "-",
-      110,
-      null,
-      "            LOGGER.errorf(\"Full logs of failed conformance module %s:%n%s\", result.module(), result.logs().toPrettyString());"
-     ],
-     [
-      "-",
-      111,
-      null,
-      "            Assertions.fail(result.failureSummary());"
-     ],
-     [
-      "+",
-      null,
-      128,
-      "        ConformanceResult expectedResult = moduleVariant.expectedResult();"
-     ],
-     [
-      "+",
-      null,
-      129,
+      " ",
+      55,
+      58,
       ""
      ],
      [
       "+",
       null,
-      130,
-      "        int attempts = 1 + Math.max(0, Config.get(RETRIES_PROPERTY, DEFAULT_RETRIES, Integer.class));"
-     ]
-    ]
-   },
-   {
-    "severity": "minor",
-    "file": "test-framework/conformance-runner/src/main/java/org/keycloak/testframework/conformance/runner/ConformanceApiClient.java",
-    "line": 225,
-    "title": "A failed cancellation is only suppressed, so the next attempt still starts on the same alias.",
-    "impact": "When the suite is slow and `DELETE` fails or the module does not reach FINISHED within a minute, the old browser can still post to `/test/a/keycloak/callback` while the retry runs, and that retry fails for no Keycloak reason.",
-    "detail": "`cancelModule` catches every `RuntimeException` and adds it to the original failure as a suppressed exception. `AbstractConformanceTest.conformance()` then treats it like any other failure and retries straight away with the same `keycloak` alias and the same registered callback. `waitForBrowserStopped` also returns as soon as the log has been quiet for 5 seconds. The browser tasks wait up to 10 seconds without logging, so 5 quiet seconds do not prove the browser has stopped. lhanusov raised both points and asked for coverage of cancellation failure. The state check of the new module rejects a stale response, so this causes false failures rather than false passes. It still defeats the purpose of the retries.",
-    "fix": "Tell the caller when cancellation fails, for example with a dedicated exception type that `conformance()` rethrows without retrying. Make the quiet period longer than the longest browser task timeout, for example 15 seconds.",
-    "context": [
-     [
-      "+",
-      null,
-      220,
-      "                waitForBrowserStopped(planId, moduleId);"
+      59,
+      "        // Keycloak renders the login form on the authorization endpoint for a plain authorization request, and under"
      ],
      [
       "+",
       null,
-      221,
-      "            } else if (response.statusCode() != 404) {"
+      60,
+      "        // login-actions once the flow has been restarted (e.g. after resolving a PAR request_uri), so match both"
+     ],
+     [
+      " ",
+      56,
+      61,
+      "        String loginPage() {"
+     ],
+     [
+      "-",
+      57,
+      null,
+      "            return \"https://*/realms/\" + realm + \"/login-actions/authenticate*\";"
      ],
      [
       "+",
       null,
-      222,
-      "                throw new IllegalStateException(\"Conformance API DELETE \" + request.uri() + idContext(planId, moduleId)"
-     ],
-     [
-      "+",
-      null,
-      223,
-      "                        + \" returned HTTP \" + response.statusCode() + \": \" + response.body());"
-     ],
-     [
-      "+",
-      null,
-      224,
-      "            }"
-     ],
-     [
-      "+",
-      null,
-      225,
-      "        } catch (RuntimeException e) {"
-     ]
-    ]
-   },
-   {
-    "severity": "followup",
-    "file": "test-framework/conformance-runner/src/main/java/org/keycloak/testframework/conformance/SuiteTunnel.java",
-    "line": 48,
-    "title": "`SuiteTunnel` has no unit test and starts for every suite.",
-    "impact": "A change that breaks the tunnel shutdown or the error handling only shows up as Dynamic plan failures, and `oidcc-registration-sector-bad` would still pass because Keycloak cannot fetch the document.",
-    "detail": "The tunnel's half-close and error paths were reworked twice during review, and nothing tests them. `OpenIdConformanceServer` creates the tunnel in its constructor, so the VCI and VP runs also open a listener they never use. lhanusov asked for both changes. The Dynamic plan does exercise the happy path end to end, so this can wait.",
-    "fix": "Add a small socket test for the 403 rejection, half-close forwarding and `close()` unblocking workers. Create the tunnel lazily in `keycloakProxyMapping()`.",
-    "context": [
-     [
-      "+",
-      null,
-      43,
-      " * URLs on {@link OpenIdConformanceServer#INTERNAL_BASE_URI}, which only resolves on the containers' network, while"
-     ],
-     [
-      "+",
-      null,
-      44,
-      " * Keycloak runs on the Docker host. Keycloak's outgoing HTTP client sends the requests for that host through this proxy"
-     ],
-     [
-      "+",
-      null,
-      45,
-      " * ({@link #keycloakProxyMapping}), which tunnels them (HTTP CONNECT) to the suite's port published on the Docker host."
-     ],
-     [
-      "+",
-      null,
-      46,
-      " * TLS stays end to end between Keycloak and the suite."
-     ],
-     [
-      "+",
-      null,
-      47,
-      " */"
-     ],
-     [
-      "+",
-      null,
-      48,
-      "final class SuiteTunnel implements AutoCloseable {"
+      62,
+      "            return \"https://*/realms/\" + realm + \"/*\";"
      ]
     ]
    },
    {
     "severity": "nit",
-    "file": "tests/conformance/src/test/java/org/keycloak/tests/conformance/ConformanceServerConfig.java",
-    "line": 73,
-    "title": "`additionalTrustedCertificates()` has no caller.",
-    "impact": "No runtime effect. The hook is unused API that reviewers have to reason about.",
-    "detail": "No subclass of `ConformanceServerConfig` exists in this PR. The author plans FAPI and logout plans next, which explains keeping the class in the shared package. The hook itself is still speculative, and lhanusov asked for it to be removed.",
-    "fix": "Remove the hook and add it with the FAPI PR that needs client certificate CAs.",
+    "file": "tests/conformance/README.md",
+    "line": 110,
+    "title": "The sentence about the VCI and VP aliases ends with a colon and introduces the command that turns retries off for `OidcTestSuite`.",
+    "impact": "A reader may take the command as the way to protect the VCI and VP tests from late callbacks.",
+    "detail": "The code block belongs to the earlier sentence about `kc.test.conformance.retries`, but it now follows the alias caveat.",
+    "fix": "Move the code block under the sentence about `kc.test.conformance.retries` and end the alias sentence with a period.",
     "context": [
      [
       "+",
       null,
-      68,
-      "    }"
+      105,
+      "Only if all attempts fail does the test fail, with the result of the last attempt."
      ],
      [
       "+",
       null,
-      69,
-      ""
+      106,
+      "A module whose run failed with an exception, e.g. as it timed out, is stopped before it runs again; if it cannot be stopped, the test fails right away, as the attempts could interfere."
      ],
      [
       "+",
       null,
-      70,
-      "    /**"
+      107,
+      "Every run of a module, i.e. every attempt of every module, also uses its own suite alias (`keycloak-1`, `keycloak-2`, ...), so a late callback of another run's browser, e.g. an authorization response, cannot reach its module; the OpenID Connect tests register the callback URL of the run as a redirec"
      ],
      [
       "+",
       null,
-      71,
-      "     * PEM encoded certificates the server trusts in addition to the suite's TLS certificate."
+      108,
+      "Every retry is printed to the test output, prefixed with `[conformance retry]`, also when a later attempt passes, so modules that pass only when run again stay visible."
      ],
      [
       "+",
       null,
-      72,
-      "     */"
+      109,
+      "Set the number of retries for all tests with the `kc.test.conformance.retries` option (system property, `KC_TEST_CONFORMANCE_RETRIES` environment variable or `keycloak-test.properties`), e.g. `0` to see every failure while iterating."
      ],
      [
       "+",
       null,
-      73,
-      "    protected List<String> additionalTrustedCertificates() {"
+      110,
+      "The OID4VCI and OID4VP tests use the same alias for all their attempts, so a late callback could still reach a retry of them:"
+     ]
+    ]
+   }
+  ]
+ },
+ "55075": {
+  "sha": "231d00daea4e3c4fb72d5c69a90c2d04aa12ec53",
+  "notes": [],
+  "discussed": "2026-11-12T14:24:06Z",
+  "date": "2026-11-13",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "verdict": "approve",
+  "headline": "Non-string claims now reach session notes safely, with only a small object matching nit.",
+  "summary": "The PR lets the OIDC `ClaimToUserSessionNoteMapper` store array, object, number and boolean claims as session notes. Arrays are joined with a comma, objects are stored as JSON and an empty configured value stores any claim. UserInfo arrays keep all elements through a new opt-in flag on `getJsonValue`, and a missing field before an array index no longer throws. String claims, regex mode and token precedence behave as before, and the unit tests cover the new paths well.",
+  "eudi": "This is the OIDC brokering mapper and does not touch credential issuance or presentation. EUDI deployments are only affected if they broker an external OIDC IdP and forward its claims to clients.",
+  "good": [
+   "The `keepArrays` flag is opt-in, so the other JSON and claim mappers keep their old UserInfo behaviour.",
+   "The null guard before `currentNode.isArray()` fixes a `NullPointerException` that any mapper could hit with a path such as `missing[0]`.",
+   "Regex mode stays limited to string claims, which avoids patterns that match serialized arrays or objects by accident."
+  ],
+  "findings": [
+   {
+    "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/broker/oidc/mappers/ClaimToUserSessionNoteMapper.java",
+    "line": 182,
+    "title": "Object claims are matched by comparing serialized JSON strings.",
+    "impact": "An admin who configures `{\"locality\": \"London\"}` with a space, or with the keys in another order than the IdP sends them, never gets the note and sees no error.",
+    "detail": "`claimValues` turns every element into a string before `valueEquals` runs, so an object claim only matches when the configured text is byte for byte the compact JSON that Jackson writes. `AbstractClaimMapper.valueEquals` already compares a `JsonNode` by parsing the configured value and comparing trees, which ignores whitespace and key order.",
+    "fix": "Keep the `JsonNode` elements for matching and compare them with `valueEquals(value, element)` or a parsed tree. Use the string form only when the note is stored.",
+    "context": [
+     [
+      "+",
+      null,
+      177,
+      "                    + \"when claim values are regular expressions. Actual value is of type '%s': %s\","
+     ],
+     [
+      "+",
+      null,
+      178,
+      "                    claimName, context.getBrokerUserId(), claimValueObj.getClass(), claimValueObj);"
+     ],
+     [
+      "+",
+      null,
+      179,
+      "            return;"
+     ],
+     [
+      "+",
+      null,
+      180,
+      "        }"
+     ],
+     [
+      "+",
+      null,
+      181,
+      "        for (String regex : regexes) {"
+     ],
+     [
+      "+",
+      null,
+      182,
+      "            if (valueMatchesRegex(regex, claimValue)) {"
      ]
     ]
    }
