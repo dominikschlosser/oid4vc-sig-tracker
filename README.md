@@ -72,6 +72,5 @@ Files:
 - gaps.json: EUDI requirements with no Keycloak issue yet.
 - sig-members.json: GitHub logins of the OAuth SIG members. Members listed without a GitHub link don't count.
 - same.tsv: a duplicate issue, then the issue it folds into.
-- demos.json: pull request number and the demo URL that runs its branch.
 
 The ratings in this repository are the opinion of the [eudi-dev](https://eudi-test.dev) project, not of the Keycloak team. Replace ratings.json with your own if you disagree.

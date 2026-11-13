@@ -190,11 +190,7 @@ button.f.rv-state { font-size: 12px; font-weight: 600; }
 .demo-card img { height: 36px; width: auto; }
 .demo-card b { display: block; font-size: 14px; }
 .demo-card span span { font-size: 12px; color: var(--accent); }
-.try { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; padding: 2px 8px 2px 5px; border: 1px solid var(--border); border-radius: 10px; font-size: 12px; text-decoration: none; color: var(--accent); background: var(--bg); }
-.try:hover { border-color: var(--accent); }
-.try img { height: 14px; width: auto; }
 @media (max-width: 760px) { .brand { flex-wrap: wrap; } .top-actions { margin-left: 0; width: 100%; } }
-.c-review .try { display: flex; width: fit-content; }
 .narrow-wrap { max-width: 860px; }
 .review-page .back { display: inline-block; margin-bottom: 10px; font-size: 13px; text-decoration: none; }
 .review-page h1 a { text-decoration: none; }

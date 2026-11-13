@@ -263,9 +263,7 @@ function prCell(r) {
       isOpen(p) ? (st === "draft" ? el("span", { class: "rv-state rv-draft" }, REVIEW_LABEL[st]) : filterButton(REVIEW_LABEL[st], { review: st }, `rv-state rv-${st}`, `PRs with the state ${REVIEW_LABEL[st]}`))
         : el("span", { class: "muted" }, STATE_LABEL[p.state]),
       isOpen(p) && people.length > 0 && el("div", { class: "muted" }, people.join(", ")),
-      isOpen(p) && asked.length > 0 && el("div", { class: "muted" }, `Requested: ${asked.join(", ")}`),
-      p.demo && el("a", { class: "try", href: p.demo, target: "_blank", rel: "noopener", title: "This PR runs on the Keycloak wallet demo" },
-        el("img", { src: "demo-logo.svg", alt: "", width: "14", height: "18" }), "Try it on the demo")));
+      isOpen(p) && asked.length > 0 && el("div", { class: "muted" }, `Requested: ${asked.join(", ")}`)));
   }
   return td;
 }

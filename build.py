@@ -6,8 +6,6 @@ raw = json.load(open("raw.json"))
 labelled = set(raw["labelled"])
 # Reviewed ratings of open items, with the basis and the specs.json entries behind them.
 reviewed = {int(n): v for n, v in json.load(open("ratings.json")).items()}
-# PRs with a running build on the Keycloak wallet demo.
-demos = {int(n): u for n, u in json.load(open("demos.json")).items()}
 # Claude Code reviews of open PRs, from review.py.
 reviews = json.load(open("reviews.json")) if os.path.exists("reviews.json") else {}
 sig_members = json.load(open("sig-members.json"))
@@ -107,8 +105,6 @@ for i in raw["items"]:
         "reactions": i["reactions"]["totalCount"], "milestone": (i["milestone"] or {}).get("title", ""),
         "topics": names or ["General"], "rating": rating, "note": note, "why": why, "basis": basis, "specs": refs, "direct": bool(direct), "links": links,
     }
-    if i["number"] in demos:
-        it["demo"] = demos[i["number"]]
     if pr:
         it.update(add=i["additions"], del_=i["deletions"], files=i["changedFiles"], review=i.get("reviewDecision") or "")
         it["size"] = size_class(it["add"] + it["del_"])
