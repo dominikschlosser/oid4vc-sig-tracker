@@ -2138,117 +2138,129 @@
   "date": "2026-11-03"
  },
  "53730": {
-  "sha": "75c858ddb1e1c88bce769a9db7b1c1143bfdcfa2",
-  "notes": [],
-  "date": "2026-11-03",
   "verdict": "approve",
-  "headline": "Offer checks move cleanly to the token endpoint and the non-standard token claim is gone.",
-  "summary": "The PR removes `credentials_offer_id` from OID4VC authorization details and from issued tokens. Offer existence, expiry, target user, target client and offered configuration are now checked when the token is issued. An authorization-code offer is consumed only after the token response is built. The credential endpoint now relies on the access token and the issued-credential binding alone. The flow is coherent, earlier review points were fixed, and the new behaviour has tests, so nothing blocks merge.",
-  "eudi": "Wallets that follow an issuer-initiated offer now get a clean `invalid_authorization_details` error at the token endpoint for a missing or expired offer, instead of a later 500 at the credential endpoint. Access tokens no longer carry a Keycloak-specific claim, and an access token stays usable for its own lifetime after the offer expires.",
+  "headline": "Clean removal of the non-standard `credentials_offer_id`, with offer checks moved to token time.",
+  "summary": "The PR drops `credentials_offer_id` from OID4VC authorization details and from access and refresh tokens. Offer existence, expiry, target user and target client are now checked at the token endpoint, and the authorization code flow consumes the offer through a new `afterTokenResponseCreated` hook once the token response is built. Pre-authorized offers are no longer removed after issuance and stay until they expire, which the test comment calls deliberate and which is safe because `markPreAuthCodeAsUsed` keeps the code single use. The design is sound, the earlier review points are addressed, and I found only two follow-ups in code that the PR touches but did not break.",
+  "eudi": "Access and refresh tokens no longer carry the vendor field, and the token response was already free of it. An access token stays usable after its offer expires, so a wallet that requests the credential late is not rejected.",
   "good": [
-   "Offer consumption is deferred until the token response is built, and a test shows that a failed token request leaves the offer usable.",
-   "A missing or evicted offer now maps to `invalid_authorization_details` instead of an `IllegalStateException`.",
-   "Refresh strips the legacy `credentials_offer_id` from pre-upgrade refresh tokens, and a test covers it."
+   "Offer consumption is deferred until the token response is built, and `testAuthCodeOffer_RemainsAvailableWhenTokenIssuanceFails` covers a failed exchange.",
+   "A missing or evicted offer now maps to `invalid_authorization_details` instead of a 500.",
+   "Refresh tokens issued before the upgrade lose the legacy claim, and `testRefreshRemovesLegacyCredentialsOfferId` covers it."
   ],
   "findings": [
    {
     "severity": "followup",
     "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCAuthorizationDetailsProcessor.java",
-    "line": 440,
-    "title": "A stale `issuer_state` client-session note breaks later authorization-code flows in the same SSO session.",
-    "impact": "A wallet that redeems an offer and later starts a scope-only authorization-code flow with the same client, in the same browser session, gets `No credential offer state` at the token endpoint.",
-    "detail": "`TokenManager.attachAuthenticationSession` copies auth-session client notes onto the existing client session but never clears old ones. A new login without `issuer_state` therefore keeps the old note. `getCredentialOfferState` reads that note, looks up the offer that was already consumed, and fails. This was already true before the PR, when the offer was removed after credential issuance. The PR moves consumption to token time, so the stale note now fails as soon as the first token is issued.",
-    "fix": "Clear the `issuer_state` client-session note when the offer is consumed in `afterTokenResponseCreated`. Alternatively clear it when a new authorization request carries no `issuer_state`. Add a test with two consecutive authorization-code flows in one SSO session.",
+    "line": 368,
+    "title": "The `issuer_state` client session note outlives the consumed offer.",
+    "impact": "A wallet that signs in again through SSO for the same client without `issuer_state`, for example to get a scope-based credential, gets `invalid_authorization_details` at the token endpoint.",
+    "detail": "`TokenManager.attachAuthenticationSession` reuses a valid client session and only copies new notes on top. The old `client_request_param_issuer_state` note therefore stays. `getCredentialOfferState` falls back to that note, finds no offer because `afterTokenResponseCreated` removed it, and rejects the request. `AuthorizationCodeGrantType` calls `handleMissingAuthorizationDetails` for every token request without authorization details, so any later login of that client in the same SSO session is hit. Before this PR the same request failed once the first credential was issued. So the PR does not make the common flow worse, but the new consumption point is the natural place to fix it.",
+    "fix": "When `afterTokenResponseCreated` removes the offer, also remove the `LOGIN_SESSION_NOTE_ADDITIONAL_REQ_PARAMS_PREFIX + ISSUER_STATE` note from the client session.",
     "context": [
      [
-      " ",
+      "+",
       null,
-      435,
-      "        //"
+      363,
+      "        }"
      ],
      [
-      " ",
+      "+",
       null,
-      436,
-      "        String credOfferId = clientSessionCtx.getAttribute(CREDENTIALS_OFFER_ID_ATTR, String.class);"
-     ],
-     [
-      " ",
-      null,
-      437,
+      364,
       ""
      ],
      [
-      " ",
+      "+",
       null,
-      438,
-      "        // Check if we have issuer_state - this should work for authorization_code"
+      365,
+      "        CredentialOfferStorage offerStorage = session.getProvider(CredentialOfferStorage.class);"
      ],
      [
-      " ",
+      "+",
       null,
-      439,
-      "        //"
+      366,
+      "        CredentialOfferState offerState = offerStorage.getOfferStateById(credentialOfferId);"
      ],
      [
-      " ",
+      "+",
       null,
-      440,
-      "        String issuerStateNote = clientSessionCtx.getClientSession().getNote(LOGIN_SESSION_NOTE_ADDITIONAL_REQ_PARAMS_PREFIX + ISSUER_STATE);"
+      367,
+      "        if (offerState != null) {"
+     ],
+     [
+      "+",
+      null,
+      368,
+      "            offerStorage.removeOfferState(offerState);"
      ]
     ]
    },
    {
-    "severity": "nit",
+    "severity": "followup",
     "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCAuthorizationDetailsProcessor.java",
-    "line": 479,
-    "title": "`isLastOid4vcAuthorizationDetail` relies on reference identity that the removal does not need.",
-    "impact": "If a later change makes `asSubtype` or the response list return copies, an authorization-code offer with several configurations is never consumed, and no test would notice.",
-    "detail": "The check compares the detail passed to the hook with the last `openid_credential` entry of `AUTHORIZATION_DETAILS_RESPONSE` using `==`. This works only because `OID4VCAuthorizationDetailsParser.asSubtype` returns the same instance. The removal is already idempotent, because `getOfferStateById` returns null after the first removal and the code skips null. The extra call to `getCredentialOfferState` at line 349 also re-validates state that `process` or `handleMissingAuthorizationDetails` already checked in the same request, and discards the result.",
-    "fix": "Drop `isLastOid4vcAuthorizationDetail` and let the first OID4VC detail consume the offer. Remove the redundant `getCredentialOfferState` call in `afterAuthorizationDetailsProcessed`, or say in a comment why it is needed.",
+    "line": 472,
+    "title": "A target client mismatch still throws `IllegalStateException`.",
+    "impact": "When an admin targets an offer at one wallet client and the holder redeems it with another wallet that sends `authorization_details`, the token endpoint returns a 500 instead of a protocol error.",
+    "detail": "The PR changed the missing-offer and expired-offer cases to `getInvalidRequestException`, but the target client check right below still throws `IllegalStateException`. `processAuthorizationDetails` and `processStoredAuthorizationDetails` in `OAuth2GrantTypeBase` catch only `InvalidAuthorizationDetailsException`, so the request ends as a 500. A scope only request goes through `handleMissingAuthorizationDetails`, which catches every `RuntimeException` and returns a 400. The removed credential endpoint check returned a 400 for this case, but it was never reached because the token-time check fired first. So this predates the PR. Token time is now the only enforcement point that the description names.",
+    "fix": "Throw `getInvalidRequestException` for the client mismatch, as for the user mismatch, and add a test.",
     "context": [
      [
-      "@",
-      null,
-      null,
-      "@@ -445,4 +475,22 @@ public class OID4VCAuthorizationDetailsProcessor implements AuthorizationDetails"
-     ],
-     [
       " ",
-      445,
-      475,
+      null,
+      467,
       ""
      ],
      [
       " ",
-      446,
-      476,
-      "        return offerState;"
+      null,
+      468,
+      "            // Check same login client as the client for which the credential offer is target (in case of credential offer target for specific client only)"
      ],
      [
       " ",
-      447,
-      477,
-      "    }"
+      null,
+      469,
+      "            String offerClientId = offerState.getTargetClientId();"
      ],
      [
-      "+",
+      " ",
       null,
-      478,
-      ""
+      470,
+      "            String loginClientId = clientSessionCtx.getClientSession().getClient().getClientId();"
      ],
      [
-      "+",
+      " ",
       null,
-      479,
-      "    private boolean isLastOid4vcAuthorizationDetail(ClientSessionContext clientSessionCtx,"
+      471,
+      "            if (offerClientId != null && !offerClientId.equals(loginClientId)) {"
+     ],
+     [
+      " ",
+      null,
+      472,
+      "                throw new IllegalStateException(\"Credential offer target client '\" + offerClientId + \"' different from login client '\" + loginClientId + \"'\");"
      ]
     ]
    }
   ],
+  "discussion": [],
   "model": "claude-opus-5-5",
-  "effort": "medium",
-  "discussed": "2026-10-09T10:09:31Z"
+  "effort": "high",
+  "check": {
+   "model": "claude-fable-5-2",
+   "effort": "high",
+   "changes": [
+    "Cut the summary to four sentences and added that pre-authorized offers are now retained until expiry, because the description says offers are consumed at token issuance and that holds only for the authorization code flow.",
+    "Corrected the EUDI note, because `sanitizeBeforeSendingTokenResponse` already stripped `credentials_offer_id` from the token response before this PR, so wallets only lose it from the tokens.",
+    "Moved the stale `issuer_state` finding from line 360 to line 368, where the offer is removed and the note removal belongs.",
+    "Removed the claim that the stale note caused a 500 before this PR, because `handleMissingAuthorizationDetails` in `OAuth2GrantTypeBase` already mapped the `IllegalStateException` to a 400 on the scope path, and added that every later token request without authorization details is affected.",
+    "Narrowed the client mismatch finding to requests that carry `authorization_details`, because the scope only path catches `RuntimeException` and already returns a 400."
+   ]
+  },
+  "sha": "75c858ddb1e1c88bce769a9db7b1c1143bfdcfa2",
+  "notes": [],
+  "discussed": "2026-10-09T10:09:31Z",
+  "date": "2026-11-13"
  },
  "53978": {
   "verdict": "comment",
