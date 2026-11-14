@@ -161,7 +161,9 @@ def level(rv):
 
 
 SEVERITY = {"major": "Must fix", "minor": "Should fix", "followup": "Follow-up", "nit": "Nit"}
-MODEL_NAME = {"claude-opus-5-5": "Claude Opus 5.5"}
+MODEL_NAME = {"claude-opus-5-5": "Claude Opus 5.5", "claude-fable-5-2": "Claude Fable 5.2"}
+# How the review answers a comment by a person. See review-rules.md.
+STATUS = {"open": "Still open", "fixed": "Fixed", "disagree": "Disagree", "answered": "Answer"}
 REVIEW_STATE = {"major": "requested changes", "minor": "commented", "clean": "approved these changes"}
 
 
@@ -201,11 +203,25 @@ def markdown(f):
     return "\n\n".join(parts)
 
 
+def written_by(rv):
+    """Which models wrote and checked the review, such as "Claude Opus 5.5 at high effort. Claude Fable 5.2 at high effort checked it"."""
+    name = lambda m, e: f'{MODEL_NAME.get(m, m)} at {f"{e} effort" if e else "default effort"}'
+    check = rv.get("check")
+    return name(rv["model"], rv["effort"]) + (f'. {name(check["model"], check["effort"])} checked it' if check else "")
+
+
+def answered_to(d):
+    """Who raised the point and where, such as "Awambeng on EtsiTrustListIdentityProvider.java:42"."""
+    who = ", ".join(d["authors"])
+    return f'{who} on {d["where"].rsplit("/", 1)[-1]}' if d["where"] else f'{who} in {"a review" if d["kind"] == "review" else "a comment"}'
+
+
 def review_export(rv):
     """What the post service turns into a GitHub review. The page sends only the ids it picked."""
-    lv, effort = level(rv), f'{rv["effort"]} effort' if rv["effort"] else "default effort"
+    # The answers to earlier comments stay on the site, so a post never replies to people in the poster's name without a pick.
+    lv = level(rv)
     intro = [f"### AI review by Claude Code: {findings_label(rv)}", rv["summary"]] + [f'**For EUDI:** {rv["eudi"]}'] * bool(rv["eudi"])
-    intro.append(f'<sub>Claude Code wrote this review of {rv["sha"][:7]} with {MODEL_NAME.get(rv["model"], rv["model"])} at {effort}. '
+    intro.append(f'<sub>Claude Code wrote this review of {rv["sha"][:7]} with {written_by(rv)}. '
                  "It read the code without building or running it.</sub>")
     return {"sha": rv["sha"], "level": lv, "intro": "\n\n".join(intro),
             "findings": [{"id": k, "severity": f["severity"], "path": f["file"], "line": f["line"], "inDiff": bool(f["file"]) and in_diff(f),
@@ -255,6 +271,32 @@ def comment(f, k):
 <div class="cmt-body"><p class="cmt-title">{text(f["title"])}</p>{f'<p class="impact"><b>Impact</b> {text(f["impact"])}</p>' if f.get("impact") else ""}<p>{text(f["detail"])}</p>{fix}</div></div>'''
 
 
+def answer(d):
+    where = f'<a href="{html.escape(d["url"])}">{html.escape(answered_to(d))}</a> · {d["date"]}'
+    return f'''<div class="cmt"><div class="cmt-head"><span class="st st-{d["status"]}">{STATUS[d["status"]]}</span><span class="muted">{where}</span></div>
+<div class="cmt-body"><p class="point">{text(d["point"])}</p><p>{text(d["answer"])}</p></div></div>'''
+
+
+def answers_section(rv):
+    ds = rv.get("discussion", [])
+    if not ds:
+        return ""
+    return (f'<section class="file" id="answers"><div class="file-head"><span>Answers to earlier comments</span><span class="muted">{len(ds)} '
+            f'{"answer" if len(ds) == 1 else "answers"}</span></div>{"".join(answer(d) for d in ds)}</section>')
+
+
+def check_note(rv):
+    """What the checking model changed in the draft."""
+    check = rv.get("check")
+    if not check:
+        return ""
+    name = MODEL_NAME.get(check["model"], check["model"])
+    if not check["changes"]:
+        return f'<p class="check muted">{name} checked this review and kept it as it was.</p>'
+    items = "".join(f"<li>{text(c)}</li>" for c in check["changes"])
+    return f'<details class="check"><summary>{name} checked this review and made {len(check["changes"])} {"change" if len(check["changes"]) == 1 else "changes"}</summary><ul>{items}</ul></details>'
+
+
 def review_page(it, rv, head):
     sha, lv = rv["sha"], level(rv)
     findings = sorted_findings(rv)
@@ -294,14 +336,15 @@ def review_page(it, rv, head):
 <main class="wrap narrow-wrap">
 {stale}
 <section class="rv-box rv-{lv}">
-<div class="rv-head"><span class="avatar">C</span><b>Claude</b> {REVIEW_STATE[lv]} on <a href="https://github.com/keycloak/keycloak/pull/{it["n"]}/commits/{sha}"><code>{sha[:7]}</code></a> · {rv["date"]} · {MODEL_NAME.get(rv["model"], rv["model"])}, {f'{rv["effort"]} effort' if rv["effort"] else "default effort"}<span class="rv-count">{findings_label(rv)}</span></div>
-<div class="rv-body"><p>{text(rv["summary"])}</p>{f'<p><b>For EUDI</b> {text(rv["eudi"])}</p>' if rv["eudi"] else ""}{f'<p class="good-head">Done well</p><ul class="good">{good}</ul>' if good else ""}</div>
+<div class="rv-head"><span class="avatar">C</span><b>Claude</b> {REVIEW_STATE[lv]} on <a href="https://github.com/keycloak/keycloak/pull/{it["n"]}/commits/{sha}"><code>{sha[:7]}</code></a> · {rv["date"]} · {MODEL_NAME.get(rv["model"], rv["model"])}{f" · checked by {MODEL_NAME.get(rv['check']['model'], rv['check']['model'])}" if rv.get("check") else ""}<span class="rv-count">{findings_label(rv)}</span></div>
+<div class="rv-body"><p>{text(rv["summary"])}</p>{f'<p><b>For EUDI</b> {text(rv["eudi"])}</p>' if rv["eudi"] else ""}{f'<p class="good-head">Done well</p><ul class="good">{good}</ul>' if good else ""}{check_note(rv)}</div>
 </section>
 {post_panel(it, rv) if sha == head else ""}
+{answers_section(rv)}
 {f'<nav class="toc"><div class="toc-head">Files with comments</div><ul>{"".join(toc)}</ul></nav>' if toc else ""}
 {"".join(blocks)}
 </main>
-<footer class="wrap narrow-wrap foot">Claude Code wrote this review with {MODEL_NAME.get(rv["model"], rv["model"])} at {f'{rv["effort"]} effort' if rv["effort"] else "its default effort"}. It read the code but did not build or run it, so treat each comment as a lead to check. This is not a review by the Keycloak team.</footer>
+<footer class="wrap narrow-wrap foot">Claude Code wrote this review with {written_by(rv)}. It read the code but did not build or run it, so treat each comment as a lead to check. This is not a review by the Keycloak team.</footer>
 </body>
 </html>
 '''

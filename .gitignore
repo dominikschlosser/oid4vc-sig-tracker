@@ -15,3 +15,4 @@ new-ratings.json
 todo.txt
 deploy.env
 site/version.txt
+__pycache__/

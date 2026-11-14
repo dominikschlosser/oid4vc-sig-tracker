@@ -329,3 +329,10 @@ button.f.rv-state { font-size: 12px; font-weight: 600; }
 .sig-pop ul { margin: 0; padding-left: 16px; }
 .sig-pop li { margin-bottom: 4px; }
 .reload-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px); padding: 10px 12px 10px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); box-shadow: 0 8px 24px rgba(13, 30, 70, .2); font-size: 14px; }
+.st { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px; border: 1px solid currentColor; white-space: nowrap; }
+.st-open { color: var(--medium-text); } .st-fixed { color: var(--open); } .st-disagree { color: var(--high); } .st-answered { color: var(--accent); }
+.cmt-head .muted { color: var(--muted); overflow-wrap: anywhere; }
+.point { color: var(--muted); }
+.check { margin: 10px 0 0; color: var(--muted); }
+.check summary { cursor: pointer; }
+.check ul { padding-left: 20px; margin: 6px 0 0; }

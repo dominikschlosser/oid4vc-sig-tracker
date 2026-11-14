@@ -52,8 +52,8 @@ FIELDS = """
    milestone{title} reviewDecision headRefOid baseRefName assignees(first:5){nodes{login}}
    closingIssuesReferences(first:10){nodes{number}}
    latestReviews(first:10){nodes{state author{__typename login}}}
-   lastComments:comments(last:10){nodes{createdAt author{__typename}}}
-   lastReviews:reviews(last:10){nodes{submittedAt author{__typename}}} }
+   lastComments:comments(last:10){nodes{createdAt body author{__typename}}}
+   lastReviews:reviews(last:10){nodes{submittedAt body author{__typename}}} }
 """
 
 
