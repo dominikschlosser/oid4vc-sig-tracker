@@ -3932,5 +3932,130 @@
   "notes": [],
   "discussed": "2026-11-12T14:24:06Z",
   "date": "2026-11-13"
+ },
+ "55191": {
+  "verdict": "approve",
+  "headline": "Correct and safe to merge, but the logged offer nonce still returns the pre-authorized code.",
+  "summary": "The PR drops the debug line in `getCredentialOffer` that ran `JsonSerialization.valueAsString(credOffer)` and so printed the `grants` map with the `pre-authorized_code`. It also replaces the issuance debug line with the configuration id, the format and the claim names. At this commit `VerifiableCredential` has no `toString()`, so the old issuance line printed only an object identity, and the new line is more useful while still keeping values out. The change is correct and nothing in it must change, but the `Found credential offer` line that stays logs a nonce that returns the same code, so the leak is only fully closed by a follow-up.",
+  "eudi": "EUDI issuers that run with debug logging no longer write the pre-authorized code itself in the offer response line. The offer nonce is still logged and returns the same code while the offer is live.",
+  "good": [
+   "The offer line is removed rather than redacted, so no hand built replacement has to read the `grants` map.",
+   "The new issuance line logs claim names without values, which helps when debugging mappers.",
+   "The description states clearly which nearby log lines are out of scope and asks for a maintainer view."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerEndpoint.java",
+    "line": 587,
+    "title": "The offer nonce in the debug log still gives access to the pre-authorized code.",
+    "impact": "Anyone who can read issuer debug logs can call the offer endpoint with the logged nonce while the offer is live, read the pre-authorized code and redeem it when no `tx_code` is required.",
+    "detail": "The `Stored credential offer state` line at 587 and the `Found credential offer` line at 696 log `offerState.getNonce()`. `CredentialOfferState` builds that value as the random secret plus the offer id, and `DefaultCredentialOfferStorage.getOfferStateByNonce` accepts exactly that string. `getCredentialOffer` then returns the full offer with the `pre-authorized_code`, and the lookup is repeatable until the offer expires or the credential is issued. The stored line is written when the offer is created, before the wallet scans the QR code, so the window is the whole offer lifetime. The author left the nonce out because the issue does not name it. That reason does not hold for the goal in the PR title, because the line at 696 runs in the same request as the removed line and hands the same log reader the nonce that returns the same code. The gap is older than the PR and the PR does not make it worse, so it is a follow-up. The raw request payload at line 790 can stay, because it carries no code and no claim values, and replaying it needs the access token that is checked at line 802 and is not in the payload.",
+    "fix": "In a follow-up, log `offerState.getCredentialsOfferId()` instead of the nonce in both lines. The offer id alone is not accepted by the offer endpoint and is already logged at lines 921 and 950.",
+    "context": [
+     [
+      " ",
+      null,
+      582,
+      "        //"
+     ],
+     [
+      " ",
+      null,
+      583,
+      "        CredentialOfferStorage offerStorage = session.getProvider(CredentialOfferStorage.class);"
+     ],
+     [
+      " ",
+      null,
+      584,
+      "        offerStorage.putOfferState(offerState);"
+     ],
+     [
+      " ",
+      null,
+      585,
+      ""
+     ],
+     [
+      " ",
+      null,
+      586,
+      "        String targetUserId = offerState.getTargetUserId();"
+     ],
+     [
+      " ",
+      null,
+      587,
+      "        LOGGER.debugf(\"Stored credential offer state: [grant=%s, ids=%s, uid=%s, nonce=%s]\","
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerEndpoint.java",
+    "line": 1880,
+    "title": "For `mso_mdoc` the logged claim names are only the namespaces.",
+    "impact": "An admin debugging a missing mdoc data element sees `[org.iso.18013.5.1]` and not the element names.",
+    "detail": "For `mso_mdoc`, `credentialSubjectClaims` is `subjectClaimsWithMetadataPrefix`. `OID4VCMapper.setClaimWithMetadataPrefix` nests each value under the namespace from `getAttributePrefix`, so the top level keys are namespaces and `keySet()` does not show the data element identifiers. The description says the names are logged to debug mappers, and that does not work for mdoc.",
+    "fix": "Optionally log the nested keys per namespace for `mso_mdoc`.",
+    "context": [
+     [
+      " ",
+      1878,
+      1876,
+      ""
+     ],
+     [
+      " ",
+      1879,
+      1877,
+      "        protocolMappers.forEach(mapper -> mapper.setClaim(vc, authResult.session()));"
+     ],
+     [
+      " ",
+      1880,
+      1878,
+      ""
+     ],
+     [
+      "-",
+      1881,
+      null,
+      "        LOGGER.debugf(\"The credential to sign is: %s\", vc);"
+     ],
+     [
+      "+",
+      null,
+      1879,
+      "        LOGGER.debugf(\"Signing credential: [id=%s, format=%s, claims=%s]\","
+     ],
+     [
+      "+",
+      null,
+      1880,
+      "                credentialConfigId, credentialConfig.getFormat(), credentialSubjectClaims.keySet());"
+     ]
+    ]
+   }
+  ],
+  "discussion": [],
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "check": {
+   "model": "claude-fable-5-2",
+   "effort": "high",
+   "changes": [
+    "Reworded the detail of the nonce finding to argue from `CredentialOfferState` and `DefaultCredentialOfferStorage` instead of from the issue text, because the issue could not be read and the author's stated reason for leaving the nonce needed an answer from the code.",
+    "Changed the fix of the nonce finding from a nonce hash to logging the offer id, because the offer id is not a capability and is already logged at lines 921 and 950.",
+    "Removed the advice to stop logging the request payload at line 790, because the payload holds no code or claim values and is useless without the access token, so it fails the production value check.",
+    "Reworded the first good point, because it praised the `Found credential offer` line that the nonce finding flags.",
+    "Reworded the headline, the summary and the EUDI note to say that the logged nonce still returns the code, so they match the follow-up finding."
+   ]
+  },
+  "sha": "8292c2437bd51b9303c58a4c311ae89197b146e9",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-15"
  }
 }
