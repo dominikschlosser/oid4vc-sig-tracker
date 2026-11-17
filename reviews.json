@@ -3552,107 +3552,107 @@
   ]
  },
  "54930": {
-  "verdict": "changes",
-  "headline": "The `CA:TRUE` check drops the issuing CA from metadata `x5c` when the root is omitted.",
-  "summary": "The PR lets the java-keystore provider load chains that do not end in a self-signed certificate. It also makes signed issuer metadata drop the topmost non-leaf certificate when it is self-signed or has `CA:TRUE`. The keystore change is sound and already lets admins leave out a non-self-signed trust anchor. The `CA:TRUE` check cannot tell an issuing CA from a trust anchor, so it removes a certificate that wallets need to build the path.",
-  "eudi": "Where the trusted list holds the root above an issuing CA, the configured chain `[leaf, issuing CA]` yields signed metadata with only the leaf, and wallets cannot verify the issuer. Where the trusted list holds the issuing CA itself, leaving that CA out of the keystore gives the same result without the heuristic and also keeps the SD-JWT VC and mdoc chains correct.",
+  "verdict": "approve",
+  "headline": "Keystores without a self-signed root now load, so admins can omit non-self-signed anchors.",
+  "summary": "The PR changes `JavaKeystoreKeyProviderFactory.validateCertificateChain` so the topmost certificate is only the PKIX trust anchor and is no longer part of the validated path. A lone leaf issued by an omitted CA, or a chain ending in a non-self-signed CA, can now be imported into the `java-keystore` provider. The `x5c` filter is unchanged, and the docs now state that such keystores load and that only trailing self-signed certificates are removed. The metadata, SD-JWT VC and mdoc signers all handle the new `[leaf]` and `[leaf, CA]` shapes correctly.",
+  "eudi": "Issuers whose trust anchor is a non-self-signed CA on an EUDI trusted list can now configure a `[leaf]` or `[leaf, issuing CA]` keystore and keep the anchor out of `x5c`, a rule that the metadata code comment ties to ARF AS-AP-10-056 and `SdJwtCredentialSigner` ties to HAIP 6.1.1. Before this PR the `java-keystore` provider rejected that configuration at save time, although the docs already asked for it.",
   "good": [
-   "The keystore validation now checks the anchor's validity itself and validates only the path below the anchor, which is the correct PKIX setup.",
-   "The metadata tests compare the exact `x5c` subjects and verify the JWS signature instead of only counting certificates.",
-   "The test helpers keep each chain in its own keystore and remove the provider after each test."
+   "Chains that the old check accepted still pass, because the new check validates the same path minus the top certificate and keeps the expiry check with `top.checkValidity()`.",
+   "The metadata tests compare the exact `x5c` subjects and verify the JWS signature for three chain shapes.",
+   "Leaving anchor exclusion to configuration avoids stripping an issuing CA that wallets need to build the path."
   ],
   "findings": [
    {
-    "severity": "major",
-    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerWellKnownProvider.java",
-    "line": 374,
-    "title": "`isTrustAnchor` treats every intermediate CA as a trust anchor and removes it from the metadata `x5c`.",
-    "impact": "An admin who stores `[leaf, issuing CA]` without the root that wallets trust, a layout this PR newly allows, publishes signed metadata that those wallets cannot verify.",
-    "detail": "`getBasicConstraints() >= 0` is true for every CA certificate. RFC 5280 Section 4.2.1.9 requires `cA` TRUE on each certificate that signs certificates, so the flag marks every intermediate and says nothing about which certificate the wallet trusts. The description presents the check as deliberate, but its reason does not hold because `CA:TRUE` does not identify an anchor. The PR's own V2 fixture is `[leaf, CA:TRUE intermediate]` with an external root left out, and the test expects only the leaf. A wallet that trusts that root gets no path to it. The only chain the check leaves intact is V4 with a non-CA intermediate, which path validation in RFC 5280 Section 6.1.4 rejects. `SdJwtCredentialSigner.addHaipX5cHeader` and `MdocCredential.requireCertificateChain` strip only self-signed certificates, so the same key yields a full chain in credentials and a truncated chain in metadata. The keystore change in this PR already covers a non-self-signed anchor. The admin leaves it out, as the docs require for SD-JWT VCs, and a lone `[leaf]` now loads. An anchor that is not self-signed and sits above an issuing CA has no single keystore layout that is right for both metadata and credentials.",
-    "fix": "Drop the `getBasicConstraints()` clause and keep removing only trailing self-signed certificates, as `SdJwtCredentialSigner.addHaipX5cHeader` and `MdocCredential.requireCertificateChain` do. Document that a non-self-signed trust anchor is left out of the keystore. If explicit control is needed later, add an explicit setting rather than inferring the anchor from `CA:TRUE`. Replace the V2 and V4 metadata tests with a `[leaf, CA:TRUE intermediate]` case that expects both certificates in `x5c`.",
+    "severity": "followup",
+    "file": "tests/base/src/test/java/org/keycloak/tests/keys/JavaKeystoreKeyProviderTest.java",
+    "line": 381,
+    "title": "No test shows that a chain whose leaf was not issued by the top certificate is still rejected.",
+    "impact": "An admin who uploads a keystore with certificates in the wrong order relies on this check to get an error at save time instead of wallets rejecting the `x5c` later.",
+    "detail": "The PR rewrites `validateCertificateChain`, and the new tests only cover chains that must load. `invalidKeystoreExpiredCertificate` is the only test in `JavaKeystoreKeyProviderTest` that expects a certificate chain error, and it uses a single certificate. A later change that weakens the path validation for chains of two or more certificates would pass every test in that class.",
+    "fix": "Add a test with the new `Certificate[]` overload of `generateKeystore` that stores a leaf with a second certificate that has the issuer's subject name but a different key, and expects `Certificate error on server.`.",
     "context": [
      [
       "+",
       null,
-      369,
-      "     * whether it is self-signed or is marked as a CA (basic constraint CA:TRUE)."
+      376,
+      "        Response response = realm.admin().components().add(rep);"
      ],
      [
       "+",
       null,
-      370,
-      "     *"
+      377,
+      "        String id = ApiUtil.getCreatedId(response);"
      ],
      [
       "+",
       null,
-      371,
-      "     * @throws GeneralSecurityException if the certificate cannot be inspected"
+      378,
+      "        realm.cleanup().add(r -> r.components().component(id).remove());"
      ],
      [
       "+",
       null,
-      372,
-      "     */"
+      379,
+      "    }"
      ],
      [
       "+",
       null,
-      373,
-      "    private static boolean isTrustAnchor(X509Certificate certificate) throws GeneralSecurityException {"
-     ],
-     [
-      "+",
-      null,
-      374,
-      "        return CertificateUtils.isSelfSigned(certificate) || certificate.getBasicConstraints() >= 0;"
-     ]
-    ]
-   },
-   {
-    "severity": "minor",
-    "file": "docs/documentation/server_admin/topics/oid4vci/vc-issuer-configuration.adoc",
-    "line": 235,
-    "title": "The docs give different trust anchor rules for signed metadata and SD-JWT VCs on the same key.",
-    "impact": "An admin who follows step 2 and skips the optional root loses the issuing CA from the metadata `x5c`, while SD-JWT VCs from the same key still verify.",
-    "detail": "Step 2 on line 225 says a self-signed root may be appended. The note on line 235 says signed metadata drops the topmost `CA:TRUE` certificate, while SD-JWT VCs keep it and need a non-self-signed anchor left out of the chain. The same realm ES256 key normally signs both. The text never says that a chain with intermediates must end in the root for the metadata chain to stay complete.",
-    "fix": "Once the metadata filter matches the SD-JWT VC filter, state one rule. Append a self-signed root if you want, and leave a non-self-signed trust anchor out of the keystore.",
-    "context": [
-     [
-      " ",
-      231,
-      231,
-      "[NOTE]"
-     ],
-     [
-      " ",
-      232,
-      232,
-      "===="
-     ],
-     [
-      "-",
-      233,
-      null,
-      "The keystore may contain a self-signed root certificate so that {project_name} can load and validate the complete chain. {project_name} removes a trailing self-signed root certificate from the SD-JWT VC and signed issuer metadata `x5c` headers. It does not remove a non-self-signed trust anchor, which must therefore be omitted from the configured chain."
-     ],
-     [
-      "+",
-      null,
-      233,
-      "{project_name} can load a chain that does not end in a self-signed certificate, such as a lone leaf certificate or a chain ending in a non-self-signed CA."
-     ],
-     [
-      "+",
-      null,
-      234,
+      380,
       ""
      ],
      [
       "+",
       null,
-      235,
-      "For the signed issuer metadata `x5c` header, {project_name} removes the topmost certificate other than the leaf itself when either self-signed or explicitly marked as a certificate authority (CA). When creating the SD-JWT VC, {project_name} removes only a trailing self-signed root certificate; a non-self-signed trust anchor must be omitted from the configured chain."
+      381,
+      "    @Test"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerWellKnownProvider.java",
+    "line": 352,
+    "title": "The PR title says non-self-signed trust anchors are excluded, but the code keeps them.",
+    "impact": "The commit subject already carries this title, so the history would tell admins that Keycloak strips such anchors while the code and the docs say the admin must omit them.",
+    "detail": "The scope changed during review. The code and the docs now rely on the admin omitting the anchor, and `testSignedMetadataKeepsNonSelfSignedCaIntermediate` asserts that a trailing non-self-signed CA stays in `x5c`. The description explains the new approach, but the title still describes the earlier plan.",
+    "fix": "Rename the PR to something like `Allow java-keystore chains without a self-signed root so trust anchors can be omitted from x5c`.",
+    "context": [
+     [
+      " ",
+      347,
+      347,
+      "            try {"
+     ],
+     [
+      "+",
+      null,
+      348,
+      "                // Exclude trailing self-signed certificates, which are trust anchors and must not be included in the"
+     ],
+     [
+      "+",
+      null,
+      349,
+      "                // x5c chain. See also [AS-AP-10-056](https://eudi.dev/3.0.0/annexes/annex-2/annex-2.03-high-level-requirements-by-category/#3-attestation-pid-providers)."
+     ],
+     [
+      "+",
+      null,
+      350,
+      "                // A non-self-signed trust anchor cannot be told apart from an issuing CA that wallets need to build"
+     ],
+     [
+      "+",
+      null,
+      351,
+      "                // the certificate path, so it must be left out of the configured chain instead."
+     ],
+     [
+      " ",
+      348,
+      352,
+      "                while (certificateChain.size() > 1"
      ]
     ]
    }
@@ -3664,21 +3664,17 @@
    "model": "claude-fable-5-2",
    "effort": "high",
    "changes": [
-    "Shortened the headline from 16 to 15 words and the summary from five to four sentences to fit the format.",
-    "Removed the claim in the major finding that the old docs backed the `[leaf, issuing CA]` layout, because before this PR `validateCertificateChain` rejected any chain that did not end in a self-signed certificate, so the layout is newly allowed here.",
-    "Added to the major finding that the description presents the `CA:TRUE` check as deliberate and why its reason does not hold, with the PR's own V2 fixture as the example.",
-    "Narrowed the statement that a non-self-signed anchor above an issuing CA has no working layout to no single layout for both metadata and credentials, because separate keys can sign them.",
-    "Corrected the docs finding line from 21, which was a line of the diff, to 235 in the checkout.",
-    "Reworded the docs finding because a consistent layout does exist for the common cases, so the real gap is that the optional root silently decides whether the issuing CA stays in the metadata chain.",
-    "Dropped the remark about the word \"Eventually\" from the docs finding because it is a style point.",
-    "Reworded the EUDI note to cover both trusted list setups, because the claim that issuers usually sit under an issuing CA was not verified.",
-    "Kept the discussion empty because the only ref, `c6798799611`, is a status note."
+    "Reworded the impact of the title nit, because nothing shows that release notes are built from the PR title, while the commit subject does carry it.",
+    "Corrected the `eudi` text, because the metadata comment cites only AS-AP-10-056 and the HAIP reference lives in `SdJwtCredentialSigner`.",
+    "Reworded the summary sentence about the docs, because the docs already told admins to omit a non-self-signed anchor before this PR and now add that such keystores load.",
+    "Reworded the first good point to describe what the diff does, the same path minus the top certificate plus `top.checkValidity()`.",
+    "Added a followup for the missing rejection test of a mismatched chain, because the PR rewrites the validation and only tests chains that must load."
    ]
   },
-  "sha": "073c009c20dca045a99d8f9d36e6447bae8adf44",
+  "sha": "962bf9b92b987b89db31206579d401ebfdb4a570",
   "notes": [],
-  "discussed": "2026-11-11T14:41:17Z",
-  "date": "2026-11-12"
+  "discussed": "2026-11-16T13:24:54Z",
+  "date": "2026-11-17"
  },
  "54895": {
   "verdict": "approve",
@@ -3935,70 +3931,23 @@
  },
  "55191": {
   "verdict": "approve",
-  "headline": "Correct and safe to merge, but the logged offer nonce still returns the pre-authorized code.",
-  "summary": "The PR drops the debug line in `getCredentialOffer` that ran `JsonSerialization.valueAsString(credOffer)` and so printed the `grants` map with the `pre-authorized_code`. It also replaces the issuance debug line with the configuration id, the format and the claim names. At this commit `VerifiableCredential` has no `toString()`, so the old issuance line printed only an object identity, and the new line is more useful while still keeping values out. The change is correct and nothing in it must change, but the `Found credential offer` line that stays logs a nonce that returns the same code, so the leak is only fully closed by a follow-up.",
-  "eudi": "EUDI issuers that run with debug logging no longer write the pre-authorized code itself in the offer response line. The offer nonce is still logged and returns the same code while the offer is live.",
+  "headline": "Removes pre-authorized codes and offer nonces from OID4VCI debug logs and is ready to merge.",
+  "summary": "The PR drops the debug line that printed the full credential offer, including the `pre-authorized_code`, and logs the credentials offer id instead of the offer nonce in two lines. The offer id cannot fetch the offer, because `getOfferStateByNonce` compares the full nonce, and it cannot produce a pre-authorized code, because that code is a JWT that the realm signs. The old \"credential to sign\" line printed only an object reference, because `VerifiableCredential` has no `toString()`, so the new line adds claim names and removes no values. Nothing in the change must be fixed.",
+  "eudi": "Issuers that run with debug logging no longer write pre-authorized codes or offer nonces to their logs. The replaced issuance line never printed attribute values, so that line left no PID data in older debug logs, and protocol behaviour does not change.",
   "good": [
-   "The offer line is removed rather than redacted, so no hand built replacement has to read the `grants` map.",
-   "The new issuance line logs claim names without values, which helps when debugging mappers.",
-   "The description states clearly which nearby log lines are out of scope and asks for a maintainer view."
+   "The offer id cannot replace the nonce as a lookup key on the unauthenticated `credential-offer/{nonce}` endpoint, because the lookup checks the full nonce.",
+   "`claimNamesForLog` logs mDoc claims as `namespace/element`, which keeps the line useful when a mapper does not produce a claim.",
+   "The claim name list is built only when debug logging is enabled."
   ],
   "findings": [
-   {
-    "severity": "followup",
-    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerEndpoint.java",
-    "line": 587,
-    "title": "The offer nonce in the debug log still gives access to the pre-authorized code.",
-    "impact": "Anyone who can read issuer debug logs can call the offer endpoint with the logged nonce while the offer is live, read the pre-authorized code and redeem it when no `tx_code` is required.",
-    "detail": "The `Stored credential offer state` line at 587 and the `Found credential offer` line at 696 log `offerState.getNonce()`. `CredentialOfferState` builds that value as the random secret plus the offer id, and `DefaultCredentialOfferStorage.getOfferStateByNonce` accepts exactly that string. `getCredentialOffer` then returns the full offer with the `pre-authorized_code`, and the lookup is repeatable until the offer expires or the credential is issued. The stored line is written when the offer is created, before the wallet scans the QR code, so the window is the whole offer lifetime. The author left the nonce out because the issue does not name it. That reason does not hold for the goal in the PR title, because the line at 696 runs in the same request as the removed line and hands the same log reader the nonce that returns the same code. The gap is older than the PR and the PR does not make it worse, so it is a follow-up. The raw request payload at line 790 can stay, because it carries no code and no claim values, and replaying it needs the access token that is checked at line 802 and is not in the payload.",
-    "fix": "In a follow-up, log `offerState.getCredentialsOfferId()` instead of the nonce in both lines. The offer id alone is not accepted by the offer endpoint and is already logged at lines 921 and 950.",
-    "context": [
-     [
-      " ",
-      null,
-      582,
-      "        //"
-     ],
-     [
-      " ",
-      null,
-      583,
-      "        CredentialOfferStorage offerStorage = session.getProvider(CredentialOfferStorage.class);"
-     ],
-     [
-      " ",
-      null,
-      584,
-      "        offerStorage.putOfferState(offerState);"
-     ],
-     [
-      " ",
-      null,
-      585,
-      ""
-     ],
-     [
-      " ",
-      null,
-      586,
-      "        String targetUserId = offerState.getTargetUserId();"
-     ],
-     [
-      " ",
-      null,
-      587,
-      "        LOGGER.debugf(\"Stored credential offer state: [grant=%s, ids=%s, uid=%s, nonce=%s]\","
-     ]
-    ]
-   },
    {
     "severity": "nit",
     "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerEndpoint.java",
     "line": 1880,
-    "title": "For `mso_mdoc` the logged claim names are only the namespaces.",
-    "impact": "An admin debugging a missing mdoc data element sees `[org.iso.18013.5.1]` and not the element names.",
-    "detail": "For `mso_mdoc`, `credentialSubjectClaims` is `subjectClaimsWithMetadataPrefix`. `OID4VCMapper.setClaimWithMetadataPrefix` nests each value under the namespace from `getAttributePrefix`, so the top level keys are namespaces and `keySet()` does not show the data element identifiers. The description says the names are logged to debug mappers, and that does not work for mdoc.",
-    "fix": "Optionally log the nested keys per namespace for `mso_mdoc`.",
+    "title": "The title and description say claim values were logged, but the old line never printed them.",
+    "impact": "An operator who reads the commit message or the PR may conclude that older debug logs hold credential claim values and start a needless log cleanup or data protection review.",
+    "detail": "The removed statement was `LOGGER.debugf(\"The credential to sign is: %s\", vc)`. `VerifiableCredential` and `CredentialSubject` define no `toString()`, so the line printed only the class name and a hash. The new line is fine and more useful, but it adds claim names to the log and removes no values. The mappers build the map keys from admin configuration, so the names hold no user data.",
+    "fix": "Reword the title and the description, for example to \"Do not log pre-authorized codes and offer nonces in OID4VCI debug output\", and say that the issuance line now logs claim names.",
     "context": [
      [
       " ",
@@ -4028,34 +3977,62 @@
       "+",
       null,
       1879,
-      "        LOGGER.debugf(\"Signing credential: [id=%s, format=%s, claims=%s]\","
+      "        if (LOGGER.isDebugEnabled()) {"
      ],
      [
       "+",
       null,
       1880,
-      "                credentialConfigId, credentialConfig.getFormat(), credentialSubjectClaims.keySet());"
+      "            LOGGER.debugf(\"Signing credential: [id=%s, format=%s, claims=%s]\","
      ]
     ]
    }
   ],
-  "discussion": [],
+  "discussion": [
+   {
+    "ref": "r5914054024",
+    "status": "fixed",
+    "point": "The reviewer asked to remove the offer nonce from the \"Stored credential offer state\" and \"Found credential offer\" lines and noted that mDoc logging showed only namespaces.",
+    "answer": "Both lines now log `getCredentialsOfferId()` at `OID4VCIssuerEndpoint.java:587` and `OID4VCIssuerEndpoint.java:696`, and `getOfferStateByNonce` compares the full nonce, so the offer id cannot fetch the offer. For authorization code offers the offer id is also the content of `issuer_state`, but `getCredentialOfferState` at `OID4VCAuthorizationDetailsProcessor.java:409` uses it only after a login and checks the target user and client. `claimNamesForLog` at `OID4VCIssuerEndpoint.java:1976` expands each namespace into `namespace/element` entries.",
+    "kind": "review",
+    "where": "",
+    "authors": [
+     "jamesconwaydev"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/55191#pullrequestreview-5914054024",
+    "date": "2026-11-16"
+   },
+   {
+    "ref": "c6916727941",
+    "status": "answered",
+    "point": "The author left the raw request payload log at the credential endpoint to a maintainer's call.",
+    "answer": "Leaving it out of this PR is fine, since the author says issue #52509 does not cover it. The payload logged at `OID4VCIssuerEndpoint.java:790` holds the proofs or an encrypted JWE but no claim values and no bearer token, because the token travels in the header and is checked at line 802. A proof from the log cannot be replayed without that access token, and its `c_nonce` is consumed at line 1093 after issuance, so any trimming can go into a separate PR.",
+    "kind": "comment",
+    "where": "",
+    "authors": [
+     "devjoinedthechat"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/55191#issuecomment-6916727941",
+    "date": "2026-11-16"
+   }
+  ],
   "model": "claude-opus-5-5",
   "effort": "high",
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
    "changes": [
-    "Reworded the detail of the nonce finding to argue from `CredentialOfferState` and `DefaultCredentialOfferStorage` instead of from the issue text, because the issue could not be read and the author's stated reason for leaving the nonce needed an answer from the code.",
-    "Changed the fix of the nonce finding from a nonce hash to logging the offer id, because the offer id is not a capability and is already logged at lines 921 and 950.",
-    "Removed the advice to stop logging the request payload at line 790, because the payload holds no code or claim values and is useless without the access token, so it fails the production value check.",
-    "Reworded the first good point, because it praised the `Found credential offer` line that the nonce finding flags.",
-    "Reworded the headline, the summary and the EUDI note to say that the logged nonce still returns the code, so they match the follow-up finding."
+    "Changed the headline to drop \"claim values\", because the old issuance line printed only an object reference and never the values.",
+    "Rewrote the summary to four sentences, removed the sentence about imports, and added that `VerifiableCredential` has no `toString()`, so the PR adds claim names and removes no values.",
+    "Corrected the `eudi` text, which said PID attribute values are no longer logged, because the replaced line never logged them.",
+    "Added a nit that the title and description overstate the claim value part of the fix, because the commit message would suggest a past leak of claim values that did not happen.",
+    "Extended the answer to `r5914054024` with the check that the offer id as `issuer_state` still needs a login and the target user and client checks, and that the id was already in debug logs before the PR.",
+    "Reworded the answer to `c6916727941` to rest on lines 790, 802 and 1093, attributed the scope statement about the issue to the author, and dropped the unverified claim about the proof audience."
    ]
   },
-  "sha": "8292c2437bd51b9303c58a4c311ae89197b146e9",
+  "sha": "2bc3bfcced7205550cbf20d007fe1d542feb15a9",
   "notes": [],
-  "discussed": "",
-  "date": "2026-11-15"
+  "discussed": "2026-11-16T12:42:30Z",
+  "date": "2026-11-17"
  }
 }
