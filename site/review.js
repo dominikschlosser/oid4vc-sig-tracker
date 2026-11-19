@@ -49,11 +49,12 @@
     pick.parentElement.replaceChildren(pick, Object.assign(document.createElement("a"), { href: url, textContent: text }));
     syncAllAnswers();
   };
-  // The box for all answers covers the answers that can still go out, and turns off when none can.
+  // The box for all answers covers the answers that can still go out. It counts them and is disabled when none can.
   const syncAllAnswers = () => {
     if (!allAnswers) return;
     const open = answerPicks.filter((p) => !p.disabled);
     allAnswers.disabled = !open.length;
+    $("post-answers-n").textContent = open.length;
     allAnswers.checked = open.length > 0 && open.every((p) => p.checked);
     allAnswers.indeterminate = !allAnswers.checked && open.some((p) => p.checked);
   };
