@@ -67,321 +67,203 @@
  },
  "54522": {
   "verdict": "approve",
-  "headline": "Sound fail closed ETSI LoTE trust provider with only small docs and validation gaps.",
-  "summary": "The PR adds an `etsi-trust-list` identity provider that downloads a signed ETSI TS 119 602 LoTE, verifies it against pinned signing certificates, checks `LoTEType`, service type, service status and `NextUpdate`, and exposes the listed CA certificates as X.509 trust anchors. It also lets `X509TrustMaterial` accept subordinate CAs as anchors. Load failures, expired lists and discontinued lists all lead to no trust material from this provider without breaking other providers, and the tests cover these cases. What remains are a misleading validation message, one missing docs sentence, a missing forced reload and a test with a real list shape.",
-  "eudi": "Keycloak can now use EUDI Wallet Provider, PID Provider and PubEAA Provider LoTEs directly for key attestations and SD-JWT VC presentations, but not yet for client attestations, which still need the `x5c` support from #52883. Admins must pin the list signing certificates and update them on rotation, because the provider does not follow a List of Trusted Lists yet.",
+  "headline": "Signed ETSI LoTE trust works and fails closed, so it can merge as is.",
+  "summary": "The PR adds an `etsi-trust-list` identity provider. It downloads a signed ETSI TS 119 602 V1.1.1 LoTE, verifies the JWS against pinned signing certificates, checks `LoTEType`, service type, service status and `NextUpdate`, and exposes the listed valid CA certificates as X.509 trust anchors. `X509TrustMaterial` now accepts subordinate CAs, and the reload keys endpoint now works for trust material providers. Every review point is addressed, and the one remaining gap is older cache behaviour that can wait.",
+  "eudi": "Keycloak can use EUDI Wallet Provider, PID Provider and PubEAA Provider LoTEs for OID4VCI key attestations, SD-JWT VC presentations and `x5c` based client attestations, which `AttestationBasedClientAuthenticator.java:330` already validates at this commit although the description still names #52883 as a prerequisite. Admins must pin the list signing certificates and update them on rotation until List of Trusted Lists support arrives.",
   "good": [
-   "Every failure path fails closed for this provider only. `listedCertificates` catches load errors so other trust providers of the client still work, and `unavailableListDoesNotBlockOtherTrustProviders` tests this.",
-   "The cache entry expires at the earlier of the refresh interval and `NextUpdate`, and a list without `NextUpdate` is treated as discontinued as clause 6.3.15 requires.",
-   "The anchor filter in `isCaCertificate` matches the checks in the `X509TrustMaterial` constructor. One unusable CA on a list therefore cannot make the whole list throw."
+   "Download errors, signature errors, wrong `LoTEType`, a list past `NextUpdate` and a discontinued list all lead to no trust from this provider, and other providers of the client keep working.",
+   "The list signature is checked only against the pinned certificates with an asymmetric `SignatureProvider`, so `none`, HMAC and header supplied keys cannot be used.",
+   "The tests cover scope filtering with CA certificates, renewed CAs, refresh, forced reload, recovery after a failed load and a fixture shaped like a published Wallet Providers list."
   ],
   "findings": [
    {
     "severity": "followup",
-    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java",
-    "line": 86,
-    "title": "The provider does not override `reloadKeys()`, so the reload keys endpoint cannot force a new download.",
-    "impact": "When the scheme operator withdraws a compromised wallet provider CA, Keycloak trusts it for up to the refresh interval unless the admin knows that saving the provider clears the cache.",
-    "detail": "`IdentityProvider.reloadKeys()` defaults to false, while Default Trust, OIDC and SAML override it. Saving the provider publishes `IdentityProviderUpdatedEvent`, and that event clears the cache entry, so a workaround exists. Awambeng raised this.",
-    "fix": "Override `reloadKeys()` to call `PublicKeyStorageProvider.reloadKeys(modelKey, new EtsiTrustListPublicKeyLoader(session, config))` with the same model key as `listedCertificates()`.",
+    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java",
+    "line": 74,
+    "title": "A failed or expired list is downloaded again on every trust decision.",
+    "impact": "When the list endpoint is down or the scheme operator publishes late, every `x5c` trust decision that asks this provider waits for a new download attempt, also when a later trust provider of the client would accept the chain.",
+    "detail": "`loadKeys` throws for a download error, a bad signature or a list past `NextUpdate`. `InfinispanPublicKeyStorageProvider` then stores no entry and keeps the old `lastRequestTime`, so `minTimeBetweenRequests` never throttles the next attempt. Concurrent requests on one node share a download through `tasksInProgress`, so the cost is one attempt after another and the added latency, not one download per request. The result still fails closed, so trust is not affected. The missing throttle for failed loads sits in `InfinispanPublicKeyStorageProvider`, which the PR does not touch, so this predates the PR.",
+    "fix": "On the `getKeys` path, where the cached list is missing or expired, cache a failed load as an empty `PublicKeysWrapper` that expires after a short retry delay, for example `minTimeBetweenRequests`. Keep the exception for a forced `reloadKeys()`, for example with a loader flag, so that a failed reload does not replace a list that is still valid. Do not cache the failure until `refreshAt`, because that would delay recovery by up to the refresh interval.",
     "context": [
      [
       "+",
       null,
-      81,
-      ""
+      69,
+      "            return new PublicKeysWrapper(List.of(), refreshAt);"
      ],
      [
       "+",
       null,
-      82,
-      "    @Override"
-     ],
-     [
-      "+",
-      null,
-      83,
-      "    public void close() {"
-     ],
-     [
-      "+",
-      null,
-      84,
-      "    }"
-     ],
-     [
-      "+",
-      null,
-      85,
-      ""
-     ],
-     [
-      "+",
-      null,
-      86,
-      "    private List<X509Certificate> listedCertificates() {"
-     ]
-    ]
-   },
-   {
-    "severity": "nit",
-    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java",
-    "line": 68,
-    "title": "An empty signing certificate field reports an invalid PEM bundle instead of a missing certificate.",
-    "impact": "An admin who leaves the field empty gets a misleading error message, but the configuration is still rejected.",
-    "detail": "The `isEmpty()` check throws inside the `try`, and the `catch (RuntimeException e)` wraps that exception in the PEM bundle message. Awambeng raised this.",
-    "fix": "Decode the certificates inside the `try` and check `isEmpty()` after the `catch`.",
-    "context": [
-     [
-      "+",
-      null,
-      63,
+      70,
       "        }"
      ],
      [
       "+",
       null,
-      64,
-      "        if (getServiceTypes().isEmpty()) {"
-     ],
-     [
-      "+",
-      null,
-      65,
-      "            throw new IllegalArgumentException(\"At least one trust list service type is required\");"
-     ],
-     [
-      "+",
-      null,
-      66,
-      "        }"
-     ],
-     [
-      "+",
-      null,
-      67,
-      "        try {"
-     ],
-     [
-      "+",
-      null,
-      68,
-      "            if (getSigningCertificates().isEmpty()) {"
-     ]
-    ]
-   },
-   {
-    "severity": "nit",
-    "file": "docs/documentation/server_admin/topics/oid4vci/proofs.adoc",
-    "line": 137,
-    "title": "The docs do not say that an empty status setting ignores all services that carry a status.",
-    "impact": "An admin who configures a PubEAA list without statuses gets no trust anchors and cannot see why from the docs or the log.",
-    "detail": "`toKeys` keeps a service with a status only when the status is configured, and it drops the other services without a log line. The author says the missing default is on purpose, and `servicesWithAStatusAreIgnoredWithoutConfiguredStatuses` tests it. The docs and the help text only say that services without a status are always trusted. The EKU setting on the same page at line 113 uses the opposite rule, where an empty list means no restriction. Awambeng raised this.",
-    "fix": "Add one sentence to the docs and to the `trustListServiceStatuses` help text saying that services with a status are ignored when no status is configured.",
-    "context": [
-     [
-      "+",
-      null,
-      132,
+      71,
       ""
      ],
      [
       "+",
       null,
-      133,
-      "Trust list URL:: The URL of the signed list in its JSON Web Signature form."
+      72,
+      "        long nextUpdate = Instant.parse(list.schemeInformation().nextUpdate()).toEpochMilli();"
      ],
      [
       "+",
       null,
-      134,
-      "Trust list signing certificates:: A PEM bundle of the certificates allowed to sign the list. A list is used only when one of these certificates verifies its signature. To rotate the signing key, configure the old and the new certificate."
+      73,
+      "        if (nextUpdate <= now) {"
      ],
      [
       "+",
       null,
-      135,
-      "LoTE type:: The required type of the list, for example `+http://uri.etsi.org/19602/LoTEType/EUWalletProvidersList+`. {project_name} rejects a list whose `LoTEType` value does not match."
-     ],
-     [
-      "+",
-      null,
-      136,
-      "Service types:: The service type identifiers whose certificates are trusted, for example `+http://uri.etsi.org/19602/SvcType/WalletSolution/Issuance+`."
-     ],
-     [
-      "+",
-      null,
-      137,
-      "Service statuses:: Services with one of these statuses are trusted. Services without a status are always trusted."
-     ]
-    ]
-   },
-   {
-    "severity": "followup",
-    "file": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java",
-    "line": 151,
-    "title": "All test lists are built with the same field names that the parser reads.",
-    "impact": "A wrong or renamed JSON field name in `ListOfTrustedEntities` would pass every test but load nothing from a real published list.",
-    "detail": "`trustList` produces only `LoTEType`, `NextUpdate` and the service fields, using the same names as the parser. A test with a full published list shape, for example a fixture shaped like the German sandbox list, would catch a mismatch with the real schema. Awambeng raised this.",
-    "fix": "Add one test that loads a fixture with the complete TS 119 602 JSON shape, signed again with the test signer.",
-    "context": [
-     [
-      "+",
-      null,
-      146,
-      "        public void replace(String content) {"
-     ],
-     [
-      "+",
-      null,
-      147,
-      "            this.content = content;"
-     ],
-     [
-      "+",
-      null,
-      148,
-      "        }"
-     ],
-     [
-      "+",
-      null,
-      149,
-      "    }"
-     ],
-     [
-      "+",
-      null,
-      150,
-      ""
-     ],
-     [
-      "+",
-      null,
-      151,
-      "    public static String trustList(KeyPair signer, String loteType, Instant nextUpdate, List<Map<String, Object>> services) {"
+      74,
+      "            throw new IllegalStateException(\"Trust list expired at \" + list.schemeInformation().nextUpdate());"
      ]
     ]
    }
   ],
   "discussion": [
    {
-    "ref": "r5783452380",
-    "status": "answered",
-    "point": "The new files do not need copyright headers.",
-    "answer": "The new Java files still carry the Red Hat header. Removing it is optional cleanup and does not block the merge.",
-    "kind": "review",
-    "where": "",
-    "authors": [
-     "Awambeng"
-    ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#pullrequestreview-5783452380",
-    "date": "2026-11-05"
-   },
-   {
     "ref": "t4479328170",
-    "status": "open",
-    "point": "The empty check for signing certificates is inside the `try`, so it reports an invalid PEM bundle.",
-    "answer": "This still holds at `EtsiTrustListIdentityProviderConfig.java:68`. The configuration is still rejected, so it is a nit about the message.",
+    "status": "fixed",
+    "point": "The empty certificate check sat inside the `try`, so an empty field reported an invalid PEM bundle.",
+    "answer": "Fixed. The empty check now runs after the `try` at `EtsiTrustListIdentityProviderConfig.java:57`, and `adminApiRejectsIncompleteConfiguration` asserts the message.",
     "kind": "thread",
-    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java:67",
+    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java:51",
     "authors": [
-     "Awambeng"
+     "dominikschlosser"
     ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4479328170",
-    "date": "2026-11-05"
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629177737",
+    "date": "2026-11-19",
+    "last": 4629177737
    },
    {
     "ref": "t4479328188",
-    "status": "disagree",
-    "point": "An unparseable refresh interval is reported as needing a positive number of seconds.",
-    "answer": "`abc` is not a positive number of seconds, so the message already tells the admin what to enter. A separate message would add code without helping the admin more.",
+    "status": "fixed",
+    "point": "An unparseable refresh interval was reported as not positive.",
+    "answer": "Fixed. A `NumberFormatException` now gives its own message at `EtsiTrustListIdentityProviderConfig.java:63`, and the test checks both messages.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java:103",
     "authors": [
-     "Awambeng"
+     "dominikschlosser"
     ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4479328188",
-    "date": "2026-11-05"
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629179906",
+    "date": "2026-11-19",
+    "last": 4629179906
    },
    {
     "ref": "t4479328201",
     "status": "answered",
-    "point": "Listed end entity certificates are ignored, and the reviewer asks whether this is a deliberate scope decision.",
-    "answer": "Yes. The class Javadoc and the docs say so. HAIP keeps the trust anchor out of `x5c`, so a listed leaf would need a separate pinned leaf path in `X509CertificateChainValidator`. That can be added later if a scheme needs it.",
+    "point": "Whether ignoring listed end entity certificates is a deliberate scope decision.",
+    "answer": "The reply holds. HAIP keeps the trust anchor out of `x5c`, so a listed CA is what the chain must end at, and a listed leaf would need a separate pinned key path. The class Javadoc and the docs state this, so it can be added later if a scheme publishes only leaf certificates.",
     "kind": "thread",
-    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:42",
+    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:25",
     "authors": [
-     "Awambeng"
+     "dominikschlosser"
     ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4479328201",
-    "date": "2026-11-05"
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629208044",
+    "date": "2026-11-19",
+    "last": 4629208044
    },
    {
     "ref": "t4479328212",
-    "status": "open",
-    "point": "`reloadKeys()` is not overridden, so an admin cannot force a refresh.",
-    "answer": "This still holds. Saving the provider clears the cache through `IdentityProviderUpdatedEvent`, so a workaround exists and this can be a follow up. The override is only a few lines, so adding it here is also fine.",
+    "status": "fixed",
+    "point": "The provider did not override `reloadKeys()`, so an admin could not force a refresh.",
+    "answer": "Fixed. `EtsiTrustListIdentityProvider.java:66` overrides it with the same model key, and `IdentityProviderResource.java:562` now resolves any provider type, so the endpoint also works for Default Trust. `reloadKeysDropsAWithdrawnCertificateBeforeTheRefreshInterval` covers it.",
     "kind": "thread",
-    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:83",
+    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:75",
     "authors": [
-     "Awambeng"
+     "dominikschlosser"
     ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4479328212",
-    "date": "2026-11-05"
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629210139",
+    "date": "2026-11-19",
+    "last": 4629210139
    },
    {
     "ref": "t4479328227",
-    "status": "disagree",
-    "point": "The list is verified as a plain JWS instead of a JAdES Baseline B signature, which the docs should say.",
-    "answer": "The observation is correct, but nothing goes wrong in a deployment because of it. `verifySignature` accepts only a signature made by a pinned certificate, so JAdES header checks would add no protection. `proofs.adoc:134` and `proofs.adoc:144` already say that the configured certificates decide whether a list is used, so the extra sentence is optional.",
+    "status": "fixed",
+    "point": "The list signature is a plain JWS check, not full JAdES Baseline B validation, and the docs should say so.",
+    "answer": "Fixed. `proofs.adoc:145` now says that the signature is checked as a JWS against the configured certificates and that full JAdES Baseline B validation is not performed.",
     "kind": "thread",
-    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:54",
+    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:37",
     "authors": [
-     "Awambeng"
+     "dominikschlosser"
     ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4479328227",
-    "date": "2026-11-05"
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629212861",
+    "date": "2026-11-19",
+    "last": 4629212861
    },
    {
     "ref": "t4479328242",
-    "status": "answered",
-    "point": "The clause 6.8.0 match of the signing certificate C and O against `SchemeTerritory` and `SchemeOperatorName` is not checked, and the reviewer asks to note that this is deliberate.",
-    "answer": "Yes, it is deliberate. The author says the list signature is only checked against the pinned signing certificates, and `proofs.adoc:144` says the configured certificates are the only trust source for the list. The name check adds no security under pinning and would reject the German sandbox list, so a code comment is optional.",
+    "status": "fixed",
+    "point": "The C and O check of clause 6.8.0 is skipped and that should be noted.",
+    "answer": "Fixed. The comment above `verifySignature` at `EtsiTrustListPublicKeyLoader.java:79` explains that the pinned signer replaces the name match.",
     "kind": "thread",
-    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:96",
+    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:81",
     "authors": [
-     "Awambeng"
+     "dominikschlosser"
     ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4479328242",
-    "date": "2026-11-05"
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629216178",
+    "date": "2026-11-19",
+    "last": 4629216178
    },
    {
     "ref": "t4479328257",
-    "status": "open",
-    "point": "The docs should say that services with a status are ignored when no status is configured.",
-    "answer": "This holds. `proofs.adoc:137` and the factory help text only cover services without a status, so one sentence should be added.",
+    "status": "fixed",
+    "point": "The docs did not say that services with a status are ignored when no status is configured.",
+    "answer": "Fixed. `proofs.adoc:137` and the factory help text now say that only services without a status are trusted when no status is configured.",
     "kind": "thread",
     "where": "docs/documentation/server_admin/topics/oid4vci/proofs.adoc:137",
     "authors": [
-     "Awambeng"
+     "dominikschlosser"
     ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4479328257",
-    "date": "2026-11-05"
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629220061",
+    "date": "2026-11-19",
+    "last": 4629220061
    },
    {
     "ref": "t4479328269",
-    "status": "open",
-    "point": "The test list is thinner than a real list, and one test with the full shape would protect the mapping.",
-    "answer": "This holds as a follow up. The tests build lists with the same field names the parser reads, so only a fixture with the real schema shape can catch a field name mismatch.",
+    "status": "fixed",
+    "point": "The test lists are thinner than a published list.",
+    "answer": "Fixed. `listInThePublishedJsonShapeIsParsed` at `EtsiTrustListIdentityProviderTest.java:228` loads `wallet-providers-list.json`, which carries the full scheme information, entity information and pointers to other lists.",
     "kind": "thread",
-    "where": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java:166",
+    "where": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java:148",
     "authors": [
-     "Awambeng"
+     "dominikschlosser"
     ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4479328269",
-    "date": "2026-11-05"
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629274748",
+    "date": "2026-11-19",
+    "last": 4629274748
+   },
+   {
+    "ref": "t4626674678",
+    "status": "fixed",
+    "point": "The reload keys endpoint could not force a new download.",
+    "answer": "Fixed by the `reloadKeys()` override at `EtsiTrustListIdentityProvider.java:66` and the provider lookup change at `IdentityProviderResource.java:562`, with a test.",
+    "kind": "thread",
+    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:78",
+    "authors": [
+     "dominikschlosser"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629223050",
+    "date": "2026-11-19",
+    "last": 4629223050
+   },
+   {
+    "ref": "t4626674687",
+    "status": "fixed",
+    "point": "All test lists use the same field names that the parser reads.",
+    "answer": "Fixed. The published shape fixture at `EtsiTrustListIdentityProviderTest.java:228` now guards against a field name mismatch with real lists.",
+    "kind": "thread",
+    "where": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java:137",
+    "authors": [
+     "dominikschlosser"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629268583",
+    "date": "2026-11-19",
+    "last": 4629268583
    }
   ],
   "model": "claude-opus-5-5",
@@ -390,15 +272,12 @@
    "model": "claude-fable-5-2",
    "effort": "high",
    "changes": [
-    "I dropped the nit about documenting plain JWS versus JAdES at `proofs.adoc:134`, because no deployment goes wrong and lines 134 and 144 already say that the pinned certificates decide.",
-    "I changed `t4479328227` from `open` to `disagree` to match the dropped finding, since an `open` point needs a finding and this one fails the production value check.",
-    "I changed `t4479328242` from `disagree` to `answered`, because the reviewer did not ask for the clause 6.8.0 check and only asked whether leaving it out is deliberate.",
-    "I extended the status docs nit at `proofs.adoc:137` with two verified facts, namely that `toKeys` drops these services without a log line and that the EKU setting at line 113 uses the opposite rule for an empty list.",
-    "I added to `eudi` that client attestations cannot use a list yet, because `AttestationBasedClientAuthenticator` resolves keys by `kid` only until #52883 lands.",
-    "I reworded the last summary sentence to name the four remaining findings after the JAdES finding was dropped."
+    "Reworded the impact and detail of the followup finding and tied its origin to `InfinispanPublicKeyStorageProvider` instead of the unchecked comparison with Default Trust and OIDC, because `tasksInProgress` lets concurrent requests on a node share one download, so the cost is repeated attempts and latency and not one download per request.",
+    "Narrowed the suggested fix to the `getKeys` path, because caching a failure in the loader as drafted would also let a failed forced `reloadKeys()` replace a list that is still valid.",
+    "Replaced the reason in the EUDI note with the code reference `AttestationBasedClientAuthenticator.java:330` and said that the description is outdated on #52883, because the description contradicts the claim while the code at this commit supports it."
    ]
   },
-  "sha": "cc6361d5459ed630fee45108dab1da7e2eecfa77",
+  "sha": "4bff7f1ac66721d157b8fc309e3d64ab1cddc8ae",
   "notes": [
    "Rejecting a list that fails to download or verify is deliberate. It fails closed, and failedRefreshRejectsTheListUntilAValidListIsAvailable tests it. Letting the load error escape so that other trust providers never get a chance is not deliberate.",
    "Subordinate CAs as trust anchors are deliberate, because EUDI LoTEs list issuing CAs.",
@@ -406,8 +285,8 @@
    "trustListServiceStatuses has no default on purpose, because Keycloak is not EUDI specific. With nothing configured, services that carry a status are not trusted.",
    "x5c support in AttestationBasedClientAuthenticator and the rule that X.509 trust requires x5c are left out on purpose, because they overlap with the approved #52883. They come back in a follow-up after #52883 is merged."
   ],
-  "discussed": "2026-11-05T10:31:02Z",
-  "date": "2026-11-13"
+  "discussed": "2026-11-19T13:19:00Z",
+  "date": "2026-11-19"
  },
  "54367": {
   "verdict": "approve",
