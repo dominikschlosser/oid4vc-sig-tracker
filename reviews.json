@@ -1920,222 +1920,75 @@
  },
  "53864": {
   "verdict": "comment",
-  "headline": "Restores pre-auth tx_code correctly, but case-sensitive text codes will trip up real users.",
-  "summary": "The PR lets the credential offer endpoint generate a six character `tx_code` for pre-authorized offers, returns it to the caller and adds the `tx_code` descriptor to the pre-authorized grant. The token endpoint checks the code before the pre-authorized code is consumed, the QR-only case is rejected, and the tests cover missing, wrong and correct codes. One usability problem should be fixed in this PR. The token endpoint compares the code case-sensitively against an upper-case alphabet that also contains look-alike characters.",
-  "eudi": "Issuers can again protect pre-authorized offers with a transaction code, as OpenID4VCI 1.0 intends for the pre-authorized code flow. Wallets get a `tx_code` object with `input_mode` and `length` as defined in Section 4.1.1, so they can prompt the holder for the code.",
+  "headline": "Sound `tx_code` restore, but the check is case sensitive for codes typed by hand.",
+  "summary": "The PR brings back optional `tx_code` generation for pre-authorized offers. It generates a 6 character Crockford base32 code, advertises it through a `tx_code` descriptor in the grant, returns it from `create-credential-offer` with `no-store` caching, and checks it before the pre-authorized code is marked as used. The flow and the error codes match OID4VCI 1.0 and the tests cover missing, wrong and correct codes. One small issue remains: the server compares the code byte for byte, so a user who types the code in lower case is rejected.",
+  "eudi": "EUDI wallets can now redeem pre-authorized offers that carry a transaction code, using `input_mode` `text` and `length` 6 as OID4VCI 1.0 Section 4.1.1 describes. Wallets that support only numeric codes will not be able to use these offers, so issuers who target such wallets should keep `tx_code` off.",
   "good": [
-   "The `tx_code` check runs before `markPreAuthCodeAsUsed`, so a wrong code does not burn the offer.",
-   "A `tx_code` request with `type=qr` is rejected before any offer state is stored.",
-   "The grant now carries the `tx_code` descriptor, and the test asserts its `input_mode` and `length`."
+   "The `tx_code` is checked before `markPreAuthCodeAsUsed`, so a wrong or missing code does not burn the offer, and a test proves that the correct code still works afterwards.",
+   "The secret code stays out of the signed pre-authorized code because `PreAuthCodeCtx` copies only public fields, and the public offer carries only the descriptor.",
+   "The endpoint rejects `tx_code=true` with `type=qr` and sets `Cache-Control: no-store` on the JSON responses that carry the secret."
   ],
   "findings": [
    {
     "severity": "minor",
-    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/credentialoffer/CredentialOfferState.java",
-    "line": 52,
-    "title": "The generated text code is upper-case only but is compared case-sensitively and uses look-alike characters.",
-    "impact": "A holder who reads the code from an email or SMS and types it into a wallet text field in lower case, or confuses `O` with `0` or `I` with `1`, gets `Invalid TxCode` with no hint why.",
-    "detail": "`generateTxCode` draws from `A-Z0-9`, and the descriptor tells the wallet `input_mode` is `text`, so the wallet shows a normal keyboard. Mobile keyboards type lower case by default. `PreAuthorizedCodeGrantType` compares the submitted value with `MessageDigest.isEqual` on the raw bytes, so `ab12cd` fails against `AB12CD`. The alphabet also has `0`/`O` and `1`/`I`, which humans often mix up when they copy a code by hand. The holder can retry because a wrong code does not consume the offer, but the default offer lifespan is only a few minutes. Many holders will see a failed issuance before they work out the cause.",
-    "fix": "Normalize the submitted `tx_code` to upper case before the constant-time comparison in `PreAuthorizedCodeGrantType`. Drop the look-alike characters from `TX_CODE_ALPHABET`, for example by using the Crockford base32 set. You can also add a short `description` to the `TxCode` descriptor that tells the holder where to find the code.",
-    "context": [
-     [
-      "@",
-      null,
-      null,
-      "@@ -47,16 +48,22 @@ public class CredentialOfferState {"
-     ],
-     [
-      " ",
-      47,
-      48,
-      "    private long expiresAt;"
-     ],
-     [
-      " ",
-      48,
-      49,
-      "    private List<OID4VCAuthorizationDetail> authDetails;"
-     ],
-     [
-      " ",
-      49,
-      50,
-      ""
-     ],
-     [
-      "+",
-      null,
-      51,
-      "    private static final SecureRandom TX_CODE_RANDOM = new SecureRandom();"
-     ],
-     [
-      "+",
-      null,
-      52,
-      "    private static final char[] TX_CODE_ALPHABET = \"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\".toCharArray();"
-     ]
-    ]
-   },
-   {
-    "severity": "followup",
     "file": "services/src/main/java/org/keycloak/protocol/oidc/grants/PreAuthorizedCodeGrantType.java",
-    "line": 143,
-    "title": "A missing `tx_code` returns `invalid_grant`, but OpenID4VCI 1.0 asks for `invalid_request`.",
-    "impact": "A wallet that sends no `tx_code` for a protected offer is told the grant is invalid, so it reports a bad or expired offer instead of asking the holder for the code.",
-    "detail": "Section 6.3 of OpenID4VCI 1.0 assigns `invalid_request` to the case where the authorization server expects a transaction code and the client sends none. It reserves `invalid_grant` for a wrong code. The code returned `invalid_grant` for both cases before this PR, but no REST caller could create an offer with a `tx_code` until now. `testPreAuthOffer_Targeted_Invalid_TxCode` asserts the `invalid_grant` value for the missing code.",
-    "fix": "Return `OAuthErrorException.INVALID_REQUEST` for the missing `tx_code` and adjust the test assertion in a later PR.",
+    "line": 162,
+    "title": "The `tx_code` check is case sensitive although the code is meant to be typed by hand.",
+    "impact": "A holder who gets the code by SMS or email and types `k7m2qx` on a phone keyboard into a wallet text field gets `Invalid TxCode` with no hint why.",
+    "detail": "`CredentialOfferState.generateTxCode` builds the code from upper case Crockford base32, and the comment says the alphabet was picked for transcription. The descriptor uses `input_mode` `text`, so wallets show a free text field and send whatever the user typed. `MessageDigest.isEqual` then compares the raw bytes, so lower case input, a stray space, or `O` for `0` all fail. The offer survives, but the user has no way to know what went wrong.",
+    "fix": "Normalize the submitted value before the constant time compare, for example `txCode.trim().toUpperCase(Locale.ROOT)`, and optionally map `O` to `0` and `I` and `L` to `1` as Crockford decoding does. Add a lower case case to `testPreAuthOffer_Targeted_Invalid_TxCode`.",
     "context": [
      [
       " ",
       null,
-      138,
-      "        String txCode = formParams.getFirst(PreAuthorizedCodeGrant.TX_CODE_PARAM);"
-     ],
-     [
-      " ",
-      null,
-      139,
-      "        String expTxCode = offerState.getTxCode();"
-     ],
-     [
-      " ",
-      null,
-      140,
-      "        if (expTxCode != null) {"
-     ],
-     [
-      " ",
-      null,
-      141,
-      "            if (Strings.isEmpty(txCode)) {"
-     ],
-     [
-      " ",
-      null,
-      142,
+      157,
       "                event.error(Errors.MISSING_TX_CODE);"
      ],
      [
       " ",
       null,
-      143,
-      "                throw new CorsErrorResponseException(cors, OAuthErrorException.INVALID_GRANT,"
-     ]
-    ]
-   },
-   {
-    "severity": "followup",
-    "file": "docs/documentation/server_admin/topics/oid4vci/vc-issuer-configuration.adoc",
-    "line": 110,
-    "title": "The documentation mentions `tx_code` but does not say how to request it.",
-    "impact": "An integrator who builds an issuer portal on `create-credential-offer` cannot find the `tx_code=true` parameter or the `tx_code` response field without reading the source.",
-    "detail": "The paragraph says an optional transaction code can add a second layer of security. No page lists the new `tx_code` query parameter, the `tx_code` field in the JSON response or the rejection of `tx_code=true` with `type=qr`. `wallet-integration.adoc` still says the JSON response contains an `issuer`, a `nonce` and a `qr_code`.",
-    "fix": "Document the `tx_code` query parameter, the `tx_code` response field and the `type=qr` restriction next to the pre-authorized offer example.",
-    "context": [
-     [
-      " ",
-      null,
-      105,
-      ". {project_name} validates the request and returns the signed credential."
+      158,
+      "                throw new CorsErrorResponseException(cors, OAuthErrorException.INVALID_REQUEST,"
      ],
      [
       " ",
       null,
-      106,
-      ""
+      159,
+      "                        \"Missing TxCode\", Response.Status.BAD_REQUEST);"
      ],
      [
       " ",
       null,
-      107,
-      ".Pre-Authorized Code Flow \u2014 Credential Issuance"
+      160,
+      "            }"
      ],
      [
       " ",
       null,
-      108,
-      "image::images/oid4vci/pre-authorized-code-flow.drawio.svg[Sequence diagram of the Pre-Authorized Code Flow, width=700]"
+      161,
+      "            // Prevent timing attacks - execution time does not depend on where the first difference occurs"
      ],
      [
       " ",
       null,
-      109,
-      ""
-     ],
-     [
-      " ",
-      null,
-      110,
-      "An optional transaction code (`tx_code`) can add a second layer of security. The `tx_code` must be communicated through a separate channel from the pre-authorized code itself."
-     ]
-    ]
-   },
-   {
-    "severity": "nit",
-    "file": "tests/base/src/test/java/org/keycloak/tests/oid4vc/CredentialOfferStateUtils.java",
-    "line": 34,
-    "title": "`injectTxCode` looks unused and its Javadoc is out of date.",
-    "impact": "The helper suggests that tests still need to patch stored offer state by reflection to get a `tx_code`.",
-    "detail": "The PR removed the import of `injectTxCode` from `OID4VCredentialOfferPreAuthTest`, and the rewritten tests use the code that the endpoint returns. The other pre-auth tests and the issuer endpoint tests do not call the helper. Its Javadoc still says the REST API does not support setting a `tx_code` at offer creation time, which this PR makes false.",
-    "fix": "Remove `injectTxCode` from `CredentialOfferStateUtils` if no other test calls it.",
-    "context": [
-     [
-      " ",
-      null,
-      29,
-      ""
-     ],
-     [
-      " ",
-      null,
-      30,
-      "    /**"
-     ],
-     [
-      " ",
-      null,
-      31,
-      "     * Injects a tx_code into an existing credential offer state, re-storing it."
-     ],
-     [
-      " ",
-      null,
-      32,
-      "     * This is needed for testing because the REST API does not yet support setting tx_code at offer creation time."
-     ],
-     [
-      " ",
-      null,
-      33,
-      "     */"
-     ],
-     [
-      " ",
-      null,
-      34,
-      "    public static void injectTxCode(RunOnServerClient runOnServer, String offerNonce, String txCode) {"
+      162,
+      "            if (!MessageDigest.isEqual(expTxCode.getBytes(StandardCharsets.UTF_8), txCode.getBytes(StandardCharsets.UTF_8))) {"
      ]
     ]
    }
   ],
   "discussion": [],
   "model": "claude-opus-5-5",
-  "effort": "medium",
+  "effort": "high",
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
-   "changes": [
-    "Shortened the summary to four sentences and changed `before merge` to `in this PR`, because the only blocking item is a minor finding and the verdict is `comment`.",
-    "Added a followup that a missing `tx_code` returns `invalid_grant` where OpenID4VCI 1.0 Section 6.3 asks for `invalid_request`, because the PR makes that path reachable from the REST endpoint.",
-    "Added a followup that the documentation names `tx_code` but does not describe the new query parameter, the response field or the `type=qr` restriction.",
-    "Reworded the `injectTxCode` nit to what the code shows, because the stale Javadoc is verified but the absence of callers could only be checked in the pre-auth and issuer endpoint tests.",
-    "Left `discussion` empty, because every thread in the conversation was started by the Copilot bot and none carries a ref from a person."
-   ]
+   "changes": []
   },
-  "sha": "1a2375a4aac63de87e8ed5ea4b12e8e966f73b4a",
+  "sha": "4c6973ded5a3aa2eefdea60975f3655b86078a51",
   "notes": [],
   "discussed": "2026-10-12T14:49:51Z",
-  "date": "2026-11-03"
+  "date": "2026-11-19"
  },
  "53730": {
   "verdict": "approve",
@@ -4034,5 +3887,75 @@
   "notes": [],
   "discussed": "2026-11-16T12:42:30Z",
   "date": "2026-11-17"
+ },
+ "55336": {
+  "verdict": "approve",
+  "headline": "The email bundle now labels every built-in required action, so it can merge.",
+  "summary": "The PR adds the missing `requiredAction.*` labels to the English email bundle. It also adds `requiredAction.verifiable_credential_offer` to both English bundles. Both `executeActions.ftl` templates and the login `info.ftl` build the key as `requiredAction.` plus the action ID, and `MessageFormatterMethod` prints the raw key when a label is missing. All 15 IDs from `UserModel.RequiredAction` and `DefaultRequiredActions.Action` now have a label in both bundles, and the new email values match the login bundle.",
+  "eudi": "Nothing changes for issuance or presentation. The credential offer email uses its own template `verifiable-credential-offer.ftl` without this label, and the label shows when an admin puts `verifiable_credential_offer` into an execute-actions email.",
+  "good": [
+   "The key for `verifiable_credential_offer` matches `OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID`.",
+   "The new email labels use the same wording as the login bundle, so the email and the confirmation page match."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "themes/src/main/resources/theme/base/email/messages/messages_en.properties",
+    "line": 75,
+    "title": "No check keeps the bundles in sync with the built-in required actions.",
+    "impact": "The next built-in required action can again show up as a raw `requiredAction.<id>` key in execute-actions emails, and no test would fail.",
+    "detail": "`MessageFormatterMethod` falls back to the key, so a missing label fails silently. `VerifyMessageProperties.verify()` in the theme verifier has no check for required action labels. Nine labels were missing from the email bundle without any build failure, and this PR adds no test.",
+    "fix": "In a later PR, add a unit test that loops over `DefaultRequiredActions.Action` and checks that both English bundles have a `requiredAction.<id>` key.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -72,6 +72,15 @@ requiredAction.UPDATE_PASSWORD=Update Password"
+     ],
+     [
+      " ",
+      72,
+      72,
+      "requiredAction.UPDATE_PROFILE=Update Profile"
+     ],
+     [
+      " ",
+      73,
+      73,
+      "requiredAction.VERIFY_EMAIL=Verify Email"
+     ],
+     [
+      " ",
+      74,
+      74,
+      "requiredAction.CONFIGURE_RECOVERY_AUTHN_CODES=Generate Recovery Codes"
+     ],
+     [
+      "+",
+      null,
+      75,
+      "requiredAction.UPDATE_EMAIL=Update Email"
+     ]
+    ]
+   }
+  ],
+  "discussion": [],
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "check": {
+   "model": "claude-fable-5-2",
+   "effort": "high",
+   "changes": [
+    "Reworded `eudi`, because the credential offer email uses `verifiable-credential-offer.ftl` and never rendered a `requiredAction.*` key, and `VerifiableCredentialOfferAction` skips itself on the execute-actions path when `Constants.KC_ACTION_PARAMETER` is not set.",
+    "Moved the followup finding from line 69 to line 75, because line 69 is an old line and line 75 is the first line the PR adds.",
+    "Replaced the claim that no test was found in the finding detail, because no repository search could run, and the nine labels that went missing unnoticed are the evidence instead.",
+    "Adjusted the summary to name both `executeActions.ftl` templates, because the html and the text template build the same key."
+   ]
+  },
+  "sha": "9ef542a022d1a584ec8b9e3578e166265e5157f0",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-19"
  }
 }
