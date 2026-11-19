@@ -285,10 +285,15 @@ def claude(n, tree, prompt, model, effort, step):
     ], check=True, cwd=tree, stdin=subprocess.DEVNULL, timeout=3600, capture_output=True, text=True).stdout
     run = json.loads(out)
     u = run.get("usage", {})
+    # modelUsage names the models that ran. The CLI may add a small model for its own housekeeping, but the
+    # pass must have run on the model it asked for, or the review would name the wrong one.
+    used = sorted(run.get("modelUsage") or {})
     with git_lock, open("review-usage.log", "a") as f:
-        f.write(json.dumps({"n": n, "step": step, "model": model, "date": time.strftime("%Y-%m-%dT%H:%M"), "cost_usd": run.get("total_cost_usd"),
+        f.write(json.dumps({"n": n, "step": step, "model": model, "used": used, "date": time.strftime("%Y-%m-%dT%H:%M"), "cost_usd": run.get("total_cost_usd"),
                             "turns": run.get("num_turns"), "input": u.get("input_tokens"), "cache_read": u.get("cache_read_input_tokens"),
                             "cache_write": u.get("cache_creation_input_tokens"), "output": u.get("output_tokens")}) + "\n")
+    if model not in used:
+        raise RuntimeError(f"{step} asked for {model}, but the CLI ran {', '.join(used) or 'no model'}")
     r = json.load(open(os.path.join(tree, ".pr/review.json")))
     if not r:
         raise RuntimeError(f"{step} wrote no answer file, Claude said: {str(run.get('result'))[:500]}")
