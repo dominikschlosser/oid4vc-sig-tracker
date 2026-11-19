@@ -259,6 +259,11 @@ def post_panel(it, rv, version):
     counts = {s: sum(f["severity"] == s for f in rv["findings"]) for s in SEVERITY}
     boxes = "".join(f'<label><input type="checkbox" data-sev="{s}"{" checked" if s in POST_DEFAULT else ""}> {SEVERITY[s]} <span class="muted">{n}</span></label>'
                     for s, n in counts.items() if n)
+    # Answers are never picked by default, since they reply to people. This box picks all of them at once.
+    seen = rv.get("discussed", "")
+    n = sum(postable(d, seen) for d in rv.get("discussion", []))
+    if n:
+        boxes += f'<label><input type="checkbox" id="post-answers"> All answers <span class="muted">{n}</span></label>'
     return f'''<section class="post" id="post" data-pr="{it["n"]}" data-version="{version}" hidden>
 <div class="post-head"><b>Post to GitHub</b></div>
 <p class="muted">Posts the summary and the picked comments as a review on <a href="{it["url"]}">#{it["n"]}</a>. Each picked answer goes into its review thread, or into a new comment that links the original.<span id="post-own"> You post in your own name.</span></p>

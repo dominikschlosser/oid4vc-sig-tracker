@@ -8,6 +8,7 @@
   const $ = (id) => document.getElementById(id);
   const picks = [...document.querySelectorAll(".pick input[data-id]")];
   const answerPicks = [...document.querySelectorAll(".pick input[data-answer]")];
+  const allAnswers = $("post-answers");
   const sevBoxes = [...panel.querySelectorAll("input[data-sev]")];
   const msg = $("post-msg");
   const acct = await window.account;
@@ -46,6 +47,15 @@
     pick.checked = false;
     pick.disabled = true;
     pick.parentElement.replaceChildren(pick, Object.assign(document.createElement("a"), { href: url, textContent: text }));
+    syncAllAnswers();
+  };
+  // The box for all answers covers the answers that can still go out, and turns off when none can.
+  const syncAllAnswers = () => {
+    if (!allAnswers) return;
+    const open = answerPicks.filter((p) => !p.disabled);
+    allAnswers.disabled = !open.length;
+    allAnswers.checked = open.length > 0 && open.every((p) => p.checked);
+    allAnswers.indeterminate = !allAnswers.checked && open.some((p) => p.checked);
   };
   const markSkipped = (skipped) =>
     (skipped || []).forEach((s) => mark(s.id, s.kind === "posted" ? "On GitHub" : "Newer reply on GitHub", s.url));
@@ -135,7 +145,15 @@
       box.indeterminate = !box.checked && same.some((q) => q.checked);
       update();
     }));
-  answerPicks.forEach((p) => p.addEventListener("change", update));
+  answerPicks.forEach((p) =>
+    p.addEventListener("change", () => {
+      syncAllAnswers();
+      update();
+    }));
+  allAnswers?.addEventListener("change", () => {
+    answerPicks.filter((p) => !p.disabled).forEach((p) => (p.checked = allAnswers.checked));
+    update();
+  });
   $("post-as-own").addEventListener("change", () => {
     showFindings();
     update();
