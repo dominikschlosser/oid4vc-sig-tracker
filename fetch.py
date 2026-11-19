@@ -51,10 +51,14 @@ FIELDS = """
    additions deletions changedFiles labels(first:30){nodes{name}} comments{totalCount} reactions{totalCount}
    milestone{title} reviewDecision headRefOid baseRefName assignees(first:5){nodes{login}}
    closingIssuesReferences(first:10){nodes{number}}
-   latestReviews(first:10){nodes{state author{__typename login}}}
-   lastComments:comments(last:10){nodes{createdAt body author{__typename}}}
-   lastReviews:reviews(last:10){nodes{submittedAt body author{__typename}}} }
+   latestReviews(first:10){nodes{state body author{__typename login} comments(first:1){nodes{body}}}}
+   latestOpinionatedReviews(first:10){nodes{state author{__typename login}}}
+   lastComments:comments(last:50){nodes{createdAt body author{__typename}}}
+   lastReviews:reviews(last:50){nodes{submittedAt state body author{__typename login} comments(first:1){nodes{body}}}} }
 """
+# The newest comments of the newest review threads, for discussed() in review.py. Only open pull requests
+# need them, and the query is heavy, so it runs on its own in small chunks.
+THREADS = "lastThreads:reviewThreads(last:30){nodes{comments(last:10){nodes{createdAt state body isMinimized author{__typename} pullRequestReview{submittedAt}}}}}"
 
 
 def details(nums):
@@ -69,6 +73,18 @@ def details(nums):
             if v:
                 out[v["number"]] = v
         print(f"{len(out)}/{len(nums)}", file=sys.stderr)
+    return out
+
+
+def threads(nums):
+    out = {}
+    nums = sorted(nums)
+    for i in range(0, len(nums), 10):
+        q = "query{repository(owner:\"keycloak\",name:\"keycloak\"){" + "".join(
+            f"n{n}:pullRequest(number:{n}){{number {THREADS}}}" for n in nums[i:i + 10]) + "}}"
+        for v in gh("api", "graphql", "-f", f"query={q}")["data"]["repository"].values():
+            if v:
+                out[v["number"]] = v["lastThreads"]
     return out
 
 
@@ -98,6 +114,10 @@ def main():
     d.update(extra)
     keep |= linked
     items = [d[n] for n in sorted(keep) if n in d]
+    open_prs = [v for v in items if v["__typename"] == "PullRequest" and v["state"] == "OPEN"]
+    found = threads(v["number"] for v in open_prs)
+    for v in open_prs:
+        v["lastThreads"] = found.get(v["number"], {"nodes": []})
     # GraphQL hides requested teams without org access, REST lists them.
     for v in items:
         if v["__typename"] == "PullRequest" and v["state"] == "OPEN":
@@ -108,4 +128,5 @@ def main():
     print(f"{len(items)} kept", file=sys.stderr)
 
 
-main()
+if __name__ == "__main__":
+    main()

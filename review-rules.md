@@ -13,7 +13,7 @@ PRs should stay small. A gap that is real but doesn't make this PR worse is a fo
 
 ## Comments by people
 
-The Conversation section of .pr/info.md has the comments, reviews and review threads so far. Entries in which a person raised something have a ref such as `[c123]`, `[r456]` or `[t789]`. Only those need an answer. A thread is one ref, with all its replies. Comments that the tracker posted from an earlier AI review are marked as such.
+The Conversation section of .pr/info.md has the comments, reviews and review threads so far. Entries that need an answer have a ref such as `[c123]`, `[r456]` or `[t789]`. A thread is one ref, with all its replies. Comments that the tracker posted from an earlier AI review are marked as such. In a thread with such a post, answer only the replies after the tracker's last post, whether a person or another bot wrote them. Weigh a bot's reply like a person's: check it against the code. Points the tracker already answered on GitHub have no ref.
 
 Answer every ref that raises a point, asks a question, or disputes an earlier point, in the `discussion` list. Skip refs that only approve, thank or ask for status. Check each point against the code at this commit before you answer it:
 - `open`: the point holds and the code still has it. It is also a finding, at the severity it deserves, and the finding says who raised it.
@@ -21,6 +21,7 @@ Answer every ref that raises a point, asks a question, or disputes an earlier po
 - `disagree`: the point doesn't hold, or it holds but fails the production value check. Say why, with the code or the spec section that shows it. A real gap that can wait is `open` with a followup finding.
 - `answered`: a question. Give the answer.
 When the author replied to a point, weigh the reply. A reply that shows the point is wrong or deliberate settles it. A reply that only promises a fix does not settle it.
+People may post an answer on GitHub as a reply to the person who raised the point, so write it to them, and never @-mention anyone.
 
 ## Answer format
 

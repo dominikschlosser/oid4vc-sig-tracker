@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Turns raw.json into site/items.json with topics and an EUDI relevance rating."""
-import html, json, os, re, shutil
+import hashlib, html, json, os, re, shutil
+from posts import STATUS, answered_to, postable, quiet, reply_export
+from review import reviewed_by
 
 raw = json.load(open("raw.json"))
 labelled = set(raw["labelled"])
@@ -109,8 +111,9 @@ for i in raw["items"]:
         it.update(add=i["additions"], del_=i["deletions"], files=i["changedFiles"], review=i.get("reviewDecision") or "")
         it["size"] = size_class(it["add"] + it["del_"])
         author = it["author"]
-        humans = lambda a: a and a["__typename"] == "User" and a["login"] != author and "copilot" not in a["login"].lower()
-        it["reviews"] = [[r["author"]["login"], r["state"].lower()] for r in (i.get("latestReviews") or {"nodes": []})["nodes"] if humans(r["author"])]
+        it["reviews"] = reviewed_by((i.get("latestReviews") or {"nodes": []})["nodes"], author,
+                                    (i.get("latestOpinionatedReviews") or {"nodes": []})["nodes"],
+                                    (i.get("lastReviews") or {"nodes": []})["nodes"])
         reviewers = {r[0] for r in it["reviews"]}
         # CODEOWNERS requests teams on every PR, so only requested people say something.
         it["reviews"] += [[x, "requested"] for x in i.get("requested", []) if x not in reviewers and not x.startswith("team:")]
@@ -162,8 +165,6 @@ def level(rv):
 
 SEVERITY = {"major": "Must fix", "minor": "Should fix", "followup": "Follow-up", "nit": "Nit"}
 MODEL_NAME = {"claude-opus-5-5": "Claude Opus 5.5", "claude-fable-5-2": "Claude Fable 5.2"}
-# How the review answers a comment by a person. See review-rules.md.
-STATUS = {"open": "Still open", "fixed": "Fixed", "disagree": "Disagree", "answered": "Answer"}
 REVIEW_STATE = {"major": "requested changes", "minor": "commented", "clean": "approved these changes"}
 
 
@@ -197,9 +198,10 @@ def sorted_findings(rv):
 
 def markdown(f):
     parts = [f'**{SEVERITY[f["severity"]]}** · {f["title"]}']
-    parts += [f'**Impact:** {f["impact"]}'] * bool(f.get("impact"))
+    # Each label is its own paragraph, so a text that starts with a code block, a list or a quote stays one.
+    parts += [f'**Impact:**\n\n{f["impact"]}'] * bool(f.get("impact"))
     parts += [f["detail"]] * bool(f["detail"])
-    parts += [f'**Suggested fix:** {f["fix"]}'] * bool(f["fix"])
+    parts += [f'**Suggested fix:**\n\n{f["fix"]}'] * bool(f["fix"])
     return "\n\n".join(parts)
 
 
@@ -210,22 +212,25 @@ def written_by(rv):
     return name(rv["model"], rv["effort"]) + (f'. {name(check["model"], check["effort"])} checked it' if check else "")
 
 
-def answered_to(d):
-    """Who raised the point and where, such as "Awambeng on EtsiTrustListIdentityProvider.java:42"."""
-    who = ", ".join(d["authors"])
-    return f'{who} on {d["where"].rsplit("/", 1)[-1]}' if d["where"] else f'{who} in {"a review" if d["kind"] == "review" else "a comment"}'
+def disclaimer_by(rv):
+    """The models in the disclaimer of each post, such as "Claude Opus 5.5, checked by Claude Fable 5.2"."""
+    check = rv.get("check")
+    return MODEL_NAME.get(rv["model"], rv["model"]) + (f', checked by {MODEL_NAME.get(check["model"], check["model"])}' if check else "")
 
 
 def review_export(rv):
-    """What the post service turns into a GitHub review. The page sends only the ids it picked."""
-    # The answers to earlier comments stay on the site, so a post never replies to people in the poster's name without a pick.
+    """What the post service turns into a GitHub review and replies. The page sends only the ids it picked."""
     lv = level(rv)
-    intro = [f"### AI review by Claude Code: {findings_label(rv)}", rv["summary"]] + [f'**For EUDI:** {rv["eudi"]}'] * bool(rv["eudi"])
-    intro.append(f'<sub>Claude Code wrote this review of {rv["sha"][:7]} with {written_by(rv)}. '
-                 "It read the code without building or running it.</sub>")
-    return {"sha": rv["sha"], "level": lv, "intro": "\n\n".join(intro),
+    intro = [f"### AI review by Claude Code: {findings_label(rv)}", quiet(rv["summary"])] + [f'**For EUDI:**\n\n{quiet(rv["eudi"])}'] * bool(rv["eudi"])
+    # The disclaimer at the end of each post names the models.
+    intro.append(f'<sub>Claude Code wrote this review of {rv["sha"][:7]}. It read the code without building or running it.</sub>')
+    out = {"sha": rv["sha"], "level": lv, "intro": "\n\n".join(intro), "by": disclaimer_by(rv),
+            "answers": [reply_export(d) for d in rv.get("discussion", []) if postable(d)],
             "findings": [{"id": k, "severity": f["severity"], "path": f["file"], "line": f["line"], "inDiff": bool(f["file"]) and in_diff(f),
-                          "body": markdown(f)} for k, f in enumerate(sorted_findings(rv))]}
+                          "body": quiet(markdown(f))} for k, f in enumerate(sorted_findings(rv))]}
+    # Findings are picked by position. The page sends the version it shows, so picks from an older review of the same commit don't fit a newer one.
+    out["version"] = hashlib.sha256(json.dumps(out, sort_keys=True).encode()).hexdigest()[:16]
+    return out
 
 
 POST_DEFAULT = {"major", "minor", "followup"}
@@ -249,14 +254,17 @@ def site_bar():
 </div></div>'''
 
 
-def post_panel(it, rv):
+def post_panel(it, rv, version):
     counts = {s: sum(f["severity"] == s for f in rv["findings"]) for s in SEVERITY}
     boxes = "".join(f'<label><input type="checkbox" data-sev="{s}"{" checked" if s in POST_DEFAULT else ""}> {SEVERITY[s]} <span class="muted">{n}</span></label>'
                     for s, n in counts.items() if n)
-    return f'''<section class="post" id="post" data-pr="{it["n"]}" hidden>
+    return f'''<section class="post" id="post" data-pr="{it["n"]}" data-version="{version}" hidden>
 <div class="post-head"><b>Post to GitHub</b></div>
-<p class="muted">Posts the summary and the picked comments as a review on <a href="{it["url"]}">#{it["n"]}</a>, in your name.</p>
+<p class="muted">Posts the summary and the picked comments as a review on <a href="{it["url"]}">#{it["n"]}</a>. Each picked answer goes into its review thread, or into a new comment that links the original.<span id="post-own"> You post in your own name.</span></p>
 {f'<div class="post-sev">{boxes}</div>' if boxes else ""}
+<div class="post-as" id="post-as" hidden><p class="post-as-bot">Posts as <strong id="post-as-bot"></strong>, the tracker's bot account. Each post names you as the person who asked for it.</p>
+<label class="post-as-own"><input type="checkbox" id="post-as-own"> Post in my own name, <span id="post-as-me"></span>, instead</label>
+<p class="post-as-help">If the Keycloak organization hasn't approved the tracker's OAuth App, GitHub refuses posts in your own name.</p></div>
 <div class="post-actions"><a class="btn btn-gh" id="post-login" href="#" hidden><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Sign in with GitHub to post</a><button class="btn" id="post-preview" type="button" hidden></button></div>
 <div class="preview" id="preview" hidden><div class="preview-head">Preview of what GitHub will show</div><div id="preview-parts"></div>
 <div class="post-confirm"><button class="btn" id="post-send" type="button"></button><button class="btn btn-secondary" id="post-cancel" type="button">Change the selection</button></div></div>
@@ -264,16 +272,24 @@ def post_panel(it, rv):
 </section>'''
 
 
-def comment(f, k):
+def finding_anchor(version, k):
+    """The anchor of a finding on the review page. Inline comments on GitHub link it, so it holds the version of
+    the review: once a newer review replaced it, the link opens the top of the page instead of another finding."""
+    return f"c-{version}-{k}"
+
+
+def comment(f, k, anchor):
     fix = f'<div class="suggest"><div class="suggest-head">Suggested fix</div><p>{text(f["fix"])}</p></div>' if f["fix"] else ""
     pick = f'<label class="pick" hidden><input type="checkbox" data-id="{k}" data-sev="{f["severity"]}"{" checked" if f["severity"] in POST_DEFAULT else ""}> Post</label>'
-    return f'''<div class="cmt" id="c{k}"><div class="cmt-head"><span class="avatar">C</span><b>Claude</b><span class="sev sev-{f["severity"]}">{SEVERITY[f["severity"]]}</span>{pick}</div>
+    return f'''<div class="cmt" id="{anchor}"><div class="cmt-head"><span class="avatar">C</span><b>Claude</b><span class="sev sev-{f["severity"]}">{SEVERITY[f["severity"]]}</span>{pick}</div>
 <div class="cmt-body"><p class="cmt-title">{text(f["title"])}</p>{f'<p class="impact"><b>Impact</b> {text(f["impact"])}</p>' if f.get("impact") else ""}<p>{text(f["detail"])}</p>{fix}</div></div>'''
 
 
 def answer(d):
     where = f'<a href="{html.escape(d["url"])}">{html.escape(answered_to(d))}</a> · {d["date"]}'
-    return f'''<div class="cmt"><div class="cmt-head"><span class="st st-{d["status"]}">{STATUS[d["status"]]}</span><span class="muted">{where}</span></div>
+    # Answers reply to people, so the page never picks one for a post by default.
+    pick = f'<label class="pick" hidden><input type="checkbox" data-answer="{d["ref"]}"> Post</label>' if postable(d) else ""
+    return f'''<div class="cmt" id="answer-{d["ref"]}"><div class="cmt-head"><span class="st st-{d["status"]}">{STATUS[d["status"]]}</span><span class="muted">{where}</span>{pick}</div>
 <div class="cmt-body"><p class="point">{text(d["point"])}</p><p>{text(d["answer"])}</p></div></div>'''
 
 
@@ -300,6 +316,7 @@ def check_note(rv):
 def review_page(it, rv, head):
     sha, lv = rv["sha"], level(rv)
     findings = sorted_findings(rv)
+    version = review_export(rv)["version"]
     files = {}
     for k, f in enumerate(findings):
         files.setdefault(f["file"] or "", []).append((k, f))
@@ -309,8 +326,8 @@ def review_page(it, rv, head):
         url = f"https://github.com/keycloak/keycloak/blob/{sha}/{html.escape(path)}"
         sevs = "".join(f'<span class="dot sev-{f["severity"]}" title="{SEVERITY[f["severity"]]}"></span>' for _, f in fs)
         name = html.escape(path.rsplit("/", 1)[-1]) if path else "General"
-        toc.append(f'<li><a href="#c{fs[0][0]}">{sevs}<span class="toc-name">{name}</span></a><span class="toc-dir">{html.escape(path.rsplit("/", 1)[0]) if "/" in path else ""}</span></li>')
-        body = "".join((diff_table(f.get("context", [])) + comment(f, k)) for k, f in fs)
+        toc.append(f'<li><a href="#{finding_anchor(version, fs[0][0])}">{sevs}<span class="toc-name">{name}</span></a><span class="toc-dir">{html.escape(path.rsplit("/", 1)[0]) if "/" in path else ""}</span></li>')
+        body = "".join((diff_table(f.get("context", [])) + comment(f, k, finding_anchor(version, k))) for k, f in fs)
         head_bar = f'<a href="{url}">{html.escape(path)}</a>' if path else "General"
         blocks.append(f'<section class="file"><div class="file-head">{head_bar}<span class="muted">{len(fs)} {"comment" if len(fs) == 1 else "comments"}</span></div>{body}</section>')
     stale = "" if sha == head else '<p class="stale">The PR has new commits since this review. The next daily run reviews them.</p>'
@@ -339,7 +356,7 @@ def review_page(it, rv, head):
 <div class="rv-head"><span class="avatar">C</span><b>Claude</b> {REVIEW_STATE[lv]} on <a href="https://github.com/keycloak/keycloak/pull/{it["n"]}/commits/{sha}"><code>{sha[:7]}</code></a> · {rv["date"]} · {MODEL_NAME.get(rv["model"], rv["model"])}{f" · checked by {MODEL_NAME.get(rv['check']['model'], rv['check']['model'])}" if rv.get("check") else ""}<span class="rv-count">{findings_label(rv)}</span></div>
 <div class="rv-body"><p>{text(rv["summary"])}</p>{f'<p><b>For EUDI</b> {text(rv["eudi"])}</p>' if rv["eudi"] else ""}{f'<p class="good-head">Done well</p><ul class="good">{good}</ul>' if good else ""}{check_note(rv)}</div>
 </section>
-{post_panel(it, rv) if sha == head else ""}
+{post_panel(it, rv, version) if sha == head else ""}
 {answers_section(rv)}
 {f'<nav class="toc"><div class="toc-head">Files with comments</div><ul>{"".join(toc)}</ul></nav>' if toc else ""}
 {"".join(blocks)}

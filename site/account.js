@@ -1,9 +1,11 @@
 "use strict";
 
-// Shows the GitHub account in the header and resolves to { login, mine } as soon as the login is known.
-// login is null for visitors who are signed out. mine resolves later to the sets { involved, requested },
-// because it waits for GitHub search. Hosts without the post service answer 404,
-// and then the account stays hidden and this resolves to null.
+// Shows the GitHub account in the header and resolves to { login, bot, botDown, mine } as soon as the login is known.
+// login is null for visitors who are signed out.
+// bot is the login of the tracker's bot account when this person may post through it, else null.
+// botDown says why a person on the bot's list can't use it right now.
+// mine resolves later to the sets { involved, requested }, because it waits for GitHub search.
+// Hosts without the post service answer 404. Then the account stays hidden and this resolves to null.
 window.account = (async () => {
   const box = document.getElementById("account");
   if (!box) return null;
@@ -15,9 +17,12 @@ window.account = (async () => {
   } catch {
     return null;
   }
-  const out = { login: null, mine: Promise.resolve({ involved: new Set(), requested: new Set() }) };
+  const out = { login: null, bot: null, botDown: null, mine: Promise.resolve({ involved: new Set(), requested: new Set() }) };
   if (res.ok) {
-    out.login = (await res.json()).login;
+    const me = await res.json();
+    out.login = me.login;
+    out.bot = me.bot || null;
+    out.botDown = me.botDown || null;
     $("me-login").textContent = out.login;
     $("me-avatar").src = `https://avatars.githubusercontent.com/${encodeURIComponent(out.login)}?s=48`;
     $("me-menu").hidden = false;

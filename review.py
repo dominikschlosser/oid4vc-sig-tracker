@@ -21,9 +21,13 @@ CACHE = os.path.abspath("cache/keycloak.git")
 WORK = os.path.abspath("work")
 RANK = {"none": 0, "low": 1, "medium": 2, "high": 3, "blocker": 4}
 STATUSES = ("open", "fixed", "disagree", "answered")
-# The footer that the post service in api/main.go adds below each GitHub post.
-TRACKER_POST = re.compile(r"<sub>(Posted from the \[full review\]\([^)]*/reviews/\d+\.html\) on the Keycloak OpenID4VC tracker\."
-                          r"|Claude Code wrote this comment in its \[review on the Keycloak OpenID4VC tracker\]\([^)]*/reviews/\d+\.html#c\d+\)\.)</sub>")
+# The disclaimer that the post service in api/main.go puts below each GitHub post. The other two
+# footers are from posts by older builds of the tracker. The footer is the post's last line, so a quote of a post doesn't match.
+TRACKER_POST = re.compile(r"(?:^|\n)<sub>(Automatic review by [^<\n]+: \S+/reviews/\d+\.html(#[\w-]+)?"
+                          r"|Posted from the \[full review\]\([^)]*/reviews/\d+\.html\) on the Keycloak OpenID4VC tracker\."
+                          r"|Claude Code wrote this comment in its \[review on the Keycloak OpenID4VC tracker\]\([^)]*/reviews/\d+\.html#c\d+\)\.)</sub>\s*$")
+# A post from the tracker that answers a comment or a review links the answer on the review page.
+ANSWER_LINK = re.compile(r"/reviews/\d+\.html#answer-([cr]\d+)</sub>\s*$")
 
 
 # Parallel git commands on one repository collide on its lock files.
@@ -46,10 +50,19 @@ class Comment:
     date: str
     url: str
     body: str
+    id: int = 0
+    hidden: bool = False  # GitHub hides it as spam, off topic or outdated
+
+    @property
+    def said(self):
+        """What needs an answer. A hidden comment needs none."""
+        return "" if self.hidden else self.body
 
     @property
     def tracker(self):
-        """Whether someone posted it from a review on this tracker."""
+        """Whether someone posted it from a review on this tracker, also when it is hidden now. Each such post
+        ends with the disclaimer, so a person who quotes one in a reply is not the tracker. Anyone could end a
+        comment with the disclaimer, but that only keeps the tracker from answering points."""
         return bool(TRACKER_POST.search(self.body))
 
 
@@ -63,20 +76,29 @@ class Entry:
     where: str = ""
     flags: list = field(default_factory=list)
 
-    @property
-    def human(self):
-        return [c for c in self.comments if not c.bot]
+    def raised_by(self, pr_author, answered=frozenset()):
+        """The comments that the review should answer.
 
-    def raised_by(self, pr_author):
-        """The comments in which a person raised something the review should answer.
+        Posts from this tracker never count, and nor do bots, unless they reply to the tracker in a thread.
+        A comment or review counts until the tracker answered it in a new comment (its ref is in answered).
+        In a thread with a post from the tracker, only the replies after its last post count, by people or bots,
+        since the tracker started the thread or answered what came before. In other threads the PR author's
+        replies to a thread that someone else started don't count, since they answer that point.
+        A long thread comes without its middle replies, which may hold a post from the tracker. So when no post
+        from the tracker is loaded, its first comment counts only when the thread is whole."""
+        if self.kind != "thread":
+            c = self.comments[0]
+            return [] if self.ref in answered or c.bot or c.tracker or not c.said.strip() else [c]
+        last = max((i for i, c in enumerate(self.comments) if c.tracker), default=None)
+        if last is not None:
+            return [c for c in self.comments[last + 1:] if c.said.strip() and not c.tracker]
+        others = self.comments[0].author != pr_author
+        start = 1 if LEFT_OUT in self.flags else 0
+        return [c for i, c in enumerate(self.comments) if i >= start and not c.bot and c.said.strip() and not (others and i > 0 and c.author == pr_author)]
 
-        Posts from this tracker don't count. Nor do the PR author's replies in a thread that another person or a bot started, since they answer
-        that point. Replies to the tracker's own comments do count, since they dispute an earlier review."""
-        said = [c for c in self.human if c.body.strip() and not c.tracker]
-        if self.kind == "thread" and not self.comments[0].tracker and self.comments[0].author != pr_author:
-            said = [c for c in said if c.author != pr_author]
-        return said
 
+# The flag of a thread that comes without its middle replies.
+LEFT_OUT = "older replies left out"
 
 CONVERSATION = """query($n: Int!) { repository(owner: "keycloak", name: "keycloak") { pullRequest(number: $n) {
   title body author { login }
@@ -87,16 +109,18 @@ CONVERSATION = """query($n: Int!) { repository(owner: "keycloak", name: "keycloa
     last: comments(last: 49) { totalCount nodes { ...entry createdAt } } } } } } }
 fragment entry on Comment { body author { login __typename }
   ... on IssueComment { databaseId url isMinimized }
-  ... on PullRequestReview { databaseId url isMinimized }
-  ... on PullRequestReviewComment { databaseId url isMinimized } }"""
+  ... on PullRequestReview { databaseId url isMinimized state }
+  ... on PullRequestReviewComment { databaseId url isMinimized state } }"""
+
+# A draft in the pending review of whoever runs review.py isn't on GitHub for anyone else yet.
+is_draft = lambda node: node.get("state") == "PENDING"
 
 
 def comment(node, date="createdAt"):
     # A deleted account has no author. It was a person.
     a = node["author"] or {"login": "ghost", "__typename": "User"}
-    # Comments that GitHub hides as spam, off topic or outdated need no answer.
-    body = "" if node["isMinimized"] else node["body"] or ""
-    return Comment(a["login"], a["__typename"] == "Bot", (node[date] or "")[:10], node["url"], body)
+    return Comment(a["login"], a["__typename"] == "Bot", (node[date] or "")[:10], node["url"], node["body"] or "", node["databaseId"],
+                   bool(node["isMinimized"]))
 
 
 def conversation(n):
@@ -105,18 +129,24 @@ def conversation(n):
     entries = [(c.date, Entry(f"c{node['databaseId']}", "comment", [c])) for node in pr["comments"]["nodes"] for c in [comment(node)]]
     # A review without a body only holds thread comments, which come with their threads.
     entries += [(c.date, Entry(f"r{node['databaseId']}", "review", [c], state=node["state"].lower().replace("_", " ")))
-                for node in pr["reviews"]["nodes"] if (node["body"] or "").strip() for c in [comment(node, "submittedAt")]]
+                for node in pr["reviews"]["nodes"] if (node["body"] or "").strip() and not is_draft(node) for c in [comment(node, "submittedAt")]]
     for t in pr["reviewThreads"]["nodes"]:
         # The comment that started the thread and its newest replies, since those settle the point.
-        nodes = list({node["databaseId"]: node for node in t["first"]["nodes"] + t["last"]["nodes"]}.values())
+        loaded = {node["databaseId"]: node for node in t["first"]["nodes"] + t["last"]["nodes"]}
+        nodes = [node for node in loaded.values() if not is_draft(node)]
         if not nodes:
             continue
         cs = [comment(node) for node in nodes]
-        flags = ["resolved"] * t["isResolved"] + ["outdated"] * t["isOutdated"] + ["older replies left out"] * (t["last"]["totalCount"] > len(cs))
+        flags = ["resolved"] * t["isResolved"] + ["outdated"] * t["isOutdated"] + [LEFT_OUT] * (t["last"]["totalCount"] > len(loaded))
         line = t["line"] or t["originalLine"]
         entries.append((cs[0].date, Entry(f"t{nodes[0]['databaseId']}", "thread", cs, where=f"{t['path']}:{line}" if line else t["path"], flags=flags)))
     cut = [k for k in ("comments", "reviews", "reviewThreads") if pr[k]["totalCount"] > len(pr[k]["nodes"])]
     return pr, [e for _, e in sorted(entries, key=lambda x: x[0])], cut
+
+
+def answered(entries):
+    """The refs of comments and reviews that the tracker answered in a new comment on the pull request."""
+    return {m.group(1) for e in entries if e.kind == "comment" for c in e.comments if c.tracker for m in [ANSWER_LINK.search(c.body)] if m}
 
 
 def quote(body):
@@ -124,7 +154,7 @@ def quote(body):
 
 
 def who(c):
-    return f"{c.author} (bot)" if c.bot else f"{c.author}, posting the tracker's earlier AI review," if c.tracker else c.author
+    return f"{c.author}, posting the tracker's earlier AI review," if c.tracker else f"{c.author} (bot)" if c.bot else c.author
 
 
 def pr_author(pr):
@@ -141,11 +171,11 @@ def info(n, pr, entries, cut, refs):
             flags = f" ({', '.join(e.flags)})" if e.flags else ""
             out.append(f"### {ref}Thread on {e.where}{flags}")
             for k, c in enumerate(e.comments):
-                out += [f"{'Started by' if k == 0 else 'Reply by'} {who(c)} on {c.date}:", quote(c.body), ""]
+                out += [f"{'Started by' if k == 0 else 'Reply by'} {who(c)} on {c.date}:", "> (hidden on GitHub)" if c.hidden else quote(c.said), ""]
         else:
             c = e.comments[0]
             verb = f"reviewed ({e.state})" if e.kind == "review" else "commented"
-            out += [f"### {ref}{who(c)} {verb} on {c.date}", quote(c.body), ""]
+            out += [f"### {ref}{who(c)} {verb} on {c.date}", "> (hidden on GitHub)" if c.hidden else quote(c.said), ""]
     return "\n".join(out)
 
 
@@ -184,11 +214,62 @@ def context(tree, patch, f):
 
 
 def discussed(pr):
-    """When a person last commented on or reviewed the PR. Bots and posts from this tracker don't count."""
-    person = lambda c: (c["author"] or {}).get("__typename") == "User" and not TRACKER_POST.search(c.get("body") or "")
-    dates = [c["createdAt"] for c in pr.get("lastComments", {}).get("nodes", []) if person(c)]
-    dates += [r["submittedAt"] or "" for r in pr.get("lastReviews", {}).get("nodes", []) if person(r)]
+    """When someone last said something on the PR that the review should answer: a comment or review by a person,
+    or a bot's reply in a review thread after a post from this tracker, unless the reply is hidden. Posts from this tracker
+    don't count.
+    It sees the last 10 comments of the 30 threads that started last, so a reply in an older or longer
+    thread counts only through lastReviews, and a bot's reply there waits for the next trigger.
+    A reply in a review thread comes as a review without a body, and its one comment holds the text. A thread
+    comment counts from when its review went out, as the review does, and not from when it was written."""
+    def said(r):
+        first = ((r.get("comments") or {}).get("nodes") or [{}])[0]
+        return (r.get("body") or "").strip() or first.get("body") or ""
+    def person(author, body):
+        return (author or {}).get("__typename") == "User" and not TRACKER_POST.search(body)
+    dates = [c["createdAt"] for c in pr.get("lastComments", {}).get("nodes", []) if person(c["author"], c.get("body") or "")]
+    dates += [r["submittedAt"] or "" for r in pr.get("lastReviews", {}).get("nodes", []) if person(r["author"], said(r))]
+    for t in pr.get("lastThreads", {}).get("nodes", []):
+        posted = False
+        for c in t["comments"]["nodes"]:
+            mine = bool(TRACKER_POST.search(c.get("body") or ""))
+            # A hidden reply needs no answer, as in Comment.said, and a draft in the pending review of whoever runs
+            # fetch.py isn't on GitHub yet. A person's reply also comes as a review, but the tracker's own replies
+            # can push it out of lastReviews, so it counts here too.
+            kind = (c["author"] or {}).get("__typename")
+            if not mine and not c.get("isMinimized") and not is_draft(c) and (kind == "User" or (posted and kind == "Bot")):
+                dates.append((c.get("pullRequestReview") or {}).get("submittedAt") or c["createdAt"])
+            posted = posted or mine
     return max(dates, default="")
+
+
+def reviewed_by(reviews, author, opinions=(), recent=()):
+    """The people other than the PR author who reviewed it, as [login, state] pairs. reviews are the latestReviews
+    nodes, the newest review of each person, and opinions the latestOpinionatedReviews nodes, their newest approval
+    or change request, which wins over a later comment. recent are the lastReviews nodes, oldest first. When a
+    person's newest review is a tracker post, their newest other review among them counts.
+    Copilot and the tracker's posts, also those through the tracker's bot account, aren't a review by a person.
+    Someone who posted the tracker's review in their own name after approving still shows as approving.
+    A thread reply is a review without a body, and its one comment holds the text."""
+    def said(r):
+        return r.get("body") or ((r.get("comments") or {}).get("nodes") or [{}])[0].get("body") or ""
+
+    def person(r):
+        login = (r["author"] or {}).get("login") or ""
+        return (r["author"] or {}).get("__typename") == "User" and login != author and "copilot" not in login.lower()
+    states = {}
+    for r in [*recent, *reviews]:
+        # GraphQL also lists the pending review of whoever runs fetch.py, which nobody else sees yet.
+        if person(r) and r.get("state") not in (None, "PENDING") and not TRACKER_POST.search(said(r)):
+            states[r["author"]["login"]] = r["state"].lower()
+    states.update({r["author"]["login"]: r["state"].lower() for r in opinions if person(r)})
+    return [[login, state] for login, state in states.items()]
+
+
+def is_current(review, pr, notes):
+    """Whether the stored review still fits the pull request. A new commit, a changed note or a new comment
+    means a new review. discussed() only sees the newest threads and comments, so its date can go back when
+    older ones drop out of view. That needs no new review."""
+    return (review.get("sha"), review.get("notes", [])) == (pr["headRefOid"], notes) and discussed(pr) <= review.get("discussed", "")
 
 
 def claude(n, tree, prompt, model, effort, step):
@@ -235,7 +316,8 @@ def review(n, sha, base, notes, draft=None):
         raise RuntimeError("the head moved since fetch.py ran")
     pr, entries, cut = conversation(n)
     author = pr_author(pr)
-    refs = {e.ref: (e, e.raised_by(author)) for e in entries if e.raised_by(author)}
+    done = answered(entries)
+    refs = {e.ref: (e, e.raised_by(author, done)) for e in entries if e.raised_by(author, done)}
     tree = os.path.join(WORK, str(n))
     shutil.rmtree(tree, ignore_errors=True)
     git("worktree", "prune")
@@ -278,8 +360,33 @@ def review(n, sha, base, notes, draft=None):
         git("update-ref", "-d", f"refs/pr/{n}")
 
 
+def shorten(v, k):
+    """The first k characters of v. A code block that the cut or the model left open gets closed, so text that
+    follows it on GitHub, such as the disclaimer, doesn't end up inside the block. Fences follow the rules of
+    posts.quiet()."""
+    v, fence, blank = v[:k], None, False
+    # A cut right after a line break leaves no line after it, not a blank one.
+    for line in v.removesuffix("\n").split("\n"):
+        # A blank line ends a block in a quote. In a list item, a line after a blank line that isn't indented does.
+        if fence and (">" in fence and not line.strip() or fence[0] in " \t" and blank and not line.startswith((" ", "\t"))):
+            fence = None
+        blank = not line.strip()
+        m = re.match(r"([ \t]*(?:(?:[-*+]|\d+[.)])[ \t]+|>[ \t]?)*)(`{3,}|~{3,})(.*)", line)
+        if not m:
+            continue
+        indent, f, rest = m.groups()
+        # A line that starts with ``` and has another backtick is inline code. A closing fence has nothing after it.
+        # A list marker before an opener becomes spaces, so the closer stays inside the item. A quote marker stays.
+        if fence is None and not (f[0] == "`" and "`" in rest):
+            fence = re.sub(r"[-*+]|\d+[.)]", lambda n: " " * len(n.group()), indent) + f
+        elif fence and not re.search(r"[-*+]|\d+[.)]", indent) and f[0] == fence[-1] and len(f) >= len(re.sub(r"[ \t>]", "", fence)) and not rest.strip():
+            fence = None
+    # The closing fence keeps the opener's indentation and quote markers.
+    return v + ("" if v.endswith("\n") else "\n") + fence if fence else v
+
+
 def clean(r, refs):
-    s = lambda v, k=2000: v[:k] if isinstance(v, str) else ""
+    s = lambda v, k=2000: shorten(v, k) if isinstance(v, str) else ""
     items = lambda k: r[k] if isinstance(r.get(k), list) else []
     if r.get("verdict") not in ("approve", "comment", "changes") or not s(r.get("summary")):
         raise ValueError(f"malformed review: {str(r)[:300]}")
@@ -291,9 +398,10 @@ def clean(r, refs):
     for d in items("discussion"):
         if isinstance(d, dict) and isinstance(d.get("ref"), str) and d["ref"] in refs and d["ref"] not in answers and d.get("status") in STATUSES and s(d.get("answer")):
             e, said = refs[d["ref"]]
+            # last is the newest comment of the entry that the review saw. The post service replies only while it is still the newest.
             answers[d["ref"]] = {"ref": d["ref"], "status": d["status"], "point": s(d.get("point"), 300), "answer": s(d.get("answer"), 1500),
                                  "kind": e.kind, "where": e.where, "authors": sorted({c.author for c in said}),
-                                 "url": e.comments[0].url, "date": e.comments[0].date}
+                                 "url": said[0].url, "date": said[0].date, "last": e.comments[-1].id}
     return {"verdict": r["verdict"], "headline": s(r.get("headline"), 200), "summary": s(r["summary"]), "eudi": s(r.get("eudi")),
             "good": [s(g, 300) for g in items("good") if s(g)][:3], "findings": findings[:30],
             "discussion": sorted(answers.values(), key=lambda d: d["date"]), "changes": [s(c, 500) for c in items("changes") if s(c)][:20]}
@@ -305,9 +413,7 @@ def main():
     # Design decisions the PR author confirmed.
     notes = json.load(open("review-notes.json"))
     open_prs = {n: i for n, i in raw.items() if i["__typename"] == "PullRequest" and i["state"] == "OPEN"}
-    # A new commit, a changed note or a new comment by a person means a new review.
-    current = lambda n: (reviews.get(str(n), {}).get("sha"), reviews.get(str(n), {}).get("notes", []), reviews.get(str(n), {}).get("discussed", "")) == (
-        open_prs[n]["headRefOid"], notes.get(str(n), []), discussed(open_prs[n]))
+    current = lambda n: is_current(reviews.get(str(n), {}), open_prs[n], notes.get(str(n), []))
     # A current review that CHECK_MODEL has not checked yet only needs the check. After CHECK_TRIES failed checks it stays unchecked.
     checked = lambda n: (reviews.get(str(n), {}).get("check") or {}).get("model") == CHECK_MODEL or reviews.get(str(n), {}).get("check_failures", 0) >= CHECK_TRIES
     if sys.argv[1:]:
@@ -333,7 +439,10 @@ def main():
                 continue
             # A check of an earlier review keeps the date of that review.
             date = drafts[n]["date"] if n in drafts else time.strftime("%Y-%m-%d")
-            reviews[str(n)] = {**r, "sha": open_prs[n]["headRefOid"], "notes": notes.get(str(n), []), "discussed": discussed(open_prs[n]), "date": date}
+            # A check also keeps what the review saw. That date can be later than discussed() now, which only sees
+            # the newest comments.
+            seen = drafts[n].get("discussed", "") if n in drafts else discussed(open_prs[n])
+            reviews[str(n)] = {**r, "sha": open_prs[n]["headRefOid"], "notes": notes.get(str(n), []), "discussed": seen, "date": date}
             json.dump(reviews, open("reviews.json", "w"), indent=1)
             check = f"checked by {CHECK_MODEL} with {len(r['check']['changes'])} changes" if r["check"] else "not checked"
             print(f"#{n} {r['verdict']} with {len(r['findings'])} findings and {len(r['discussion'])} answers, {check}, after {int(time.time() - start)} s", flush=True)
