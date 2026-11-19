@@ -41,21 +41,23 @@ def quiet(s):
     return QUIET.sub(lambda m: "@\u200b" if m.group(0) == "@" else m.group(0), s)
 
 
-def postable(d):
-    """Whether the answer can be posted. Thread answers from older reviews have no last field. Without it the
-    post service can't tell whether a newer reply overtook them."""
-    return d["kind"] != "thread" or bool(d.get("last"))
+def postable(d, seen=""):
+    """Whether the answer can be posted. Thread answers from older reviews have no last field. For them the post
+    service goes by seen, the date of the newest comment the review saw (its discussed date). Without either it
+    can't tell whether a newer reply overtook them."""
+    return d["kind"] != "thread" or bool(d.get("last") or seen)
 
 
-def reply_export(d):
+def reply_export(d, seen=""):
     """An answer as the post service sends it. Its id is the ref, which stays the same when the review is redone.
     Threads get a reply. Comments and reviews can't have replies on GitHub, so the answer goes into a new
     comment on the pull request that links the original."""
     # The label is its own paragraph, so an answer that starts with a code block, a list or a quote stays one.
     said = quiet(f'**{STATUS[d["status"]]}:**\n\n{d["answer"]}')
     if d["kind"] == "thread":
-        # last is the newest comment in the thread when the review was written.
-        return {"id": d["ref"], "thread": int(d["ref"][1:]), "last": d["last"], "label": answered_to(d), "body": said}
+        # last is the newest comment in the thread when the review was written. Older reviews only have seen.
+        out = {"id": d["ref"], "thread": int(d["ref"][1:]), "last": d.get("last", 0), "label": answered_to(d), "body": said}
+        return out if d.get("last") else out | {"seen": seen}
     link = re.sub(r"([\[\]])", r"\\\1", answered_to(d))
     # The point is quoted, since it says what the other person wrote, not what the tracker thinks.
     point = "\n".join("> " + line for line in quiet(d["point"]).split("\n"))

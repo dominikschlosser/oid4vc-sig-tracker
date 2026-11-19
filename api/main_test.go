@@ -1277,3 +1277,35 @@ func TestAnAnswerFromAnOlderReviewNeverGoesIntoItsThread(t *testing.T) {
 		t.Fatalf("post answered %d %v", res.StatusCode, out)
 	}
 }
+
+// An older review without Last goes by the date of the newest comment it saw. A comment of the review that
+// GitHub created a few seconds after that date doesn't count as a newer reply.
+func TestAnAnswerFromAnOlderReviewGoesByTheDateItSaw(t *testing.T) {
+	seen := time.Date(2026, 11, 5, 10, 31, 2, 0, time.UTC)
+	for _, tc := range []struct {
+		name    string
+		reply   time.Time
+		replies int
+	}{
+		{"no reply", time.Time{}, 1},
+		{"a comment of the review it saw", seen.Add(3 * time.Second), 1},
+		{"a reply after the review", seen.Add(2 * time.Minute), 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g, app, c := setupWith(t, func(s *server) {
+				e, _ := s.load(7)
+				e.Answers[0].Last, e.Answers[0].Seen = 0, seen
+				b, _ := json.Marshal(e)
+				_ = os.WriteFile(filepath.Join(s.dataDir, "reviews", "7.json"), b, 0o644)
+			})
+			if !tc.reply.IsZero() {
+				g.threadComments = append(g.threadComments, ghComment{ID: 60, InReplyTo: 55, Body: "Not fixed.", HTMLURL: "https://github.com/c60", CreatedAt: tc.reply})
+			}
+			signIn(t, app, c)
+			res, out := postAny(t, app, c, `{"version":"v1","ids":[0],"answers":["t55"]}`)
+			if res.StatusCode != 200 || len(g.replies) != tc.replies {
+				t.Fatalf("post answered %d %v with replies %v", res.StatusCode, out, g.replies)
+			}
+		})
+	}
+}

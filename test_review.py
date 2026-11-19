@@ -292,6 +292,11 @@ class Answers(unittest.TestCase):
         self.assertFalse(postable({"kind": "thread", "ref": "t1"}))
         self.assertTrue(postable({"kind": "thread", "ref": "t1", "last": 3}))
         self.assertTrue(postable({"kind": "comment", "ref": "c1"}))
+        # An older review's thread answer goes by the date of the newest comment the review saw.
+        old = {"kind": "thread", "ref": "t1", "status": "open", "answer": "a", "authors": ["bob"], "where": "A.java:3"}
+        self.assertTrue(postable(old, "2026-11-05T10:31:02Z"))
+        self.assertEqual(reply_export(old, "2026-11-05T10:31:02Z"),
+                         {"id": "t1", "thread": 1, "last": 0, "label": "bob on A.java:3", "body": "**Still open:**\n\na", "seen": "2026-11-05T10:31:02Z"})
 
     def test_a_mention_in_underscore_emphasis_gets_the_space(self):
         self.assertEqual(quiet("_@bob_ and mail@x.dev"), "_@\u200bbob_ and mail@x.dev")

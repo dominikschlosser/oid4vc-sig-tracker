@@ -157,9 +157,11 @@ type export struct {
 type reply struct {
 	ID     string `json:"id"` // the ref in reviews.json, such as t123
 	Thread int64  `json:"thread"`
-	Last   int64  `json:"last"`  // the newest comment in the thread when the review was written, 0 in older reviews
-	Label  string `json:"label"` // who raised the point and where, for the preview and errors
-	Body   string `json:"body"`
+	Last   int64  `json:"last"` // the newest comment in the thread when the review was written, 0 in older reviews
+	// Seen is the date of the newest comment that an older review saw, for thread answers without Last.
+	Seen  time.Time `json:"seen"`
+	Label string    `json:"label"` // who raised the point and where, for the preview and errors
+	Body  string    `json:"body"`
 }
 
 // posting is everything that a post sends: one review, then the replies.
@@ -789,12 +791,11 @@ func (s *server) check(p *pick) (earlier string, skipped []skip, err error) {
 		switch {
 		case posted != "":
 			skipped = append(skipped, skip{a.ID, "posted", a.Label, "It is already on GitHub.", posted})
-		// Older reviews don't know the newest comment (Last is 0), so their thread answers never go out.
 		// Comment ids grow in the order GitHub creates the comments. A reply drafted in a pending review gets
-		// its id early, so if it is submitted after the review, it doesn't overtake the answer here.
+		// its id and its date early, so if it is submitted after the review, it doesn't overtake the answer here.
 		// GitHub's REST API doesn't say whether a comment is hidden, so a hidden reply overtakes the answer,
 		// although review.py doesn't answer it.
-		case a.Thread != 0 && newest.ID > a.Last:
+		case a.Thread != 0 && overtaken(a, newest):
 			skipped = append(skipped, skip{a.ID, "overtaken", a.Label, "Someone replied in the thread after this review. A newer review of this pull request may answer that too.", newest.HTMLURL})
 		default:
 			due = append(due, a)
@@ -802,6 +803,21 @@ func (s *server) check(p *pick) (earlier string, skipped []skip, err error) {
 	}
 	p.out.replies = due
 	return earlier, skipped, nil
+}
+
+// overtaken says whether newest, the newest reply in the thread that needs an answer, came after the review.
+// Older reviews don't know the newest comment (Last is 0) and go by the date of the newest comment they saw.
+// GitHub creates a thread comment about a second after the review it belongs to, and that review's date is
+// the one stored, so a reply counts as newer only from a minute after it. Without either, the thread answer
+// never goes out.
+func overtaken(a reply, newest ghComment) bool {
+	switch {
+	case a.Last != 0:
+		return newest.ID > a.Last
+	case !a.Seen.IsZero():
+		return newest.ID != 0 && newest.CreatedAt.After(a.Seen.Add(time.Minute))
+	}
+	return true
 }
 
 // signed says whether body ends with the disclaimer line sign, as the posts of this service do.
@@ -823,10 +839,11 @@ func trackerPost(body string) bool {
 
 // ghComment is a comment from GitHub's REST API, oldest first. InReplyTo is set on replies in review threads.
 type ghComment struct {
-	ID        int64  `json:"id"`
-	InReplyTo int64  `json:"in_reply_to_id"`
-	Body      string `json:"body"`
-	HTMLURL   string `json:"html_url"`
+	ID        int64     `json:"id"`
+	InReplyTo int64     `json:"in_reply_to_id"`
+	Body      string    `json:"body"`
+	HTMLURL   string    `json:"html_url"`
+	CreatedAt time.Time `json:"created_at"`
 	User      struct {
 		Type string `json:"type"` // "Bot" for GitHub Apps such as Copilot
 	} `json:"user"`

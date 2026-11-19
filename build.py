@@ -224,8 +224,9 @@ def review_export(rv):
     intro = [f"### AI review by Claude Code: {findings_label(rv)}", quiet(rv["summary"])] + [f'**For EUDI:**\n\n{quiet(rv["eudi"])}'] * bool(rv["eudi"])
     # The disclaimer at the end of each post names the models.
     intro.append(f'<sub>Claude Code wrote this review of {rv["sha"][:7]}. It read the code without building or running it.</sub>')
+    seen = rv.get("discussed", "")
     out = {"sha": rv["sha"], "level": lv, "intro": "\n\n".join(intro), "by": disclaimer_by(rv),
-            "answers": [reply_export(d) for d in rv.get("discussion", []) if postable(d)],
+            "answers": [reply_export(d, seen) for d in rv.get("discussion", []) if postable(d, seen)],
             "findings": [{"id": k, "severity": f["severity"], "path": f["file"], "line": f["line"], "inDiff": bool(f["file"]) and in_diff(f),
                           "body": quiet(markdown(f))} for k, f in enumerate(sorted_findings(rv))]}
     # Findings are picked by position. The page sends the version it shows, so picks from an older review of the same commit don't fit a newer one.
@@ -285,10 +286,10 @@ def comment(f, k, anchor):
 <div class="cmt-body"><p class="cmt-title">{text(f["title"])}</p>{f'<p class="impact"><b>Impact</b> {text(f["impact"])}</p>' if f.get("impact") else ""}<p>{text(f["detail"])}</p>{fix}</div></div>'''
 
 
-def answer(d):
+def answer(d, seen):
     where = f'<a href="{html.escape(d["url"])}">{html.escape(answered_to(d))}</a> · {d["date"]}'
     # Answers reply to people, so the page never picks one for a post by default.
-    pick = f'<label class="pick" hidden><input type="checkbox" data-answer="{d["ref"]}"> Post</label>' if postable(d) else ""
+    pick = f'<label class="pick" hidden><input type="checkbox" data-answer="{d["ref"]}"> Post</label>' if postable(d, seen) else ""
     return f'''<div class="cmt" id="answer-{d["ref"]}"><div class="cmt-head"><span class="st st-{d["status"]}">{STATUS[d["status"]]}</span><span class="muted">{where}</span>{pick}</div>
 <div class="cmt-body"><p class="point">{text(d["point"])}</p><p>{text(d["answer"])}</p></div></div>'''
 
@@ -298,7 +299,7 @@ def answers_section(rv):
     if not ds:
         return ""
     return (f'<section class="file" id="answers"><div class="file-head"><span>Answers to earlier comments</span><span class="muted">{len(ds)} '
-            f'{"answer" if len(ds) == 1 else "answers"}</span></div>{"".join(answer(d) for d in ds)}</section>')
+            f'{"answer" if len(ds) == 1 else "answers"}</span></div>{"".join(answer(d, rv.get("discussed", "")) for d in ds)}</section>')
 
 
 def check_note(rv):
