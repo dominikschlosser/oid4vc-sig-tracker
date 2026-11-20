@@ -473,28 +473,111 @@
   "date": "2026-11-03"
  },
  "53645": {
-  "verdict": "approve",
-  "headline": "Clean bulk revoke endpoints that reuse existing deletion queries and match single revoke semantics.",
-  "summary": "The PR adds an admin endpoint and an account endpoint that delete all issued credential records of one user. It adds a `removeIssuedVerifiableCredentials` model operation that routes local users to `deleteIssuedVcsByUser` and federated users to the realm scoped `deleteFederatedIssuedVcsByUser`, and reuses it in the user removal paths without changing their behaviour. Authorization, feature checks, CORS and admin events match the existing single credential revoke endpoints, and tests cover isolation from other users, idempotency, both account roles, the 403 case and federated users. I found nothing that must change.",
-  "eudi": "Issuers can now cut off credential refresh for a whole user in one call, for example after a lost wallet, because the refresh token provider rejects refresh when the issued record is gone. Credentials already held by wallets stay valid until they expire, since this PR does not touch any status list.",
+  "verdict": "comment",
+  "headline": "Bulk revocation code is correct, but the new docs must say held credentials stay valid.",
+  "summary": "The PR adds admin and account endpoints that delete all issued credential records of one user, for local and federated users, with the existing bulk JPA queries. The authorization matches the single revoke endpoints, and the queries are keyed by user ID, so no other user's records are touched. `OID4VCUtil.checkIssuedVerifiableCredential` reads the record from the database on every refresh and credential request, so the deletion takes effect at once. The one open point is the reviewer's request that the docs state that credentials already in a wallet stay valid until `exp`.",
+  "eudi": "This gives EUDI issuers a single call that stops refresh of all credentials a user holds under existing grants. Entitlements stay and there is no status list, so the user can obtain new credentials and verifiers accept held ones until `exp`.",
   "good": [
-   "The new operation reuses the existing bulk JPA queries and the user deletion paths now call it, so there is one deletion path per storage type.",
-   "The account endpoint acts only on the authenticated user, and tests check that another user's records survive.",
-   "The docs state clearly that entitlements stay and that refresh of removed records stops."
+   "The account endpoint reuses the role check of the single revoke endpoint and only uses the token subject's user ID.",
+   "User deletion in `JpaUserProvider` and `JpaUserFederatedStorageProvider` now reuses the new bulk method, so there is one code path.",
+   "The REST tests cover cross user isolation, idempotency, both account roles and the 403 case. A model layer test covers federated users."
   ],
-  "findings": [],
-  "discussion": [],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "docs/documentation/server_admin/topics/oid4vci/managing-credentials.adoc",
+    "line": 125,
+    "title": "The new bulk revocation section does not say that credentials already in the wallet stay valid.",
+    "impact": "An admin offboarding an employee calls the new endpoint and assumes the credentials stop working, but a wallet can still present them for up to the refresh interval, 7 days by default.",
+    "detail": "wistefan raised this. The PR's own new section at lines 109 to 125 and its two new table rows only say that wallets can no longer refresh the removed records. The `exp` caveat already sits in the `[IMPORTANT]` block at lines 85 to 88, but an admin looking for a bulk call jumps straight to the new section or the REST tables. The code behaves as the doc says, and `CredentialScopeModel.VC_REFRESH_INTERVAL_IN_SECONDS_DEFAULT` confirms the 7 day default. Only the missing sentence in the new section belongs to this PR. The wider rewording of the existing revocation text is a pre existing gap and can wait.",
+    "fix": "Add one sentence after line 125 saying that credentials already held by wallets stay valid until their `exp` claim, which the Credential Refresh Interval sets and which defaults to 7 days. Refer to the `[IMPORTANT]` block at line 85 there.",
+    "context": [
+     [
+      "+",
+      null,
+      120,
+      "[source,bash]"
+     ],
+     [
+      "+",
+      null,
+      121,
+      "----"
+     ],
+     [
+      "+",
+      null,
+      122,
+      "DELETE /realms/{realm}/account/issued-verifiable-credentials"
+     ],
+     [
+      "+",
+      null,
+      123,
+      "----"
+     ],
+     [
+      "+",
+      null,
+      124,
+      ""
+     ],
+     [
+      "+",
+      null,
+      125,
+      "These operations are idempotent and do not remove the user's credential type entitlements. The user can receive new credentials for those types, but wallets can no longer refresh credentials associated with the removed records."
+     ]
+    ]
+   }
+  ],
+  "discussion": [
+   {
+    "ref": "t4627155850",
+    "status": "open",
+    "point": "The revocation wording suggests credentials become unusable, although wallets can still present them until the refresh interval ends, which matters for offboarding.",
+    "answer": "Agreed for the new section. Deleting the records blocks refresh and credential requests under the existing grants, because `OID4VCUtil.checkIssuedVerifiableCredential` looks the record up in `OID4VCIRefreshTokenProvider.validateToken` and in the credential endpoint. The `[IMPORTANT]` block at line 85 already says held credentials stay valid until `exp`, so the new paragraph at line 125 should repeat that in one sentence with the 7 day default and refer to that block.",
+    "kind": "thread",
+    "where": "docs/documentation/server_admin/topics/oid4vci/managing-credentials.adoc:109",
+    "authors": [
+     "wistefan"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/53645#discussion_r4627155850",
+    "date": "2026-11-19",
+    "last": 4627155850
+   },
+   {
+    "ref": "r5972970926",
+    "status": "open",
+    "point": "The code looks good and only the documentation needs a change.",
+    "answer": "I agree the code is fine. The doc change is covered in the thread on line 109 and in the minor finding on line 125.",
+    "kind": "review",
+    "where": "",
+    "authors": [
+     "wistefan"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/53645#pullrequestreview-5972970926",
+    "date": "2026-11-19",
+    "last": 5972970926
+   }
+  ],
   "model": "claude-opus-5-5",
-  "effort": "medium",
+  "effort": "high",
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
-   "changes": []
+   "changes": [
+    "I reworded the `eudi` text because the draft said the call is what issuers need for offboarding, while entitlements stay and the user can obtain new credentials.",
+    "I scoped the answer to `t4627155850` to requests under the existing grants, because the draft said the deletion blocks new credential requests, which the retained entitlements still allow.",
+    "I named the two call sites of `OID4VCUtil.checkIssuedVerifiableCredential` in that answer after confirming them in `OID4VCIRefreshTokenProvider.validateToken` and `OID4VCIssuerEndpoint.requestCredential`.",
+    "I corrected the finding and the answer to call lines 85 to 88 an `[IMPORTANT]` block instead of a note, and said the caveat already exists there.",
+    "I added to the finding detail that the 7 day default is confirmed in `CredentialScopeModel` and that only the missing sentence in the new section is this PR's part."
+   ]
   },
   "sha": "ce2e633618925dbe0ab6f43c650ec08c80c0c459",
   "notes": [],
-  "discussed": "2026-10-07T13:14:49Z",
-  "date": "2026-11-03"
+  "discussed": "2026-11-19T10:12:25Z",
+  "date": "2026-11-20"
  },
  "50897": {
   "verdict": "comment",
@@ -2770,23 +2853,70 @@
  },
  "54560": {
   "verdict": "approve",
-  "headline": "Opt-in anonymous pre-authorized grant is sound, with one small token endpoint nit.",
-  "summary": "The PR adds the OID4VCI `pre-authorized_grant_anonymous_access_supported` realm switch with a stand-in client, advertises it in the authorization server metadata, and bumps the conformance suite to 5.3.4 with a served CRL. The grant resolves the offer's target client or the configured client, then applies the DPoP, `oid4vci.enabled` and `tx_code` checks to it before the code is consumed. The earlier review points about DPoP, CORS and query `client_id` are fixed in the code, and DPoP and query `client_id` are also tested. Nothing has to change before merge, and the only remark is that the token endpoint skips client authentication for this grant regardless of the realm switch and leaves the rejection to the grant.",
-  "eudi": "EUDI issuers can serve wallets that redeem pre-authorized codes without a registered client, as OpenID4VCI 1.0 Section 12.3 allows. The switch is realm wide and also covers offers bound to a client, so issuers that rely on wallet attestation for pre-authorized offers should leave it off.",
+  "headline": "Opt-in anonymous pre-authorized code redemption is sound and well tested.",
+  "summary": "The PR adds an opt-in realm switch for redeeming pre-authorized codes without client authentication and advertises it in the AS metadata. Anonymous requests act as the offer's target client or a configured stand-in client. Requests that identify a client are still authenticated, DPoP is enforced before the code is consumed, and the token's `aud` is only the credential endpoint. I found nothing that must change before merge.",
+  "eudi": "EUDI wallets that omit `client_id` when the issuer sets `pre-authorized_grant_anonymous_access_supported` (OpenID4VCI 1.0 Section 12.3) can now redeem Keycloak offers. The default stays off, so existing deployments keep requiring client authentication.",
   "good": [
-   "The anonymous client gets the same target client, `oid4vci.enabled`, DPoP and `tx_code` checks as an authenticated one, and all of them run before the code is marked as used.",
-   "Wallets that send credentials are still authenticated when anonymous access is on, and this includes `client_id` in the query for X.509.",
-   "The tests cover disabled access, a missing anonymous client, DPoP enforcement, other grant types and the metadata flag."
+   "The anonymous path only triggers when the request carries no `client_id`, `client_assertion`, `Authorization` or client attestation header, so wallets that identify themselves are still authenticated.",
+   "The DPoP requirement of the resolved client is checked before `markPreAuthCodeAsUsed`, and a test shows a rejected attempt does not burn the code.",
+   "Tests cover disabled access, a missing anonymous client, wrong secrets, `client_id` in the query, DPoP, other grant types and the metadata flag."
   ],
   "findings": [
    {
     "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/protocol/oidc/OIDCWellKnownProvider.java",
+    "line": 245,
+    "title": "Metadata advertises anonymous access even when no anonymous access client is configured.",
+    "impact": "An admin who turns on the switch but leaves the optional client field empty gets wallets that drop `client_id` and then fail on every REST created offer with `invalid_client`.",
+    "detail": "`isAnonymousAccessEnabled` only reads the switch, and the `ClientSelect` in `TokensTab.tsx` is not required. REST offers are created with a null target client, so `getAnonymousAccessClient` has nothing to resolve and rejects the request with \"No enabled client configured for anonymous access\". Only offers bound to a client through the application initiated action work in that setup. The error message is clear, so this is a configuration trap rather than a bug.",
+    "fix": "Align `preAuthorizedGrantAnonymousAccessClientHelp` with the docs so it says the client is needed for offers not bound to a client, such as REST offers.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -240,6 +241,12 @@ public class OIDCWellKnownProvider implements WellKnownProvider {"
+     ],
+     [
+      " ",
+      240,
+      241,
+      "            }"
+     ],
+     [
+      " ",
+      241,
+      242,
+      "        }"
+     ],
+     [
+      " ",
+      242,
+      243,
+      ""
+     ],
+     [
+      "+",
+      null,
+      244,
+      "        // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#section-12.3"
+     ],
+     [
+      "+",
+      null,
+      245,
+      "        if (Profile.isFeatureEnabled(Profile.Feature.OID4VC_VCI_PREAUTH_CODE) && realm.isVerifiableCredentialsEnabled()"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
     "file": "services/src/main/java/org/keycloak/protocol/oidc/endpoints/TokenEndpoint.java",
     "line": 161,
-    "title": "The token endpoint skips client authentication for this grant even when the realm switch is off.",
-    "impact": "A realm that never enabled anonymous access now answers a pre-authorized request without client identification with 400 `Missing client_id parameter` instead of the usual 401, and logs `invalid_client` instead of `client_not_found`.",
-    "detail": "`PreAuthorizedCodeGrantType.isAnonymousAccessAllowed()` always returns `true`, so whether `checkClient()` runs depends only on `isClientIdentified()`. With the switch off the grant rejects the request itself at `PreAuthorizedCodeGrantType.java:96`. The comment at line 95 says this matches the token endpoint response for a missing `client_id`, but it does not. `ClientAuthenticationFlow.processFlow()` only records a challenge when a client was found, so the endpoint answers 401 `invalid_client` with \"Invalid client or Invalid client credentials\" through `AuthenticationProcessor.handleClientAuthException()`. All six built-in client authenticators need one of the five markers that `isClientIdentified()` checks, so wallets are not affected. Only a custom `ClientAuthenticator` that identifies the client in another way would no longer be run for this grant. The default path now depends on a heuristic plus a second check inside the grant instead of being unchanged by construction.",
-    "fix": "Pass the realm to the SPI method, for example `isAnonymousAccessAllowed(RealmModel realm)` returning `isAnonymousAccessEnabled(realm)` in `PreAuthorizedCodeGrantType`. Then `checkClient()` runs as before whenever the switch is off. Keep the check in the grant as a safeguard, or at least correct the comment at line 95.",
+    "title": "Errors raised before the grant on the anonymous path carry no CORS origin header.",
+    "impact": "A browser based wallet that redeems anonymously with a stale or replayed DPoP proof sees an opaque CORS failure instead of the `invalid_request` error.",
+    "detail": "When `checkClient()` is skipped, `cors` has no allowed origins until `PreAuthorizedCodeGrantType.process` calls `cors.allowAllOrigins()`. `checkParameterDuplicated()`, `checkParameters()` and the first `DPoPUtil.handleDPoPHeader()` call run before that and throw `CorsErrorResponseException` with this `cors`. `DefaultCors.add()` writes no `Access-Control-Allow-Origin` header while `allowedOrigins` is null. The fix for the earlier bot thread on CORS covers errors from the grant, but not these three.",
+    "fix": "Call `cors.allowAllOrigins()` in `TokenEndpoint` when `checkClient()` is skipped. The call at the top of the grant is then redundant.",
     "context": [
      [
       "@",
@@ -2829,22 +2959,20 @@
   ],
   "discussion": [],
   "model": "claude-opus-5-5",
-  "effort": "medium",
+  "effort": "high",
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
    "changes": [
-    "Downgraded the only finding from minor to nit, because all six built-in client authenticators need one of the markers that `isClientIdentified()` checks, so the draft's breakage needs a hypothetical custom authenticator and no real deployment could be named.",
-    "Rewrote the finding's impact and detail around what the code shows, which is a 401 to 400 change in status, description and event for unidentified requests when the switch is off, and an inaccurate comment at `PreAuthorizedCodeGrantType.java:95`.",
-    "Changed the verdict from comment to approve and rewrote the headline, because no major or minor finding remains.",
-    "Corrected the summary, because the CORS fix in the grant is present but no test in the diff covers it, so only DPoP and query `client_id` are fixed and tested.",
-    "Rewrote the EUDI note, because the draft promised no change with the switch off only after a fix, and it missed that anonymous redemption also applies to offers bound to a client that would otherwise have to authenticate."
+    "Regraded the metadata finding from followup to nit, because the PR itself introduces the configuration trap and the fix is one help text line.",
+    "Removed the optional log warning from that fix, because the error response and the event already name the cause.",
+    "Added a nit on `TokenEndpoint.java` line 161, because `DefaultCors.add()` confirms that errors thrown before the grant on the anonymous path lack `Access-Control-Allow-Origin`."
    ]
   },
   "sha": "42a4d7e2228374616456be00acd31b8e4d1276b9",
   "notes": [],
-  "discussed": "2026-11-02T18:47:25Z",
-  "date": "2026-11-03"
+  "discussed": "2026-11-19T10:18:30Z",
+  "date": "2026-11-20"
  },
  "43478": {
   "verdict": "comment",

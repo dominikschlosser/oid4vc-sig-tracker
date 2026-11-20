@@ -853,5 +853,12 @@
   ],
   "note": "The German sandbox wallet rejects signed issuer metadata whose x5c chain ends in a trust anchor that is not self-signed. Admins can avoid this by leaving the anchor out of the configured certificate chain.",
   "why": ""
+ },
+ "55380": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [],
+  "note": "Keycloak's SD-JWT verification accepts a JWS whose crit header names an unknown extension. EUDI credentials don't use critical extensions, and the signature checks still hold.",
+  "why": ""
  }
 }
