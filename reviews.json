@@ -67,59 +67,59 @@
  },
  "54522": {
   "verdict": "approve",
-  "headline": "Signed ETSI LoTE trust works and fails closed, so it can merge as is.",
-  "summary": "The PR adds an `etsi-trust-list` identity provider. It downloads a signed ETSI TS 119 602 V1.1.1 LoTE, verifies the JWS against pinned signing certificates, checks `LoTEType`, service type, service status and `NextUpdate`, and exposes the listed valid CA certificates as X.509 trust anchors. `X509TrustMaterial` now accepts subordinate CAs, and the reload keys endpoint now works for trust material providers. Every review point is addressed, and the one remaining gap is older cache behaviour that can wait.",
-  "eudi": "Keycloak can use EUDI Wallet Provider, PID Provider and PubEAA Provider LoTEs for OID4VCI key attestations, SD-JWT VC presentations and `x5c` based client attestations, which `AttestationBasedClientAuthenticator.java:330` already validates at this commit although the description still names #52883 as a prerequisite. Admins must pin the list signing certificates and update them on rotation until List of Trusted Lists support arrives.",
+  "headline": "Signed ETSI LoTE trust fails closed and is ready, with one stale docs diagram.",
+  "summary": "The PR adds an `etsi-trust-list` identity provider. It downloads a signed ETSI TS 119 602 LoTE, verifies it against pinned certificates, checks `LoTEType`, service type, service status and `NextUpdate`, and exposes the listed CA certificates as X.509 trust anchors. It also lets `X509TrustMaterial` accept subordinate CAs, and it makes the reload keys endpoint work for providers that are not login providers. All earlier review points are addressed, and the only remaining point is a docs diagram that still calls the anchor self-signed.",
+  "eudi": "Keycloak can now take Wallet Provider, PID Provider and PubEAA Provider LoTEs directly as trust for key attestations, client attestations and SD-JWT VC presentations. Admins must still pin the list signing certificates and update them on rotation until List of Trusted Lists support lands.",
   "good": [
-   "Download errors, signature errors, wrong `LoTEType`, a list past `NextUpdate` and a discontinued list all lead to no trust from this provider, and other providers of the client keep working.",
-   "The list signature is checked only against the pinned certificates with an asymmetric `SignatureProvider`, so `none`, HMAC and header supplied keys cannot be used.",
-   "The tests cover scope filtering with CA certificates, renewed CAs, refresh, forced reload, recovery after a failed load and a fixture shaped like a published Wallet Providers list."
+   "A list that fails to download, fails to verify, is past `NextUpdate` or has no `NextUpdate` yields no trust anchors, and other trust providers keep working.",
+   "`CertPathBuilder` builds the path from the `x5c` cert store, so wallets that also send the listed intermediate in `x5c` still validate against a subordinate CA anchor.",
+   "The tests cover scope filtering, signer pinning, refresh, forced reload, failed refresh and a fixture with the full published list shape."
   ],
   "findings": [
    {
-    "severity": "followup",
-    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java",
-    "line": 74,
-    "title": "A failed or expired list is downloaded again on every trust decision.",
-    "impact": "When the list endpoint is down or the scheme operator publishes late, every `x5c` trust decision that asks this provider waits for a new download attempt, also when a later trust provider of the client would accept the chain.",
-    "detail": "`loadKeys` throws for a download error, a bad signature or a list past `NextUpdate`. `InfinispanPublicKeyStorageProvider` then stores no entry and keeps the old `lastRequestTime`, so `minTimeBetweenRequests` never throttles the next attempt. Concurrent requests on one node share a download through `tasksInProgress`, so the cost is one attempt after another and the added latency, not one download per request. The result still fails closed, so trust is not affected. The missing throttle for failed loads sits in `InfinispanPublicKeyStorageProvider`, which the PR does not touch, so this predates the PR.",
-    "fix": "On the `getKeys` path, where the cached list is missing or expired, cache a failed load as an empty `PublicKeysWrapper` that expires after a short retry delay, for example `minTimeBetweenRequests`. Keep the exception for a forced `reloadKeys()`, for example with a loader flag, so that a failed reload does not replace a list that is still valid. Do not cache the failure until `refreshAt`, because that would delay recovery by up to the refresh interval.",
+    "severity": "nit",
+    "file": "docs/documentation/server_admin/topics/oid4vci/proofs.adoc",
+    "line": 190,
+    "title": "The x5c diagram still calls the configured anchor a self-signed root.",
+    "impact": "An admin who reads the diagram believes Default Trust still needs a self-signed root, although this PR accepts subordinate CAs as anchors.",
+    "detail": "Line 190 says `(self-signed trust anchor)`. Lines 197 and 198 and the text at line 206 also describe the anchor as the configured root. The paragraphs at lines 208 and 210 speak of a configured root as well. The PR removed the self-issued and self-signed checks from `X509TrustMaterial`, and it already updated the help text and the earlier paragraph at line 113. Awambeng raised this.",
+    "fix": "Change line 190 to `(trust anchor, may be a subordinate CA)` and reword lines 197 to 210 to speak of the configured CA instead of the configured root.",
     "context": [
      [
-      "+",
+      " ",
       null,
-      69,
-      "            return new PublicKeysWrapper(List.of(), refreshAt);"
+      185,
+      "----"
      ],
      [
-      "+",
+      " ",
       null,
-      70,
-      "        }"
+      186,
+      "Attestation JWT JOSE header                   Default Trust identity provider"
      ],
      [
-      "+",
+      " ",
       null,
-      71,
-      ""
+      187,
+      "---------------------------                   -------------------------------"
      ],
      [
-      "+",
+      " ",
       null,
-      72,
-      "        long nextUpdate = Instant.parse(list.schemeInformation().nextUpdate()).toEpochMilli();"
+      188,
+      "x5c[0]: attestation leaf certificate          Trusted certificates:"
      ],
      [
-      "+",
+      " ",
       null,
-      73,
-      "        if (nextUpdate <= now) {"
+      189,
+      "         - signs the attestation JWT            device-vendor root CA"
      ],
      [
-      "+",
+      " ",
       null,
-      74,
-      "            throw new IllegalStateException(\"Trust list expired at \" + list.schemeInformation().nextUpdate());"
+      190,
+      "         - must be an end-entity certificate    (self-signed trust anchor)"
      ]
     ]
    }
@@ -128,8 +128,8 @@
    {
     "ref": "t4479328170",
     "status": "fixed",
-    "point": "The empty certificate check sat inside the `try`, so an empty field reported an invalid PEM bundle.",
-    "answer": "Fixed. The empty check now runs after the `try` at `EtsiTrustListIdentityProviderConfig.java:57`, and `adminApiRejectsIncompleteConfiguration` asserts the message.",
+    "point": "An empty signing certificate field reported the PEM bundle message instead of the required message.",
+    "answer": "The empty check now runs after the `try` at `EtsiTrustListIdentityProviderConfig.java:56`, and `adminApiRejectsIncompleteConfiguration` asserts the message.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java:51",
     "authors": [
@@ -143,7 +143,7 @@
     "ref": "t4479328188",
     "status": "fixed",
     "point": "An unparseable refresh interval was reported as not positive.",
-    "answer": "Fixed. A `NumberFormatException` now gives its own message at `EtsiTrustListIdentityProviderConfig.java:63`, and the test checks both messages.",
+    "answer": "`EtsiTrustListIdentityProviderConfig.java:62` now catches `NumberFormatException` with its own message, and the test asserts both messages.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java:103",
     "authors": [
@@ -156,8 +156,8 @@
    {
     "ref": "t4479328201",
     "status": "answered",
-    "point": "Whether ignoring listed end entity certificates is a deliberate scope decision.",
-    "answer": "The reply holds. HAIP keeps the trust anchor out of `x5c`, so a listed CA is what the chain must end at, and a listed leaf would need a separate pinned key path. The class Javadoc and the docs state this, so it can be added later if a scheme publishes only leaf certificates.",
+    "point": "Awambeng asked whether dropping listed end entity certificates is a deliberate scope decision.",
+    "answer": "Yes, it is deliberate, and the author confirmed it in the thread. `isCaCertificate` drops them, the class Javadoc and `proofs.adoc:140` say so, and `listedEndEntityCertificatesAreIgnored` covers it.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:25",
     "authors": [
@@ -170,8 +170,8 @@
    {
     "ref": "t4479328212",
     "status": "fixed",
-    "point": "The provider did not override `reloadKeys()`, so an admin could not force a refresh.",
-    "answer": "Fixed. `EtsiTrustListIdentityProvider.java:66` overrides it with the same model key, and `IdentityProviderResource.java:562` now resolves any provider type, so the endpoint also works for Default Trust. `reloadKeysDropsAWithdrawnCertificateBeforeTheRefreshInterval` covers it.",
+    "point": "The provider did not override `reloadKeys()`, so the reload keys endpoint could not force a download.",
+    "answer": "`EtsiTrustListIdentityProvider.java:66` overrides it, `IdentityProviderResource.reloadKeys` now resolves any `IdentityProvider` type, and `reloadKeysDropsAWithdrawnCertificateBeforeTheRefreshInterval` covers it.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:75",
     "authors": [
@@ -184,8 +184,8 @@
    {
     "ref": "t4479328227",
     "status": "fixed",
-    "point": "The list signature is a plain JWS check, not full JAdES Baseline B validation, and the docs should say so.",
-    "answer": "Fixed. `proofs.adoc:145` now says that the signature is checked as a JWS against the configured certificates and that full JAdES Baseline B validation is not performed.",
+    "point": "The list signature is a plain JWS check and not full JAdES Baseline B validation.",
+    "answer": "`proofs.adoc:145` now says so.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:37",
     "authors": [
@@ -198,8 +198,8 @@
    {
     "ref": "t4479328242",
     "status": "fixed",
-    "point": "The C and O check of clause 6.8.0 is skipped and that should be noted.",
-    "answer": "Fixed. The comment above `verifySignature` at `EtsiTrustListPublicKeyLoader.java:79` explains that the pinned signer replaces the name match.",
+    "point": "The signer subject C and O are not matched against `SchemeTerritory` and `SchemeOperatorName`.",
+    "answer": "The comment above `verifySignature` at `EtsiTrustListPublicKeyLoader.java:79` now explains that the pinned signer makes this check unnecessary.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:81",
     "authors": [
@@ -213,7 +213,7 @@
     "ref": "t4479328257",
     "status": "fixed",
     "point": "The docs did not say that services with a status are ignored when no status is configured.",
-    "answer": "Fixed. `proofs.adoc:137` and the factory help text now say that only services without a status are trusted when no status is configured.",
+    "answer": "`proofs.adoc:137` and the factory help text now say so.",
     "kind": "thread",
     "where": "docs/documentation/server_admin/topics/oid4vci/proofs.adoc:137",
     "authors": [
@@ -226,8 +226,8 @@
    {
     "ref": "t4479328269",
     "status": "fixed",
-    "point": "The test lists are thinner than a published list.",
-    "answer": "Fixed. `listInThePublishedJsonShapeIsParsed` at `EtsiTrustListIdentityProviderTest.java:228` loads `wallet-providers-list.json`, which carries the full scheme information, entity information and pointers to other lists.",
+    "point": "The test lists were thinner than a published list.",
+    "answer": "`wallet-providers-list.json` has the full published shape, and `listInThePublishedJsonShapeIsParsed` loads it.",
     "kind": "thread",
     "where": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java:148",
     "authors": [
@@ -241,7 +241,7 @@
     "ref": "t4626674678",
     "status": "fixed",
     "point": "The reload keys endpoint could not force a new download.",
-    "answer": "Fixed by the `reloadKeys()` override at `EtsiTrustListIdentityProvider.java:66` and the provider lookup change at `IdentityProviderResource.java:562`, with a test.",
+    "answer": "`EtsiTrustListIdentityProvider.java:66` now overrides `reloadKeys()` with the same model key as `listedCertificates()`.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:78",
     "authors": [
@@ -254,8 +254,8 @@
    {
     "ref": "t4626674687",
     "status": "fixed",
-    "point": "All test lists use the same field names that the parser reads.",
-    "answer": "Fixed. The published shape fixture at `EtsiTrustListIdentityProviderTest.java:228` now guards against a field name mismatch with real lists.",
+    "point": "All test lists used the same field names that the parser reads.",
+    "answer": "The new fixture `wallet-providers-list.json` follows the published list shape and is tested.",
     "kind": "thread",
     "where": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java:137",
     "authors": [
@@ -264,6 +264,20 @@
     "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629268583",
     "date": "2026-11-19",
     "last": 4629268583
+   },
+   {
+    "ref": "r5990798892",
+    "status": "open",
+    "point": "The diagram at `proofs.adoc` line 190 still says `(self-signed trust anchor)`.",
+    "answer": "This still holds at line 190, and lines 197 to 210 also speak of the configured root. It is a docs nit and does not block the merge.",
+    "kind": "review",
+    "where": "",
+    "authors": [
+     "Awambeng"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/54522#pullrequestreview-5990798892",
+    "date": "2026-11-20",
+    "last": 5990798892
    }
   ],
   "model": "claude-opus-5-5",
@@ -272,9 +286,8 @@
    "model": "claude-fable-5-2",
    "effort": "high",
    "changes": [
-    "Reworded the impact and detail of the followup finding and tied its origin to `InfinispanPublicKeyStorageProvider` instead of the unchecked comparison with Default Trust and OIDC, because `tasksInProgress` lets concurrent requests on a node share one download, so the cost is repeated attempts and latency and not one download per request.",
-    "Narrowed the suggested fix to the `getKeys` path, because caching a failure in the loader as drafted would also let a failed forced `reloadKeys()` replace a list that is still valid.",
-    "Replaced the reason in the EUDI note with the code reference `AttestationBasedClientAuthenticator.java:330` and said that the description is outdated on #52883, because the description contradicts the claim while the code at this commit supports it."
+    "I widened the docs nit and the answer to `r5990798892` from lines 197 to 206 to lines 197 to 210, because the paragraphs at lines 208 and 210 also speak of a configured root.",
+    "I reworded the answer to `t4479328201` to open with a clear yes and to name the author's confirmation, because the draft's opening sentence had nothing to refer to."
    ]
   },
   "sha": "4bff7f1ac66721d157b8fc309e3d64ab1cddc8ae",
@@ -285,8 +298,8 @@
    "trustListServiceStatuses has no default on purpose, because Keycloak is not EUDI specific. With nothing configured, services that carry a status are not trusted.",
    "x5c support in AttestationBasedClientAuthenticator and the rule that X.509 trust requires x5c are left out on purpose, because they overlap with the approved #52883. They come back in a follow-up after #52883 is merged."
   ],
-  "discussed": "2026-11-19T13:19:00Z",
-  "date": "2026-11-19"
+  "discussed": "2026-11-20T09:56:55Z",
+  "date": "2026-11-21"
  },
  "54367": {
   "verdict": "approve",
@@ -2763,60 +2776,60 @@
   "date": "2026-11-03"
  },
  "54513": {
-  "verdict": "comment",
-  "headline": "Issuer display works, but any unknown field silently removes the whole display.",
-  "summary": "The PR adds the `oid4vci.display` realm attribute and publishes it as the top level `display` of the Credential Issuer Metadata, in both the JSON and the signed form. It validates logo `uri` and locale uniqueness on the server and in the admin UI, and it documents the attribute. The approach matches the existing `issuer_info` handling and is small and well tested. One mismatch between UI validation and server parsing should be fixed before merge.",
-  "eudi": "EUDI wallets can now show the issuer name and logo from metadata, which the ARF expects for user trust decisions. Admins must keep to the known fields, or the display disappears without any visible error.",
+  "verdict": "approve",
+  "headline": "Issuer display metadata is now configurable and published in JSON and signed metadata.",
+  "summary": "The PR adds the `oid4vci.display` realm attribute and publishes it as the top level `display` member of the Credential Issuer Metadata, in both the JSON and the signed form. The server and the admin UI both enforce the three rules of OpenID4VCI 1.0 Section 12.2.4: a non empty array, a non blank `logo.uri` whenever a logo is present, and one element per locale. If the attribute is invalid, the server leaves it out and logs a warning, which matches how `issuer_info` is handled. The only gap I found is a small one that can wait.",
+  "eudi": "Once an admin sets `oid4vci.display`, EUDI wallets can show a localized issuer name and logo from the metadata. Signed metadata carries the same `display` claim, so wallets that rely on signed metadata get the same data.",
   "good": [
-   "Validation enforces the OpenID4VCI 1.0 Section 12.2.4 rules for one object per locale and a required logo `uri`.",
-   "Integration tests cover unsigned metadata, signed metadata and several invalid inputs.",
-   "Invalid configuration falls back to omitting `display` instead of breaking the metadata endpoint."
+   "The server and the admin UI both enforce the OpenID4VCI 1.0 Section 12.2.4 rules for `display`, including the required `logo.uri` and one object per language identifier.",
+   "If the attribute is broken, only `display` is dropped and the rest of the metadata is still served.",
+   "Tests cover the JSON and signed metadata, unknown members and several invalid inputs."
   ],
   "findings": [
    {
-    "severity": "minor",
-    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerWellKnownProvider.java",
-    "line": 223,
-    "title": "Any unknown property makes the server drop the whole issuer display.",
-    "impact": "An admin pastes a display entry with an extra member, such as a custom wallet attribute or a typo like `logo_uri`, the admin UI saves it, and the published metadata has no `display` at all.",
-    "detail": "`JsonSerialization.mapper` keeps the Jackson default `FAIL_ON_UNKNOWN_PROPERTIES`, and neither `DisplayObject` nor `DisplayObject.LogoObject` has `@JsonIgnoreProperties(ignoreUnknown = true)`. Any member outside the known fields throws `UnrecognizedPropertyException`. `getIssuerDisplay` catches it and returns null. The admin UI validator only checks the object shape, logo `uri` and locale uniqueness, so it accepts such input and reports success. The only signal is a warning in the server log on each metadata request. `CredentialIssuer.IssuerInfo`, which this code mirrors, does carry the annotation, so `issuer_info` tolerates extra members and `display` does not. OpenID4VCI 1.0 Section 12.2.4 calls the listed display parameters non-exhaustive, so such input is valid. IngridPuppet raised the related point that wallets rely on additional non-normative display fields, and the code currently rejects them instead of passing them on.",
-    "fix": "Either keep unknown members and publish them through `@JsonAnySetter` and `@JsonAnyGetter` on `DisplayObject` and `LogoObject`, which also covers the reviewer request, or at least ignore unknown members so the known ones are still published. Add a test case with an extra member.",
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/protocol/oid4vc/model/DisplayObject.java",
+    "line": 271,
+    "title": "`BackgroundImageObject` still fails on unknown members while `DisplayObject` and `LogoObject` now ignore them.",
+    "impact": "An admin who adds `alt_text` next to `uri` in the `background_image` of a credential scope `vc.display` gets no `display` for that credential in the metadata, with only a warning in the log.",
+    "detail": "`JsonSerialization.mapper` keeps the Jackson default of failing on unknown properties. The PR adds `@JsonIgnoreProperties(ignoreUnknown = true)` to `DisplayObject` and `LogoObject` but not to `BackgroundImageObject`. `DisplayObject.parse` reads the credential scope `vc.display` into the same classes, so an unknown member inside `background_image` still throws there and the whole list is dropped. The scope form only checks that the value is valid JSON. This behaviour is older than the PR, and the PR already removed it for the other two classes. `getIssuerDisplay` takes the same path, but an issuer display rarely carries a `background_image`.",
+    "fix": "Add `@JsonIgnoreProperties(ignoreUnknown = true)` to `BackgroundImageObject` too.",
     "context": [
      [
-      "+",
+      " ",
       null,
-      218,
-      "        String rawValue = realm.getAttribute(ISSUER_DISPLAY_ATTR);"
+      266,
+      ""
      ],
      [
-      "+",
+      " ",
       null,
-      219,
-      "        if (rawValue == null || rawValue.isBlank()) {"
+      267,
+      "    /**"
      ],
      [
-      "+",
+      " ",
       null,
-      220,
-      "            return null;"
+      268,
+      "     * Represents a background image object as defined in the OID4VCI specification."
      ],
      [
-      "+",
+      " ",
       null,
-      221,
-      "        }"
+      269,
+      "     * {@see https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata-p}"
      ],
      [
-      "+",
+      " ",
       null,
-      222,
-      "        try {"
+      270,
+      "     */"
      ],
      [
-      "+",
+      " ",
       null,
-      223,
-      "            List<DisplayObject> display = JsonSerialization.readValue(rawValue,"
+      271,
+      "    @JsonInclude(JsonInclude.Include.NON_NULL)"
      ]
     ]
    }
@@ -2824,16 +2837,17 @@
   "discussion": [
    {
     "ref": "t4524626701",
-    "status": "open",
-    "point": "IngridPuppet suggests extending `DisplayObject` so that non-normative display fields can be configured and exposed, because some wallets rely on custom attributes.",
-    "answer": "The point holds. `DisplayObject` has fixed fields and no unknown property handling, so `getIssuerDisplay` at line 223 fails on any custom member and publishes no `display` at all. This is the minor finding, and a pass through with `@JsonAnySetter` and `@JsonAnyGetter` would resolve both.",
+    "status": "disagree",
+    "point": "The reviewer suggested extending `DisplayObject` so that more non normative members can be configured and published, because some wallets rely on custom attributes.",
+    "answer": "Your point led to a fix: `DisplayObject` and `LogoObject` now ignore unknown members (`DisplayObject.java` lines 43 and 228), so a configuration with extra members still publishes the known ones, and `testIssuerDisplayIgnoresUnknownMembers` covers it. Extra members are not published, apart from `description`, `background_color`, `text_color` and `background_image`, which already pass through because the issuer display reuses `DisplayObject`. The author deferred a general pass through on purpose, and no wallet or member that needs it has been named, so I would not hold this PR for it.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/protocol/oid4vc/issuance/OID4VCIssuerWellKnownProvider.java:225",
     "authors": [
      "IngridPuppet"
     ],
     "url": "https://github.com/keycloak/keycloak/pull/54513#discussion_r4524626701",
-    "date": "2026-11-10"
+    "date": "2026-11-10",
+    "last": 4640595941
    }
   ],
   "model": "claude-opus-5-5",
@@ -2842,14 +2856,15 @@
    "model": "claude-fable-5-2",
    "effort": "high",
    "changes": [
-    "Added a discussion answer for thread t4524626701, because the draft left the reviewer point about non-normative display fields unanswered although its own finding covers it.",
-    "Extended the finding detail with the verified contrast to `CredentialIssuer.IssuerInfo` and the non-exhaustive parameter list in Section 12.2.4, because both show the input is valid and the gap is specific to `display`."
+    "I rewrote the impact and detail of the `BackgroundImageObject` followup around the credential scope `vc.display` path, because the draft led with the issuer display, where its own detail said a `background_image` is unlikely.",
+    "I reworded the answer to `t4524626701` so that it no longer argues from the spec defining only three members, because I could not confirm that reading of the spec here and the answer now rests on the code, the author's deliberate deferral and the lack of a named wallet.",
+    "I added to the answer to `t4524626701` where the tolerance for unknown members landed and that four `DisplayObject` members already pass through for the issuer display, because both are facts in the code that bear on the request."
    ]
   },
-  "sha": "f2fcbc1dc75211a091087e4845f08f08c5dd06b3",
+  "sha": "240ea20ce84b80a857709a4896acfd0750973fd7",
   "notes": [],
-  "discussed": "2026-11-10T12:05:46Z",
-  "date": "2026-11-11"
+  "discussed": "2026-11-20T09:15:20Z",
+  "date": "2026-11-21"
  },
  "54560": {
   "verdict": "approve",
@@ -3964,5 +3979,85 @@
   "notes": [],
   "discussed": "",
   "date": "2026-11-19"
+ },
+ "55424": {
+  "verdict": "comment",
+  "headline": "Good support for several credentials, but the promised mapper credential validation is missing.",
+  "summary": "The PR replaces the DCQL query text with a validated `requestedCredentials` document and builds one DCQL credential query per requested credential, with credential sets. Each presented credential is verified against its own trust material and its accepted types. The release notes promise that saving a mapper or the identity provider fails when the mapper names a credential that is not requested. The server does not enforce this, so stale mappers fail silently.",
+  "eudi": "Requesting a PID together with an attestation such as a diploma or a mobile driving licence, with optional and alternative credentials, is a core ARF relying party pattern. This PR makes that possible with trust anchors chosen for each credential.",
+  "good": [
+   "Trust material identity providers are chosen for each credential, so a key trusted for one credential cannot sign another, and tests cover this.",
+   "The verifier now binds the `vct` of each presentation to the accepted types of its credential id and rejects unrequested ids.",
+   "The configuration is rejected when the principal credential is not part of every option of every required credential set, so a login can never miss the user identifier."
+  ],
+  "findings": [
+   {
+    "severity": "minor",
+    "file": "docs/documentation/release_notes/topics/27_0_0.adoc",
+    "line": 53,
+    "title": "The release notes promise that saving fails for a mapper of an unrequested credential, but the server accepts it.",
+    "impact": "An admin renames a credential id and trusts the promised save error, and with sync mode FORCE each user then loses the mapped custom attribute at the next login, with only a log warning.",
+    "detail": "Line 53 says that saving a mapper or the identity provider fails when the mapper's credential is not requested. The comment at line 32 of `OID4VPCredentialListComponent.tsx` also expects an error on save. No such check exists. `IdentityProviderResource.addMapper` and its mapper `update` do not check the mapper's credential, and `IdentityProviderMapper` has no validation hook. `OID4VPIdentityProviderConfig.validate` validates the `requestedCredentials` document but never looks at the mappers. The code treats the skip as intended. The javadoc of `DcqlQuery.fromMappers` says such a mapper is skipped, line 114 of `DcqlQuery.java` logs a warning, and the test `mapperOfACredentialThatIsNotRequestedIsSkipped` saves such a mapper and expects the skip. A mapper without a `credential` value is skipped the same way. At login the mapper finds no claims under its credential id, so `credentialClaims` returns null. `OID4VPSdJwtUserAttributeMapper.updateBrokeredUser` then calls `user.removeAttribute` for a custom attribute. Username, email and name fields are left alone.",
+    "fix": "Correct line 53 of `27_0_0.adoc` and the comment in `OID4VPCredentialListComponent.tsx` so they describe the skip with a warning. The alternative is to reject an unknown credential on the server when a mapper or the identity provider is saved. That contradicts the tested skip behaviour and needs new plumbing, because `IdentityProviderMapper` has no validation hook.",
+    "context": [
+     [
+      " ",
+      47,
+      51,
+      ""
+     ],
+     [
+      "-",
+      48,
+      null,
+      "A DCQL query can still be configured for requests that mappers cannot express, such as claim sets."
+     ],
+     [
+      "-",
+      49,
+      null,
+      "It takes precedence over the inferred query and is now validated when the identity provider is saved."
+     ],
+     [
+      "-",
+      50,
+      null,
+      "Only a single credential in the `dc+sd-jwt` format can be requested."
+     ],
+     [
+      "+",
+      null,
+      52,
+      "The DCQL query sent to the wallet is always built from the requested credentials and the claims that the identity provider mappers read."
+     ],
+     [
+      "+",
+      null,
+      53,
+      "Each mapper names the credential it reads, and saving a mapper or the identity provider fails when that credential is not requested."
+     ]
+    ]
+   }
+  ],
+  "discussion": [],
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "check": {
+   "model": "claude-fable-5-2",
+   "effort": "high",
+   "changes": [
+    "Moved the finding from `AbstractOID4VPClaimMapper.java` line 84 to `27_0_0.adoc` line 53, because line 84 is only a getter and the false statement and its fix are in the release note.",
+    "Reworded the title to name the promise that is not kept, because the javadoc of `DcqlQuery.fromMappers` and a test show that skipping such a mapper is deliberate.",
+    "Corrected the claim that `OID4VPIdentityProviderConfig.validate` checks only the principal, because it validates the whole `requestedCredentials` document and only ignores the mappers.",
+    "Added to the detail that the skip is documented and tested and that a mapper without a `credential` value is skipped the same way, because both were verified in `DcqlQuery.java` and they explain why the documentation is the part to fix.",
+    "Shortened the impact to one sentence, because the answer format asks for one.",
+    "Changed the fix to lead with correcting the release note and the console comment and no longer call a rejection on the server the better fix, because that contradicts the tested skip behaviour and needs new plumbing for a narrow gap.",
+    "Removed the request to add a test from the fix, because `mapperOfACredentialThatIsNotRequestedIsSkipped` already covers the skip behaviour."
+   ]
+  },
+  "sha": "af768f864b3da74ab12f6eaef5b0cc6368a91c84",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-21"
  }
 }
