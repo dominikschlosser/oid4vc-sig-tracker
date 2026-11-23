@@ -3982,82 +3982,89 @@
  },
  "55424": {
   "verdict": "comment",
-  "headline": "Good support for several credentials, but the promised mapper credential validation is missing.",
-  "summary": "The PR replaces the DCQL query text with a validated `requestedCredentials` document and builds one DCQL credential query per requested credential, with credential sets. Each presented credential is verified against its own trust material and its accepted types. The release notes promise that saving a mapper or the identity provider fails when the mapper names a credential that is not requested. The server does not enforce this, so stale mappers fail silently.",
-  "eudi": "Requesting a PID together with an attestation such as a diploma or a mobile driving licence, with optional and alternative credentials, is a core ARF relying party pattern. This PR makes that possible with trust anchors chosen for each credential.",
+  "headline": "Solid multi credential support, but alternative credentials can wipe a shared user attribute.",
+  "summary": "The PR replaces the hand written DCQL query and the single credential settings with a validated `requestedCredentials` document. It builds one DCQL credential query per requested credential, passes credential sets through, and verifies each presented credential against its own trust material identity providers and its accepted `vct` values. The per credential trust separation, the type check and the strict `vp_token` parsing are correct and well tested. One mapper interaction that the new alternatives make possible should be fixed or documented.",
+  "eudi": "Relying parties can now request a PID together with an attestation, mark attestations as optional or as alternatives, and pin trust anchors for each one. Each attestation is verified only against the trust anchors configured for it.",
   "good": [
-   "Trust material identity providers are chosen for each credential, so a key trusted for one credential cannot sign another, and tests cover this.",
-   "The verifier now binds the `vct` of each presentation to the accepted types of its credential id and rejects unrequested ids.",
-   "The configuration is rejected when the principal credential is not part of every option of every required credential set, so a login can never miss the user identifier."
+   "Each credential is verified only against its own trust material identity providers, and `trustMaterialOfAnotherCredentialDoesNotVerifyThePresentation` covers this.",
+   "The presented `vct` is checked against the accepted types of its credential id, and an unrequested credential id in the `vp_token` is rejected.",
+   "Config validation requires the principal credential in every option of every required set, so the brokered subject always comes from a verified presentation."
   ],
   "findings": [
    {
     "severity": "minor",
-    "file": "docs/documentation/release_notes/topics/27_0_0.adoc",
-    "line": 53,
-    "title": "The release notes promise that saving fails for a mapper of an unrequested credential, but the server accepts it.",
-    "impact": "An admin renames a credential id and trusts the promised save error, and with sync mode FORCE each user then loses the mapped custom attribute at the next login, with only a log warning.",
-    "detail": "Line 53 says that saving a mapper or the identity provider fails when the mapper's credential is not requested. The comment at line 32 of `OID4VPCredentialListComponent.tsx` also expects an error on save. No such check exists. `IdentityProviderResource.addMapper` and its mapper `update` do not check the mapper's credential, and `IdentityProviderMapper` has no validation hook. `OID4VPIdentityProviderConfig.validate` validates the `requestedCredentials` document but never looks at the mappers. The code treats the skip as intended. The javadoc of `DcqlQuery.fromMappers` says such a mapper is skipped, line 114 of `DcqlQuery.java` logs a warning, and the test `mapperOfACredentialThatIsNotRequestedIsSkipped` saves such a mapper and expects the skip. A mapper without a `credential` value is skipped the same way. At login the mapper finds no claims under its credential id, so `credentialClaims` returns null. `OID4VPSdJwtUserAttributeMapper.updateBrokeredUser` then calls `user.removeAttribute` for a custom attribute. Username, email and name fields are left alone.",
-    "fix": "Correct line 53 of `27_0_0.adoc` and the comment in `OID4VPCredentialListComponent.tsx` so they describe the skip with a warning. The alternative is to reject an unknown credential on the server when a mapper or the identity provider is saved. That contradicts the tested skip behaviour and needs new plumbing, because `IdentityProviderMapper` has no validation hook.",
+    "file": "services/src/main/java/org/keycloak/broker/oid4vp/mappers/OID4VPSdJwtUserAttributeMapper.java",
+    "line": 119,
+    "title": "A user attribute mapper of an absent alternative credential removes an attribute that another mapper just set.",
+    "impact": "An RP accepts a student card from university A or from university B as alternatives and maps both to the attribute `student_id`, and with sync mode FORCE every existing user who presents the card whose mapper runs first loses `student_id` at every login.",
+    "detail": "`updateBrokeredUser` treats an absent credential as a missing claim and calls `user.removeAttribute`. `IdentityBrokerService` runs the mappers one after the other in storage order, so when the mapper of the credential that was not presented runs last, it removes the value that the mapper of the presented credential set. New users are not affected, because `preprocessFederatedIdentity` returns early when the credential is absent. Removing the attribute when a credential is no longer presented is deliberate and tested. The problem is only the collision between two mappers that write the same attribute. The session note mapper handles this case on purpose, and its test `absentCredentialLeavesTheNoteUntouched` says an absent credential must not clear a value another mapper set. The user attribute mapper has no such guard, and the PR introduces both the alternatives and the removal on absence.",
+    "fix": "In `updateBrokeredUser`, skip the removal when another OID4VP mapper of the same identity provider writes the same attribute from a credential present in `CREDENTIAL_CLAIMS`. Add an integration test with two alternative credentials mapped to one attribute. The smaller option is to state in the mapper help text and the release notes that each user attribute must be mapped from a single credential.",
     "context": [
      [
       " ",
-      47,
-      51,
-      ""
+      111,
+      115,
+      "            return;"
+     ],
+     [
+      " ",
+      112,
+      116,
+      "        }"
      ],
      [
       "-",
-      48,
+      113,
       null,
-      "A DCQL query can still be configured for requests that mappers cannot express, such as claim sets."
-     ],
-     [
-      "-",
-      49,
-      null,
-      "It takes precedence over the inferred query and is now validated when the identity provider is saved."
-     ],
-     [
-      "-",
-      50,
-      null,
-      "Only a single credential in the `dc+sd-jwt` format can be requested."
+      "        List<String> values = claimValues(mapperModel, context);"
      ],
      [
       "+",
       null,
-      52,
-      "The DCQL query sent to the wallet is always built from the requested credentials and the claims that the identity provider mappers read."
+      117,
+      "        // A credential the user no longer presents must not leave the claim it proved earlier"
      ],
      [
       "+",
       null,
-      53,
-      "Each mapper names the credential it reads, and saving a mapper or the identity provider fails when that credential is not requested."
+      118,
+      "        JsonNode claims = credentialClaims(mapperModel, context);"
+     ],
+     [
+      "+",
+      null,
+      119,
+      "        List<String> values = claims == null ? null : claimValues(mapperModel, claims);"
      ]
     ]
    }
   ],
-  "discussion": [],
+  "discussion": [
+   {
+    "ref": "t4664384195",
+    "status": "fixed",
+    "point": "The release notes promised that saving fails for a mapper of an unrequested credential, but the server only skips such a mapper.",
+    "answer": "Lines 53 and 54 of `27_0_0.adoc` now say that Keycloak logs a warning, treats the claim as missing and removes the custom attribute unless the sync mode is Import. The comment at line 32 of `OID4VPCredentialListComponent.tsx` now explains that a stale credential stays visible so it can be changed.",
+    "kind": "thread",
+    "where": "docs/documentation/release_notes/topics/27_0_0.adoc:53",
+    "authors": [
+     "dominikschlosser"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/55424#discussion_r4664403370",
+    "date": "2026-11-23",
+    "last": 4664403370
+   }
+  ],
   "model": "claude-opus-5-5",
   "effort": "high",
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
-   "changes": [
-    "Moved the finding from `AbstractOID4VPClaimMapper.java` line 84 to `27_0_0.adoc` line 53, because line 84 is only a getter and the false statement and its fix are in the release note.",
-    "Reworded the title to name the promise that is not kept, because the javadoc of `DcqlQuery.fromMappers` and a test show that skipping such a mapper is deliberate.",
-    "Corrected the claim that `OID4VPIdentityProviderConfig.validate` checks only the principal, because it validates the whole `requestedCredentials` document and only ignores the mappers.",
-    "Added to the detail that the skip is documented and tested and that a mapper without a `credential` value is skipped the same way, because both were verified in `DcqlQuery.java` and they explain why the documentation is the part to fix.",
-    "Shortened the impact to one sentence, because the answer format asks for one.",
-    "Changed the fix to lead with correcting the release note and the console comment and no longer call a rejection on the server the better fix, because that contradicts the tested skip behaviour and needs new plumbing for a narrow gap.",
-    "Removed the request to add a test from the fix, because `mapperOfACredentialThatIsNotRequestedIsSkipped` already covers the skip behaviour."
-   ]
+   "changes": []
   },
-  "sha": "af768f864b3da74ab12f6eaef5b0cc6368a91c84",
+  "sha": "0e266861f85be4888aa21499ba1432154b685c8f",
   "notes": [],
-  "discussed": "",
-  "date": "2026-11-21"
+  "discussed": "2026-11-23T10:19:00Z",
+  "date": "2026-11-23"
  }
 }
