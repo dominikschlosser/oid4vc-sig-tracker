@@ -860,5 +860,14 @@
   "specs": [],
   "note": "Keycloak's SD-JWT verification accepts a JWS whose crit header names an unknown extension. EUDI credentials don't use critical extensions, and the signature checks still hold.",
   "why": ""
+ },
+ "55456": {
+  "rating": "high",
+  "basis": "security",
+  "specs": [
+   "sdvc-2-5-x5c-trust-anchor"
+  ],
+  "note": "The OID4VP identity provider accepts a key of any trusted issuer for any iss value and links accounts by subject alone. A credential from a second trusted issuer that carries the same subject signs in as another user.",
+  "why": "A relying party that trusts several issuers in one identity provider, such as PID providers from a trusted list plus attestation providers, lets a credential from one issuer sign in to an account linked through another. It is High and not Blocker because the attacker needs a credential from a second trusted issuer with the victim's subject value or a trusted signing key, and deployments with a single issuer are not affected."
  }
 }
