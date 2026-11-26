@@ -4,6 +4,15 @@ set -eu
 cd "$(dirname "$0")"
 export PATH="/opt/homebrew/bin:/usr/bin:/bin"
 date
+# Two runs at once delete each other's checkouts in work/, so a run that finds another one going stops.
+# mkdir either creates the lock or fails, in one step. A run that was killed leaves the lock behind: remove
+# cache/update.lock by hand after checking with ps that no update.sh runs.
+mkdir -p cache
+if ! mkdir cache/update.lock 2>/dev/null; then
+	echo "another update.sh is still running, see cache/update.lock"
+	exit 0
+fi
+trap 'rmdir cache/update.lock' EXIT
 python3 fetch.py
 python3 members.py || true
 python3 build.py

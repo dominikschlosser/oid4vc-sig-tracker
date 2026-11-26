@@ -287,7 +287,8 @@ def claude(n, tree, prompt, model, effort, step):
     u = run.get("usage", {})
     # modelUsage names the models that ran. The CLI may add a small model for its own housekeeping, but the
     # pass must have run on the model it asked for, or the review would name the wrong one.
-    used = sorted(run.get("modelUsage") or {})
+    # The log keeps each model's output tokens, which shows how much of the pass a second model did.
+    used = {m: v.get("outputTokens") for m, v in sorted((run.get("modelUsage") or {}).items())}
     with git_lock, open("review-usage.log", "a") as f:
         f.write(json.dumps({"n": n, "step": step, "model": model, "used": used, "date": time.strftime("%Y-%m-%dT%H:%M"), "cost_usd": run.get("total_cost_usd"),
                             "turns": run.get("num_turns"), "input": u.get("input_tokens"), "cache_read": u.get("cache_read_input_tokens"),
