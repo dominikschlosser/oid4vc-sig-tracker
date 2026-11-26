@@ -869,5 +869,12 @@
   ],
   "note": "The OID4VP identity provider accepts a key of any trusted issuer for any iss value and links accounts by subject alone. A credential from a second trusted issuer that carries the same subject signs in as another user.",
   "why": "A relying party that trusts several issuers in one identity provider, such as PID providers from a trusted list plus attestation providers, lets a credential from one issuer sign in to an account linked through another. It is High and not Blocker because the attacker needs a credential from a second trusted issuer with the victim's subject value or a trusted signing key, and deployments with a single issuer are not affected."
+ },
+ "55487": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This PR adds the forgot password flow to an upgrade note about email verification. It does not touch OpenID4VC issuance or presentation.",
+  "why": ""
  }
 }

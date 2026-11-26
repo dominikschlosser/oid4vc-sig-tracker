@@ -67,59 +67,59 @@
  },
  "54522": {
   "verdict": "approve",
-  "headline": "The ETSI trust list provider fails closed and is ready to merge.",
-  "summary": "The PR adds an `etsi-trust-list` identity provider that verifies a TS 119 602 LoTE against pinned signing certificates and exposes its listed CA certificates as X.509 trust anchors. It checks `LoTEType`, service type, service status and `NextUpdate`, and it lets `X509TrustMaterial` accept subordinate CAs. When the list is unavailable, discontinued or lists only leaves, client authentication and OID4VP fall back only to other providers the admin configured, and OID4VCI rejects the attestation when `resolveX5c` returns null. All earlier review points are addressed, so the PR can be merged.",
-  "eudi": "Keycloak can now take wallet provider CAs from Wallet Providers lists for key and client attestations, and issuer CAs from PID or PubEAA Provider lists for SD-JWT VC presentations. Admins must still pin each list signing certificate and update it on rotation, because Lists of Trusted Lists and revocation are left for later work.",
+  "headline": "Signed LoTE trust anchors fail closed on every path and are well tested.",
+  "summary": "The PR adds an `etsi-trust-list` identity provider and lets `X509TrustMaterial` accept subordinate CAs as anchors. The provider downloads an ETSI TS 119 602 LoTE, verifies it against pinned signing certificates, checks `LoTEType`, service type, service status and `NextUpdate`, and exposes the listed CA certificates as X.509 trust anchors. I followed the null result of `validateX509Chain` through the OID4VCI key attestation, attestation based client authentication and OID4VP callers, and an unavailable list never yields a key from this provider and no caller uses `x5c[0]` unverified. Every earlier review point is addressed, and the one gap left is a retry pattern that can wait.",
+  "eudi": "Keycloak can now take Wallet Provider, PID Provider and PubEAA Provider LoTEs as trust anchors for key attestations, client attestations with `x5c` and SD-JWT VC presentations. Admins must pin the list signing certificates and update them on rotation, because Lists of Trusted Lists and revocation are follow ups.",
   "good": [
-   "Load failures stay inside the provider, so a broken list fails closed without breaking the other trust providers of a client.",
-   "The list signature is checked only with asymmetric algorithms and pinned certificates, which rules out algorithm confusion.",
-   "Tests cover service scope, statuses, `NextUpdate`, refresh, forced reload and a fixture in the published list shape."
+   "A failed download, a bad signature, a wrong `LoTEType` or a list past `NextUpdate` removes the provider's anchors without breaking other trust providers of the same client.",
+   "Only CA certificates that are currently valid become anchors, so one bad entry on a list cannot make the `X509TrustMaterial` constructor throw and disable the whole list.",
+   "The tests cover scope filtering with a root CA in the wrong scope, a renewed CA next to its expired predecessor, forced reload and a fixture with the published list shape."
   ],
   "findings": [
    {
     "severity": "followup",
-    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java",
-    "line": 83,
-    "title": "A failed download is retried on every trust decision.",
-    "impact": "When the list host stops answering after the refresh interval, every credential, token or wallet login request that resolves this provider waits for a new HTTP attempt.",
-    "detail": "`InfinispanPublicKeyStorageProvider` stores the entry and its `lastRequestTime` only when `loadKeys()` succeeds. After the cached list expires, a failing load leaves the old entry in place, so `minTimeBetweenRequests` never throttles and each call starts a new download or waits for the one in progress. `establish-connection-timeout-millis` has no limit by default, so a host that drops packets can hold each request for a long time. `TrustMaterialResolver` tries aliases in order and stops at the first success, so a client that lists this provider before Default Trust pays the same delay for wallets anchored in Default Trust. `OID4VPIdentityProvider` collects the trust material of all its aliases before it validates, so there the delay applies in any order. The result still fails closed, and JWKS loaders share the behaviour, so this can wait.",
-    "fix": "Remember a failed load for a short time in the `getKeys` path, for example as an empty `PublicKeysWrapper` with a short expiration, so that retries are spaced out and other providers answer at once.",
+    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java",
+    "line": 74,
+    "title": "An unusable list is downloaded again on every trust decision.",
+    "impact": "When the list endpoint is down or the operator publishes late past `NextUpdate`, every client or key attestation that presents `x5c` and every OID4VP response triggers a full download of the list.",
+    "detail": "`loadKeys` throws for a download, signature or expiry failure. `InfinispanPublicKeyStorageProvider.reloadKeys` then leaves the old entry and its `lastRequestTime` untouched, so `minTimeBetweenRequests` never throttles the next attempt. Only concurrent calls share one download through `tasksInProgress`. This is the shared cache behaviour and is different from the Copilot throttle thread the author already dismissed, which was about stale keys inside the throttle window. The discontinued list path at line 69 already caches an empty result, so the two failure paths behave differently.",
+    "fix": "Return an empty `PublicKeysWrapper` with a short fixed expiry, for example 60 seconds, for an expired list and for a failed download, as the discontinued case already does. Adjust `failedDownloadIsRetried` and `failedRefreshRejectsTheListUntilAValidListIsAvailable` to advance the time offset past that expiry.",
     "context": [
      [
       "+",
       null,
-      78,
-      "    private List<X509Certificate> listedCertificates() {"
+      69,
+      "            return new PublicKeysWrapper(List.of(), refreshAt);"
      ],
      [
       "+",
       null,
-      79,
-      "        List<KeyWrapper> keys;"
+      70,
+      "        }"
      ],
      [
       "+",
       null,
-      80,
-      "        try {"
+      71,
+      ""
      ],
      [
       "+",
       null,
-      81,
-      "            keys = session.getProvider(PublicKeyStorageProvider.class)"
+      72,
+      "        long nextUpdate = Instant.parse(list.schemeInformation().nextUpdate()).toEpochMilli();"
      ],
      [
       "+",
       null,
-      82,
-      "                    .getKeys(modelKey(), new EtsiTrustListPublicKeyLoader(session, config));"
+      73,
+      "        if (nextUpdate <= now) {"
      ],
      [
       "+",
       null,
-      83,
-      "        } catch (RuntimeException e) {"
+      74,
+      "            throw new IllegalStateException(\"Trust list expired at \" + list.schemeInformation().nextUpdate());"
      ]
     ]
    }
@@ -128,8 +128,8 @@
    {
     "ref": "t4479328170",
     "status": "fixed",
-    "point": "The empty certificate check sat inside the `try`, so an empty field reported an invalid PEM bundle.",
-    "answer": "The empty check now runs after the `try` at `EtsiTrustListIdentityProviderConfig.java:56`. `adminApiRejectsIncompleteConfiguration` asserts both messages.",
+    "point": "The empty check for the signing certificates sat inside the `try`, so an empty field got the wrong message.",
+    "answer": "Fixed. The `try` at `EtsiTrustListIdentityProviderConfig.java:51` now wraps only the parsing, and the empty check follows it at line 56. `adminApiRejectsIncompleteConfiguration` asserts the message.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java:51",
     "authors": [
@@ -143,7 +143,7 @@
     "ref": "t4479328188",
     "status": "fixed",
     "point": "An unparseable refresh interval was reported as not positive.",
-    "answer": "`EtsiTrustListIdentityProviderConfig.java:59` to `:64` now catch `NumberFormatException` and report that the value must be a number of seconds. The test checks this message for `abc`.",
+    "answer": "Fixed. `validate` now catches `NumberFormatException` and reports that the interval must be a number of seconds, and `adminApiRejectsIncompleteConfiguration` tests it with `abc`.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java:103",
     "authors": [
@@ -156,8 +156,8 @@
    {
     "ref": "t4479328201",
     "status": "answered",
-    "point": "Ignoring listed end entity certificates should be a deliberate scope decision.",
-    "answer": "The code matches the author's reply. `isCaCertificate` drops listed leaves, and the class Javadoc and `proofs.adoc:140` state it. A scheme that lists only leaves would need a separate pinned leaf path later.",
+    "point": "Clause 6.6.3 allows end entity certificates in `ServiceDigitalIdentity`, and the provider drops them, so it should be clear whether this is a deliberate scope decision.",
+    "answer": "Yes, it is deliberate. The class Javadoc of `EtsiTrustListIdentityProvider` and `proofs.adoc:140` say that listed end entity certificates are ignored, because HAIP keeps the anchor out of `x5c` and trust comes from a chain to a listed CA. A pinned leaf path can be added later if a scheme publishes only leaf certificates.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:25",
     "authors": [
@@ -170,8 +170,8 @@
    {
     "ref": "t4479328212",
     "status": "fixed",
-    "point": "`reloadKeys()` was not overridden, so an admin could not force a refresh.",
-    "answer": "`EtsiTrustListIdentityProvider.java:66` overrides it. `IdentityProviderResource` now resolves any `IdentityProvider` type, so the endpoint reaches it. `reloadKeysDropsAWithdrawnCertificateBeforeTheRefreshInterval` covers the change.",
+    "point": "The provider did not override `reloadKeys()`, so the reload keys endpoint could not force a refresh.",
+    "answer": "Fixed. `EtsiTrustListIdentityProvider.reloadKeys()` reloads with the same model key, and `IdentityProviderResource.reloadKeys` now resolves any `IdentityProvider` type. `reloadKeysDropsAWithdrawnCertificateBeforeTheRefreshInterval` covers it.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:75",
     "authors": [
@@ -182,10 +182,24 @@
     "last": 4629210139
    },
    {
+    "ref": "t4626674678",
+    "status": "fixed",
+    "point": "The reload keys endpoint could not force a new download.",
+    "answer": "Fixed. The override in `EtsiTrustListIdentityProvider` and the change in `IdentityProviderResource` make the endpoint reload the list, and a test checks that a withdrawn CA disappears before the refresh interval.",
+    "kind": "thread",
+    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:78",
+    "authors": [
+     "dominikschlosser"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629223050",
+    "date": "2026-11-19",
+    "last": 4629223050
+   },
+   {
     "ref": "t4479328227",
     "status": "fixed",
-    "point": "Only a plain JWS check is done instead of JAdES Baseline B, and the docs should say so.",
-    "answer": "`proofs.adoc:145` now says that the signature is checked as a JWS against the configured certificates and that full JAdES Baseline B validation is not performed.",
+    "point": "The list signature is a plain JWS check, not full JAdES Baseline B validation, and the docs should say so.",
+    "answer": "Fixed. `proofs.adoc:145` now says that the signature is checked as a JWS against the configured certificates without full JAdES Baseline B validation.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:37",
     "authors": [
@@ -198,8 +212,8 @@
    {
     "ref": "t4479328242",
     "status": "fixed",
-    "point": "The C and O match from clause 6.8.0 is skipped and should be marked as deliberate.",
-    "answer": "The comment at `EtsiTrustListPublicKeyLoader.java:79` explains that the pinned signer replaces the subject match.",
+    "point": "The subject C and O of the signing certificate are not matched against `SchemeTerritory` and `SchemeOperatorName`, and this should be noted.",
+    "answer": "Fixed. The comment above `verifySignature` in `EtsiTrustListPublicKeyLoader.java:79` explains that the pinned signer makes the clause 6.8.0 name match unnecessary.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:81",
     "authors": [
@@ -213,7 +227,7 @@
     "ref": "t4479328257",
     "status": "fixed",
     "point": "The docs did not say that services with a status are ignored when no status is configured.",
-    "answer": "`proofs.adoc:137` and the factory help text now say that only services without a status are trusted when no status is configured.",
+    "answer": "Fixed. `proofs.adoc:137` and the factory help text now say that only services without a status are trusted when no status is configured.",
     "kind": "thread",
     "where": "docs/documentation/server_admin/topics/oid4vci/proofs.adoc:137",
     "authors": [
@@ -227,7 +241,7 @@
     "ref": "t4479328269",
     "status": "fixed",
     "point": "The test lists were thinner than a published list.",
-    "answer": "`listInThePublishedJsonShapeIsParsed` at `EtsiTrustListIdentityProviderTest.java:228` loads `wallet-providers-list.json`, which has the full scheme and entity information, and validates a chain through it.",
+    "answer": "Fixed. `listInThePublishedJsonShapeIsParsed` loads `wallet-providers-list.json`, which has the full scheme information, trusted entity information and pointers of a published Wallet Providers list.",
     "kind": "thread",
     "where": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java:148",
     "authors": [
@@ -238,24 +252,10 @@
     "last": 4629274748
    },
    {
-    "ref": "t4626674678",
-    "status": "fixed",
-    "point": "The reload keys endpoint could not force a new download.",
-    "answer": "Fixed by the override at `EtsiTrustListIdentityProvider.java:66`. `InfinispanPublicKeyStorageProvider.reloadKeys` writes only the cache of the node that serves the request and sends no cluster event. Saving the provider is still the way to clear the list on every node of a cluster.",
-    "kind": "thread",
-    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:78",
-    "authors": [
-     "dominikschlosser"
-    ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629223050",
-    "date": "2026-11-19",
-    "last": 4629223050
-   },
-   {
     "ref": "t4626674687",
     "status": "fixed",
-    "point": "All test lists used the same field names as the parser.",
-    "answer": "The new fixture test at `EtsiTrustListIdentityProviderTest.java:228` uses a list in the published shape, signed again with the test signer.",
+    "point": "All test lists used the same field names the parser reads, so a wrong field name would go unnoticed.",
+    "answer": "Fixed. The new fixture `wallet-providers-list.json` follows the published list shape, and `listInThePublishedJsonShapeIsParsed` checks that its issuance CA becomes the only anchor.",
     "kind": "thread",
     "where": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java:137",
     "authors": [
@@ -268,8 +268,8 @@
    {
     "ref": "r5990798892",
     "status": "fixed",
-    "point": "`proofs.adoc` still said the anchor must be a root certificate that signs itself.",
-    "answer": "`proofs.adoc:190` now reads \"trust anchor, may be a subordinate CA\".",
+    "point": "`proofs.adoc` still described the Default Trust anchor as a self signed trust anchor.",
+    "answer": "Fixed. `proofs.adoc:190` now reads \"(trust anchor, may be a subordinate CA)\".",
     "kind": "review",
     "where": "",
     "authors": [
@@ -285,13 +285,9 @@
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
-   "changes": [
-    "The detail of the retry finding now says that the delay hits Default Trust wallets only when the client lists this provider first, because `TrustMaterialResolver` stops at the first provider that validates the chain.",
-    "The same detail now adds that OID4VP pays the delay in any order, because `OID4VPIdentityProvider.resolveX509Trust` loads every configured alias before validation.",
-    "The same detail now says that a call may wait for a download in progress instead of starting its own, because `InfinispanPublicKeyStorageProvider` shares one running load per key."
-   ]
+   "changes": []
   },
-  "sha": "fb913d1d406e20b832a98de3ca203aaa47398e9e",
+  "sha": "a2111424043d33c3d446daf970f21068ab2c0ffd",
   "notes": [
    "Rejecting a list that fails to download or verify is deliberate. It fails closed, and failedRefreshRejectsTheListUntilAValidListIsAvailable tests it. Letting the load error escape so that other trust providers never get a chance is not deliberate.",
    "Subordinate CAs as trust anchors are deliberate, because EUDI LoTEs list issuing CAs.",
@@ -299,8 +295,8 @@
    "trustListServiceStatuses has no default on purpose, because Keycloak is not EUDI specific. With nothing configured, services that carry a status are not trusted.",
    "x5c support in AttestationBasedClientAuthenticator and the rule that X.509 trust requires x5c are left out on purpose, because they overlap with the approved #52883. They come back in a follow-up after #52883 is merged."
   ],
-  "discussed": "2026-11-20T09:56:55Z",
-  "date": "2026-11-24"
+  "discussed": "2026-11-24T09:15:06Z",
+  "date": "2026-11-26"
  },
  "54367": {
   "verdict": "approve",
@@ -487,70 +483,22 @@
   "date": "2026-11-03"
  },
  "53645": {
-  "verdict": "comment",
-  "headline": "Bulk revocation code is correct, but the new docs must say held credentials stay valid.",
-  "summary": "The PR adds admin and account endpoints that delete all issued credential records of one user, for local and federated users, with the existing bulk JPA queries. The authorization matches the single revoke endpoints, and the queries are keyed by user ID, so no other user's records are touched. `OID4VCUtil.checkIssuedVerifiableCredential` reads the record from the database on every refresh and credential request, so the deletion takes effect at once. The one open point is the reviewer's request that the docs state that credentials already in a wallet stay valid until `exp`.",
-  "eudi": "This gives EUDI issuers a single call that stops refresh of all credentials a user holds under existing grants. Entitlements stay and there is no status list, so the user can obtain new credentials and verifiers accept held ones until `exp`.",
+  "verdict": "approve",
+  "headline": "Bulk revocation of a user's issued credential records is correct, scoped and tested.",
+  "summary": "The PR adds admin and account `DELETE` endpoints that remove all issued credential records of one user, backed by a new `removeIssuedVerifiableCredentials` model operation. Routing in `UserStorageManager` matches the existing per user methods, the JPA paths reuse the existing bulk delete queries, and the user deletion cleanup now calls the same operation. Authorization mirrors the single credential revoke endpoints, and tests cover isolation between users, idempotency, both account roles, the forbidden case on the account endpoint and federated users. Deleting the records blocks refresh because `OID4VCUtil` looks up the issued record on both the refresh grant and the credential endpoint.",
+  "eudi": "Issuers gain a one call way to stop refresh of every credential a user holds, which helps offboarding. Credentials already in wallets stay valid until `exp` because there is no status list yet, and the documentation now says so.",
   "good": [
-   "The account endpoint reuses the role check of the single revoke endpoint and only uses the token subject's user ID.",
-   "User deletion in `JpaUserProvider` and `JpaUserFederatedStorageProvider` now reuses the new bulk method, so there is one code path.",
-   "The REST tests cover cross user isolation, idempotency, both account roles and the 403 case. A model layer test covers federated users."
+   "The new operation is reused in both local and federated user deletion, so there is one code path for removing a user's issued records.",
+   "Tests check that another user's records survive the bulk delete, for local users through REST and for federated users at the model layer.",
+   "The documentation states plainly that removed records only stop refresh and that held credentials stay valid until `exp`."
   ],
-  "findings": [
-   {
-    "severity": "minor",
-    "file": "docs/documentation/server_admin/topics/oid4vci/managing-credentials.adoc",
-    "line": 125,
-    "title": "The new bulk revocation section does not say that credentials already in the wallet stay valid.",
-    "impact": "An admin offboarding an employee calls the new endpoint and assumes the credentials stop working, but a wallet can still present them for up to the refresh interval, 7 days by default.",
-    "detail": "wistefan raised this. The PR's own new section at lines 109 to 125 and its two new table rows only say that wallets can no longer refresh the removed records. The `exp` caveat already sits in the `[IMPORTANT]` block at lines 85 to 88, but an admin looking for a bulk call jumps straight to the new section or the REST tables. The code behaves as the doc says, and `CredentialScopeModel.VC_REFRESH_INTERVAL_IN_SECONDS_DEFAULT` confirms the 7 day default. Only the missing sentence in the new section belongs to this PR. The wider rewording of the existing revocation text is a pre existing gap and can wait.",
-    "fix": "Add one sentence after line 125 saying that credentials already held by wallets stay valid until their `exp` claim, which the Credential Refresh Interval sets and which defaults to 7 days. Refer to the `[IMPORTANT]` block at line 85 there.",
-    "context": [
-     [
-      "+",
-      null,
-      120,
-      "[source,bash]"
-     ],
-     [
-      "+",
-      null,
-      121,
-      "----"
-     ],
-     [
-      "+",
-      null,
-      122,
-      "DELETE /realms/{realm}/account/issued-verifiable-credentials"
-     ],
-     [
-      "+",
-      null,
-      123,
-      "----"
-     ],
-     [
-      "+",
-      null,
-      124,
-      ""
-     ],
-     [
-      "+",
-      null,
-      125,
-      "These operations are idempotent and do not remove the user's credential type entitlements. The user can receive new credentials for those types, but wallets can no longer refresh credentials associated with the removed records."
-     ]
-    ]
-   }
-  ],
+  "findings": [],
   "discussion": [
    {
     "ref": "t4627155850",
-    "status": "open",
-    "point": "The revocation wording suggests credentials become unusable, although wallets can still present them until the refresh interval ends, which matters for offboarding.",
-    "answer": "Agreed for the new section. Deleting the records blocks refresh and credential requests under the existing grants, because `OID4VCUtil.checkIssuedVerifiableCredential` looks the record up in `OID4VCIRefreshTokenProvider.validateToken` and in the credential endpoint. The `[IMPORTANT]` block at line 85 already says held credentials stay valid until `exp`, so the new paragraph at line 125 should repeat that in one sentence with the 7 day default and refer to that block.",
+    "status": "fixed",
+    "point": "The word revocation suggests the user can no longer use the credentials, while in fact only refresh stops and held credentials stay usable for up to the refresh interval.",
+    "answer": "The new bulk revocation section in `managing-credentials.adoc` at line 125 now says that held credentials remain cryptographically valid until `exp`, up to 7 days with the default refresh interval. Together with the existing IMPORTANT note at line 87, which says there is no status list, this makes the offboarding limit clear for this endpoint.",
     "kind": "thread",
     "where": "docs/documentation/server_admin/topics/oid4vci/managing-credentials.adoc:109",
     "authors": [
@@ -559,20 +507,6 @@
     "url": "https://github.com/keycloak/keycloak/pull/53645#discussion_r4627155850",
     "date": "2026-11-19",
     "last": 4627155850
-   },
-   {
-    "ref": "r5972970926",
-    "status": "open",
-    "point": "The code looks good and only the documentation needs a change.",
-    "answer": "I agree the code is fine. The doc change is covered in the thread on line 109 and in the minor finding on line 125.",
-    "kind": "review",
-    "where": "",
-    "authors": [
-     "wistefan"
-    ],
-    "url": "https://github.com/keycloak/keycloak/pull/53645#pullrequestreview-5972970926",
-    "date": "2026-11-19",
-    "last": 5972970926
    }
   ],
   "model": "claude-opus-5-5",
@@ -580,18 +514,12 @@
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
-   "changes": [
-    "I reworded the `eudi` text because the draft said the call is what issuers need for offboarding, while entitlements stay and the user can obtain new credentials.",
-    "I scoped the answer to `t4627155850` to requests under the existing grants, because the draft said the deletion blocks new credential requests, which the retained entitlements still allow.",
-    "I named the two call sites of `OID4VCUtil.checkIssuedVerifiableCredential` in that answer after confirming them in `OID4VCIRefreshTokenProvider.validateToken` and `OID4VCIssuerEndpoint.requestCredential`.",
-    "I corrected the finding and the answer to call lines 85 to 88 an `[IMPORTANT]` block instead of a note, and said the caveat already exists there.",
-    "I added to the finding detail that the 7 day default is confirmed in `CredentialScopeModel` and that only the missing sentence in the new section is this PR's part."
-   ]
+   "changes": []
   },
-  "sha": "ce2e633618925dbe0ab6f43c650ec08c80c0c459",
+  "sha": "1ee5f425e06bd7c3e804b788d484153fb7e26ecf",
   "notes": [],
   "discussed": "2026-11-19T10:12:25Z",
-  "date": "2026-11-20"
+  "date": "2026-11-26"
  },
  "50897": {
   "verdict": "comment",
@@ -3983,23 +3911,70 @@
  },
  "55424": {
   "verdict": "comment",
-  "headline": "Solid multi credential support, but alternative credentials can wipe a shared user attribute.",
-  "summary": "The PR replaces the hand written DCQL query and the single credential settings with a validated `requestedCredentials` document. It builds one DCQL credential query per requested credential, passes credential sets through, and verifies each presented credential against its own trust material identity providers and its accepted `vct` values. The per credential trust separation, the type check and the strict `vp_token` parsing are correct and well tested. One mapper interaction that the new alternatives make possible should be fixed or documented.",
-  "eudi": "Relying parties can now request a PID together with an attestation, mark attestations as optional or as alternatives, and pin trust anchors for each one. Each attestation is verified only against the trust anchors configured for it.",
+  "headline": "Solid multi-credential support, but the principal rule rejects valid credential sets.",
+  "summary": "The PR replaces the DCQL query, principal attribute and inline JWKS settings with one validated `requestedCredentials` document. Keycloak now builds one DCQL credential query per requested credential and passes the credential sets through. It verifies each presented credential against its own trust material and accepted types, and keys the claims by credential id for the mappers, all with broad test coverage. The check that the principal credential is always presented is stricter than it needs to be and rejects common configurations.",
+  "eudi": "Relying parties can now request a PID together with other attestations, with optional and alternative credentials and trust anchors per credential, which is a core ARF pattern. A layout such as \"PID required, plus one of mDL or diploma\" written as two required credential sets is rejected today and has to be written as combined options.",
   "good": [
-   "Each credential is verified only against its own trust material identity providers, and `trustMaterialOfAnotherCredentialDoesNotVerifyThePresentation` covers this.",
-   "The presented `vct` is checked against the accepted types of its credential id, and an unrequested credential id in the `vp_token` is rejected.",
-   "Config validation requires the principal credential in every option of every required set, so the brokered subject always comes from a verified presentation."
+   "Each presentation is verified with the trust material identity providers of its own credential, and `OID4VPTrustMaterialDelegationTest` covers that isolation.",
+   "The presented `vct` is now checked against the accepted types of its credential, so a wallet cannot answer a credential query with a credential of another type.",
+   "A `vp_token` key that was not requested, more than one presentation per credential, and unmet required sets are all rejected before any claim reaches the mappers."
   ],
   "findings": [
    {
     "severity": "minor",
+    "file": "services/src/main/java/org/keycloak/broker/oid4vp/RequestedCredentials.java",
+    "line": 133,
+    "title": "The principal check rejects credential sets in which every valid presentation already contains the principal.",
+    "impact": "An admin who requires the PID in one set and \"mDL or diploma\" in a second required set cannot save the identity provider, although every valid presentation carries the PID.",
+    "detail": "Copilot raised this point. The javadoc at line 129 says the method tells whether every presentation that satisfies the query carries the principal credential. The code instead requires the principal in every option of every required set, which is sufficient but not necessary. One required set whose options all contain the principal already guarantees it, because `isSatisfiedBy` needs one option of every required set. The test at line 109 of `RequestedCredentialsTest` asserts that `[{\"options\":[[\"pid\"]]},{\"options\":[[\"membership\"],[\"mdl\"]]}]` fails, although every satisfying presentation of it contains `pid`. The only way around it is to multiply the sets out into combined options such as `[[\"pid\",\"mdl\"],[\"pid\",\"diploma\"]]`, and the number of options grows with every further set. Several required sets are a normal DCQL layout in OID4VP 1.0 \u00a76.2.",
+    "fix": "Return true when the credential sets are absent or when at least one required set has the principal in all of its options (`anyMatch` over the required sets, `allMatch` over their options). Update the error message, the help texts in `OID4VPIdentityProviderFactory` and `oid4vpPrincipalHelp`, line 57 of `27_0_0.adoc`, and turn the case at line 109 of `RequestedCredentialsTest` into an `assertTrue`. The case in `principalCredentialMissingInAnOptionIsRejected` of `OID4VPMultiCredentialTest` stays invalid, and only the message it asserts at line 262 changes.",
+    "context": [
+     [
+      "+",
+      null,
+      128,
+      "    /**"
+     ],
+     [
+      "+",
+      null,
+      129,
+      "     * Whether every presentation that satisfies the query carries the principal credential, which"
+     ],
+     [
+      "+",
+      null,
+      130,
+      "     * holds when it is part of every option of every required credential set."
+     ],
+     [
+      "+",
+      null,
+      131,
+      "     */"
+     ],
+     [
+      "+",
+      null,
+      132,
+      "    @JsonIgnore"
+     ],
+     [
+      "+",
+      null,
+      133,
+      "    public boolean isPrincipalAlwaysPresented() {"
+     ]
+    ]
+   },
+   {
+    "severity": "minor",
     "file": "services/src/main/java/org/keycloak/broker/oid4vp/mappers/OID4VPSdJwtUserAttributeMapper.java",
     "line": 119,
-    "title": "A user attribute mapper of an absent alternative credential removes an attribute that another mapper just set.",
-    "impact": "An RP accepts a student card from university A or from university B as alternatives and maps both to the attribute `student_id`, and with sync mode FORCE every existing user who presents the card whose mapper runs first loses `student_id` at every login.",
-    "detail": "`updateBrokeredUser` treats an absent credential as a missing claim and calls `user.removeAttribute`. `IdentityBrokerService` runs the mappers one after the other in storage order, so when the mapper of the credential that was not presented runs last, it removes the value that the mapper of the presented credential set. New users are not affected, because `preprocessFederatedIdentity` returns early when the credential is absent. Removing the attribute when a credential is no longer presented is deliberate and tested. The problem is only the collision between two mappers that write the same attribute. The session note mapper handles this case on purpose, and its test `absentCredentialLeavesTheNoteUntouched` says an absent credential must not clear a value another mapper set. The user attribute mapper has no such guard, and the PR introduces both the alternatives and the removal on absence.",
-    "fix": "In `updateBrokeredUser`, skip the removal when another OID4VP mapper of the same identity provider writes the same attribute from a credential present in `CREDENTIAL_CLAIMS`. Add an integration test with two alternative credentials mapped to one attribute. The smaller option is to state in the mapper help text and the release notes that each user attribute must be mapped from a single credential.",
+    "title": "A mapper of an alternative credential that was not presented removes an attribute that another mapper just set.",
+    "impact": "With options `[[\"pid\",\"mdl\"],[\"pid\",\"eid\"]]` and FORCE mappers from both `mdl` and `eid` to the same custom attribute, a relogin with `eid` can leave the attribute empty, depending on the mapper order.",
+    "detail": "Copilot raised this point. Removing the custom attribute when its credential is not presented is deliberate, and `claimOfACredentialNoLongerPresentedIsRemoved` tests it. That works for one mapper per attribute. Alternative credentials are new in this PR, and mapping the same attribute such as a birth date from either of them is a natural setup. Both mappers run in `updateBrokeredUser`. When the mapper of the absent credential runs after the other one, its `user.removeAttribute` erases the value just set. One credential with several types avoids the problem only when both types can share the same trust material.",
+    "fix": "Skip the removal when another mapper of a presented credential targets the same attribute. At least state in the release notes and the mapper help that alternative credentials must map to different attributes.",
     "context": [
      [
       " ",
@@ -4044,8 +4019,8 @@
    {
     "ref": "t4664384195",
     "status": "fixed",
-    "point": "The release notes promised that saving fails for a mapper of an unrequested credential, but the server only skips such a mapper.",
-    "answer": "Lines 53 and 54 of `27_0_0.adoc` now say that Keycloak logs a warning, treats the claim as missing and removes the custom attribute unless the sync mode is Import. The comment at line 32 of `OID4VPCredentialListComponent.tsx` now explains that a stale credential stays visible so it can be changed.",
+    "point": "The author updated the release notes and the UI comment so they describe the skip of a mapper whose credential is not requested.",
+    "answer": "Confirmed. Lines 53 and 54 of `27_0_0.adoc` now say that Keycloak logs a warning, treats the claim as missing and removes the custom attribute unless the sync mode is Import. The comment in `OID4VPCredentialListComponent.tsx` now says that the stale credential stays visible so it can be changed.",
     "kind": "thread",
     "where": "docs/documentation/release_notes/topics/27_0_0.adoc:53",
     "authors": [
@@ -4054,6 +4029,20 @@
     "url": "https://github.com/keycloak/keycloak/pull/55424#discussion_r4664403370",
     "date": "2026-11-23",
     "last": 4664403370
+   },
+   {
+    "ref": "r6056378698",
+    "status": "answered",
+    "point": "The generated query leaves no way to send a fully custom DCQL query, for example with `claim_sets`.",
+    "answer": "That is true at this commit, because `DcqlQuery.fromMappers` is the only source of the query and `RequestedCredentials` rejects unknown members. A free DCQL query would drift from what the response check enforces, which is the types, the trust material for each credential and the satisfied credential sets. So I would add `claim_sets` later as a member of each requested credential rather than bring back the raw query, and leaving it out of this PR seems fine.",
+    "kind": "review",
+    "where": "",
+    "authors": [
+     "rmartinc"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/55424#pullrequestreview-6056378698",
+    "date": "2026-11-25",
+    "last": 6056378698
    }
   ],
   "model": "claude-opus-5-5",
@@ -4061,11 +4050,126 @@
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
-   "changes": []
+   "changes": [
+    "Added the integration test `principalCredentialMissingInAnOptionIsRejected` to the fix of the first finding, because it asserts the error message at line 262 and would fail when the message changes.",
+    "Merged the answer to `r6056378698` from five sentences into three without changing its content, because the format allows one to three sentences."
+   ]
   },
   "sha": "0e266861f85be4888aa21499ba1432154b685c8f",
   "notes": [],
-  "discussed": "2026-11-23T10:19:00Z",
-  "date": "2026-11-23"
+  "discussed": "2026-11-25T11:02:15Z",
+  "date": "2026-11-26"
+ },
+ "55487": {
+  "verdict": "approve",
+  "headline": "Accurate one line upgrade note addition that names the reset credentials flow.",
+  "summary": "The PR adds the reset credentials (forgot password) flow to the 26.8 upgrade note about flows that no longer mark the email as verified. At this commit neither `ResetCredentialEmail.authenticate` nor `ResetCredentialEmail.action` sets the email as verified, and `ResetCredentialsActionTokenHandler`, `ResetPassword` and `UpdatePassword` do not set it either. The test `resetPasswordDoesNotSetEmailVerified` in `tests/base/src/test/java/org/keycloak/tests/forms/ResetPasswordTest.java` runs the whole flow and asserts that the email stays unverified. The note therefore matches the code and nothing needs to change.",
+  "eudi": "There is no direct effect on EUDI deployments. The OID4VCI credential offer email entry in the same sentence is unchanged.",
+  "good": [
+   "The note now covers the most common flow where admins would notice the behaviour change.",
+   "The wording keeps the existing sentence structure and does not add a new section."
+  ],
+  "findings": [],
+  "discussion": [],
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "check": {
+   "model": "claude-fable-5-2",
+   "effort": "high",
+   "changes": [
+    "The summary now names `ResetCredentialEmail.authenticate` next to `ResetCredentialEmail.action`, because the email link enters the flow through the action token branch of `authenticate`.",
+    "The summary now cites the test `resetPasswordDoesNotSetEmailVerified`, because it covers the behaviour end to end and not only for the classes the draft listed."
+   ]
+  },
+  "sha": "27682ba8ad545e7721bb2003719f8835c362d657",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-26"
+ },
+ "55523": {
+  "verdict": "approve",
+  "headline": "Correct RFC 7515 `crit` rejection for issuer-signed and key-binding JWTs.",
+  "summary": "The PR makes `JwsToken.verifySignature` reject any protected `crit` header. This covers both the issuer-signed JWT and the key-binding JWT, because `SdJwtVerificationContext` sends both through this method. It also reads `alg` from the header that `JWSInput` decoded from the signed bytes instead of the mutable `jwsHeader` field. Keycloak understands no JOSE extensions here, so rejecting every `crit` is what RFC 7515 Section 4.1.11 requires.",
+  "eudi": "SD-JWT VC and HAIP 1.0 define no critical JOSE header parameters for credentials or key-binding JWTs, so issuers and wallets that follow them are not affected. A credential or presentation that marks an unknown extension as critical is now refused, as the JOSE rules require.",
+  "good": [
+   "The `alg` and `crit` checks now read the header that was actually signed, so a later `setJwsHeader` call cannot change the outcome.",
+   "The issuer test first verifies the same token without `crit` and then shows that adding `crit` alone makes verification fail.",
+   "The key-binding test pins the exact reason through `getCause()`, which matches the wrapping at `SdJwtVerificationContext.java:243`."
+  ],
+  "findings": [
+   {
+    "severity": "nit",
+    "file": "docs/documentation/upgrading/topics/changes/changes-27_0_0.adoc",
+    "line": 7,
+    "title": "The breaking change note covers a verifier that only the experimental OID4VP feature uses.",
+    "impact": "Readers of the 27.0.0 upgrade guide see a breaking change for a feature most deployments have not enabled.",
+    "detail": "graziang pointed out that only the OID4VP broker uses this verifier and that the feature is experimental. The code agrees. The only server caller I found is `OID4VPIdentityProviderEndpoint.verifyPresentation`, and `OID4VPIdentityProviderFactory.isSupported` gates it on `OID4VC_VP`, which is `Type.EXPERIMENTAL` in `Profile.java`. The OID4VCI issuer code under `protocol/oid4vc` only builds and signs SD-JWTs. The note asks every admin to check issuer and wallet headers, although SD-JWT VC and HAIP define no `crit` parameter that a conformant issuer or wallet would send.",
+    "fix": "Drop the section as graziang suggested, or reduce it to one sentence if the team wants to keep a record.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -4,6 +4,18 @@"
+     ],
+     [
+      " ",
+      4,
+      4,
+      "Breaking changes are identified as those that might require changes for existing users to their configurations or applications."
+     ],
+     [
+      " ",
+      5,
+      5,
+      "In minor or patch releases, {project_name} will only introduce breaking changes to fix bugs."
+     ],
+     [
+      " ",
+      6,
+      6,
+      ""
+     ],
+     [
+      "+",
+      null,
+      7,
+      "=== SD-JWT verification rejects critical JOSE header extensions"
+     ]
+    ]
+   }
+  ],
+  "discussion": [
+   {
+    "ref": "r6061377835",
+    "status": "open",
+    "point": "The upgrade note could be dropped because only the experimental OID4VP broker uses this verifier.",
+    "answer": "The code supports this. The only server caller of the verifier I found is `OID4VPIdentityProviderEndpoint.verifyPresentation`, and `OID4VPIdentityProviderFactory.isSupported` gates it on `OID4VC_VP`, which is `Type.EXPERIMENTAL` in `Profile.java`. Dropping the note or cutting it to one sentence is fine and does not block the code change.",
+    "kind": "review",
+    "where": "",
+    "authors": [
+     "graziang"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/55523#pullrequestreview-6061377835",
+    "date": "2026-11-25",
+    "last": 6061377835
+   }
+  ],
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "check": {
+   "model": "claude-fable-5-2",
+   "effort": "high",
+   "changes": [
+    "Corrected the line of the upgrade note finding from 135 to 7, because 135 is the line in the patch file and the heading sits at line 7 of `changes-27_0_0.adoc`.",
+    "Removed the ARF from the `eudi` sentence, because the claim about the ARF cannot be backed from the code or the specs the PR touches.",
+    "Added the verified caller and feature gate to the nit and to the answer for `r6061377835`, because the draft stated graziang's premise without the code that proves it.",
+    "Replaced the nit's claim about compatibility promises with what the note asks of admins, because that claim is not something the code shows."
+   ]
+  },
+  "sha": "12f1c8aa86e4c0d0318e5b285735734cfa66ccde",
+  "notes": [],
+  "discussed": "2026-11-25T16:42:08Z",
+  "date": "2026-11-26"
  }
 }
