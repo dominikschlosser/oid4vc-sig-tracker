@@ -15,7 +15,7 @@ Scale:
 
 Basis: legal (a CIR, or an ARF or ETSI requirement it relies on), profile (HAIP or the OpenID4VC specs), usable (no rule demands it, but real deployments can't do without it), security, hygiene.
 
-Context: the German PID has no stable identifier, so relying parties often need the PID plus a credential of their own, and issuers need to bind a new credential to a PID. Verifier revocation checks are a SHOULD in ARF VCR_13, but the risk analysis of VCR_14 needs them for any login with a PID or attestation. Without them a revoked credential, for example from a stolen phone, still logs someone in as its owner, so status list checks in the verifier are a blocker. No spec requires CRL or OCSP on issuer chains.
+Context: the German PID has no stable identifier, so relying parties often need the PID plus a credential of their own, and issuers need to bind a new credential to a PID. Verifier revocation checks are a SHOULD in ARF VCR_13, but the risk analysis of VCR_14 needs them for any login with a PID or attestation. Without them a revoked credential, for example from a stolen phone, still logs someone in as its owner, so status list checks in the verifier are a blocker. Certificate revocation checks on issuer and wallet provider chains are a security need, because a revoked certificate after a key leak is otherwise still trusted.
 
 For each item you rate blocker or high, name to yourself the concrete production deployment that fails without it. Downgrade if you can't name one.
 

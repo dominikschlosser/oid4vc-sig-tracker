@@ -791,12 +791,13 @@
   "note": "Helps wallets without client authentication in pre-authorized flows. HAIP wallets always authenticate."
  },
  "54561": {
-  "rating": "low",
+  "rating": "high",
   "basis": "security",
   "specs": [
    "arfm-6664-signing-cert-revocation"
   ],
-  "note": "No spec requires CRL or OCSP checks on issuer or wallet provider chains."
+  "note": "Keycloak keeps trusting a revoked issuer or wallet provider certificate in x5c chains.",
+  "why": "After an issuer's signing key leaks and its certificate is revoked, the verifier still accepts PIDs forged with it, and key attestations of a revoked wallet solution still get credentials. It is not a blocker because it needs a key compromise first, and dropping the provider from the trusted list stops the whole provider."
  },
  "54562": {
   "rating": "medium",
@@ -895,10 +896,9 @@
   "why": ""
  },
  "55595": {
-  "rating": "low",
+  "rating": "medium",
   "basis": "security",
   "specs": [],
-  "note": "This issue removes the RSA1_5 key management algorithm from Keycloak's JWE processing, including OID4VCI. The issue presents it as hardening and proposes RSA-OAEP-256 as the replacement.",
-  "why": ""
+  "note": "Keycloak still decrypts inbound JWE with RSA1_5, which is open to padding oracle attacks on the realm key."
  }
 }
