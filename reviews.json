@@ -485,20 +485,34 @@
  "53645": {
   "verdict": "approve",
   "headline": "Bulk revocation of a user's issued credential records is correct, scoped and tested.",
-  "summary": "The PR adds admin and account `DELETE` endpoints that remove all issued credential records of one user, backed by a new `removeIssuedVerifiableCredentials` model operation. Routing in `UserStorageManager` matches the existing per user methods, the JPA paths reuse the existing bulk delete queries, and the user deletion cleanup now calls the same operation. Authorization mirrors the single credential revoke endpoints, and tests cover isolation between users, idempotency, both account roles, the forbidden case on the account endpoint and federated users. Deleting the records blocks refresh because `OID4VCUtil` looks up the issued record on both the refresh grant and the credential endpoint.",
-  "eudi": "Issuers gain a one call way to stop refresh of every credential a user holds, which helps offboarding. Credentials already in wallets stay valid until `exp` because there is no status list yet, and the documentation now says so.",
+  "summary": "The PR adds admin and account `DELETE` endpoints that remove all issued credential records of one user. Both endpoints reuse the existing bulk JPQL deletes and route local and federated users like the existing single revoke. Refresh and credential requests that carry a removed `issuedCredentialId` already fail in `OID4VCUtil.checkIssuedVerifiableCredential`, so the bulk delete takes effect at once. I found nothing that must change.",
+  "eudi": "Issuers can now stop wallet refresh for every credential of a user in one call, which helps with offboarding. Credentials already in wallets stay valid until `exp` because there is no status list yet, and the docs now say so.",
   "good": [
-   "The new operation is reused in both local and federated user deletion, so there is one code path for removing a user's issued records.",
-   "Tests check that another user's records survive the bulk delete, for local users through REST and for federated users at the model layer.",
-   "The documentation states plainly that removed records only stop refresh and that held credentials stay valid until `exp`."
+   "Authorization matches the sibling endpoints: `requireManage(user)` on the admin side and `manage-account` or `manage-verifiable-credentials` on the account side.",
+   "The account endpoint takes the user only from the token, and the tests check that another user's records stay untouched.",
+   "`removeUser` and the federated `preRemove` now call the new method, so deletion logic lives in one place."
   ],
   "findings": [],
   "discussion": [
    {
+    "ref": "r5972970926",
+    "status": "fixed",
+    "point": "The code looks fine but the revocation documentation needs a change before approval.",
+    "answer": "The doc change you asked for is in. The paragraph at `managing-credentials.adoc` line 125 now explains that wallets keep valid credentials until `exp`, which is up to 7 days by default.",
+    "kind": "review",
+    "where": "",
+    "authors": [
+     "wistefan"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/53645#pullrequestreview-5972970926",
+    "date": "2026-11-19",
+    "last": 5972970926
+   },
+   {
     "ref": "t4627155850",
     "status": "fixed",
-    "point": "The word revocation suggests the user can no longer use the credentials, while in fact only refresh stops and held credentials stay usable for up to the refresh interval.",
-    "answer": "The new bulk revocation section in `managing-credentials.adoc` at line 125 now says that held credentials remain cryptographically valid until `exp`, up to 7 days with the default refresh interval. Together with the existing IMPORTANT note at line 87, which says there is no status list, this makes the offboarding limit clear for this endpoint.",
+    "point": "The revocation wording suggests the user can no longer use credentials, but wallets keep valid credentials until the refresh interval runs out.",
+    "answer": "The new paragraph at `managing-credentials.adoc` line 125 now says that credentials already held by wallets stay valid until their `exp` claim, which is up to 7 days with the default refresh interval. The existing IMPORTANT note at lines 85 to 88 points to a short refresh interval as the way to limit exposure.",
     "kind": "thread",
     "where": "docs/documentation/server_admin/topics/oid4vci/managing-credentials.adoc:109",
     "authors": [
@@ -516,10 +530,10 @@
    "effort": "high",
    "changes": []
   },
-  "sha": "1ee5f425e06bd7c3e804b788d484153fb7e26ecf",
+  "sha": "61c8f03e0132aedf2c49f2b6d3146583e99c370c",
   "notes": [],
   "discussed": "2026-11-19T10:12:25Z",
-  "date": "2026-11-26"
+  "date": "2026-11-27"
  },
  "50897": {
   "verdict": "comment",
@@ -4088,63 +4102,21 @@
  },
  "55523": {
   "verdict": "approve",
-  "headline": "Correct RFC 7515 `crit` rejection for issuer-signed and key-binding JWTs.",
-  "summary": "The PR makes `JwsToken.verifySignature` reject any protected `crit` header. This covers both the issuer-signed JWT and the key-binding JWT, because `SdJwtVerificationContext` sends both through this method. It also reads `alg` from the header that `JWSInput` decoded from the signed bytes instead of the mutable `jwsHeader` field. Keycloak understands no JOSE extensions here, so rejecting every `crit` is what RFC 7515 Section 4.1.11 requires.",
-  "eudi": "SD-JWT VC and HAIP 1.0 define no critical JOSE header parameters for credentials or key-binding JWTs, so issuers and wallets that follow them are not affected. A credential or presentation that marks an unknown extension as critical is now refused, as the JOSE rules require.",
+  "headline": "Correct RFC 7515 `crit` handling for SD-JWT issuer and key binding JWTs.",
+  "summary": "The PR makes `JwsToken.verifySignature` reject any protected `crit` header, because the SD-JWT verifier understands no JOSE extensions. It also reads `alg` from the parsed protected header in `jwsInput` instead of the mutable `jwsHeader` field. Both issuer-signed JWTs and key binding JWTs go through this method in `SdJwtVerificationContext`, so one check covers both. The change is small and correct, and the tests cover both token types.",
+  "eudi": "Wallets and issuers following SD-JWT VC and HAIP 1.0 do not use `crit`, so EUDI presentations that Keycloak verifies with this code keep working. A token that marks an unknown extension as critical is now refused, as RFC 7515 Section 4.1.11 requires.",
   "good": [
-   "The `alg` and `crit` checks now read the header that was actually signed, so a later `setJwsHeader` call cannot change the outcome.",
-   "The issuer test first verifies the same token without `crit` and then shows that adding `crit` alone makes verification fail.",
-   "The key-binding test pins the exact reason through `getCause()`, which matches the wrapping at `SdJwtVerificationContext.java:243`."
+   "The check sits in the shared `JwsToken.verifySignature`, so issuer-signed JWTs and key binding JWTs both get it.",
+   "The `alg` comparison now uses the header that was actually signed, not a field a caller can overwrite with `setJwsHeader`.",
+   "The issuer test first shows that the same token without `crit` verifies. The issuer path hides the reason behind a generic error, so this is what ties the failure to `crit`."
   ],
-  "findings": [
-   {
-    "severity": "nit",
-    "file": "docs/documentation/upgrading/topics/changes/changes-27_0_0.adoc",
-    "line": 7,
-    "title": "The breaking change note covers a verifier that only the experimental OID4VP feature uses.",
-    "impact": "Readers of the 27.0.0 upgrade guide see a breaking change for a feature most deployments have not enabled.",
-    "detail": "graziang pointed out that only the OID4VP broker uses this verifier and that the feature is experimental. The code agrees. The only server caller I found is `OID4VPIdentityProviderEndpoint.verifyPresentation`, and `OID4VPIdentityProviderFactory.isSupported` gates it on `OID4VC_VP`, which is `Type.EXPERIMENTAL` in `Profile.java`. The OID4VCI issuer code under `protocol/oid4vc` only builds and signs SD-JWTs. The note asks every admin to check issuer and wallet headers, although SD-JWT VC and HAIP define no `crit` parameter that a conformant issuer or wallet would send.",
-    "fix": "Drop the section as graziang suggested, or reduce it to one sentence if the team wants to keep a record.",
-    "context": [
-     [
-      "@",
-      null,
-      null,
-      "@@ -4,6 +4,18 @@"
-     ],
-     [
-      " ",
-      4,
-      4,
-      "Breaking changes are identified as those that might require changes for existing users to their configurations or applications."
-     ],
-     [
-      " ",
-      5,
-      5,
-      "In minor or patch releases, {project_name} will only introduce breaking changes to fix bugs."
-     ],
-     [
-      " ",
-      6,
-      6,
-      ""
-     ],
-     [
-      "+",
-      null,
-      7,
-      "=== SD-JWT verification rejects critical JOSE header extensions"
-     ]
-    ]
-   }
-  ],
+  "findings": [],
   "discussion": [
    {
     "ref": "r6061377835",
-    "status": "open",
-    "point": "The upgrade note could be dropped because only the experimental OID4VP broker uses this verifier.",
-    "answer": "The code supports this. The only server caller of the verifier I found is `OID4VPIdentityProviderEndpoint.verifyPresentation`, and `OID4VPIdentityProviderFactory.isSupported` gates it on `OID4VC_VP`, which is `Type.EXPERIMENTAL` in `Profile.java`. Dropping the note or cutting it to one sentence is fine and does not block the code change.",
+    "status": "fixed",
+    "point": "The upgrade note can go because only the experimental OID4VP broker uses this verifier.",
+    "answer": "The diff no longer touches `changes-27_0_0.adoc`, so the note is gone. Dropping it is reasonable. Keycloak's own signing path cannot emit `crit`, because `JWSBuilder` writes only the standard header fields, and you point out that the verifier sits behind an experimental feature.",
     "kind": "review",
     "where": "",
     "authors": [
@@ -4161,15 +4133,12 @@
    "model": "claude-fable-5-2",
    "effort": "high",
    "changes": [
-    "Corrected the line of the upgrade note finding from 135 to 7, because 135 is the line in the patch file and the heading sits at line 7 of `changes-27_0_0.adoc`.",
-    "Removed the ARF from the `eudi` sentence, because the claim about the ARF cannot be backed from the code or the specs the PR touches.",
-    "Added the verified caller and feature gate to the nit and to the answer for `r6061377835`, because the draft stated graziang's premise without the code that proves it.",
-    "Replaced the nit's claim about compatibility promises with what the note asks of admins, because that claim is not something the code shows."
+    "Put `crit` in backticks in the headline, because code names go in backticks and the rest of the draft already does this."
    ]
   },
-  "sha": "12f1c8aa86e4c0d0318e5b285735734cfa66ccde",
+  "sha": "171cad0c51c3f80c025f49fe603264320adf65f7",
   "notes": [],
-  "discussed": "2026-11-25T16:42:08Z",
-  "date": "2026-11-26"
+  "discussed": "2026-11-26T18:24:03Z",
+  "date": "2026-11-27"
  }
 }

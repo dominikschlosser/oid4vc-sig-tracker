@@ -876,5 +876,28 @@
   "specs": [],
   "note": "This PR adds the forgot password flow to an upgrade note about email verification. It does not touch OpenID4VC issuance or presentation.",
   "why": ""
+ },
+ "55578": {
+  "rating": "medium",
+  "basis": "profile",
+  "specs": [
+   "haip-5-dcql"
+  ],
+  "note": "Keycloak's OID4VP identity provider can't send DCQL claim_sets, so a relying party can't mark PID claims as optional when only some member states issue them. It can still request the mandatory PID claims.",
+  "why": ""
+ },
+ "55579": {
+  "rating": "low",
+  "basis": "usable",
+  "specs": [],
+  "note": "This issue asks for an advanced setting to edit the DCQL query that the OID4VP identity provider generates. The stated use is non-standard properties for specialized wallets.",
+  "why": ""
+ },
+ "55595": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [],
+  "note": "This issue removes the RSA1_5 key management algorithm from Keycloak's JWE processing, including OID4VCI. The issue presents it as hardening and proposes RSA-OAEP-256 as the replacement.",
+  "why": ""
  }
 }
