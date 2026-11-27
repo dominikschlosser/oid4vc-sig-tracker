@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Collects OpenID4VC related issues and PRs of keycloak/keycloak into items.json."""
-import json, re, subprocess, sys, time
+import json, os, re, subprocess, sys, time
 
 REPO = "keycloak/keycloak"
 QUERIES = [
@@ -91,6 +91,9 @@ def threads(nums):
 def main():
     cand = set()
     labelled = search(QUERIES[0])
+    # scope.py picks items in the EUDI scope that the search words miss. They count as labelled.
+    if os.path.exists("scope.json"):
+        labelled |= set(json.load(open("scope.json"))["in"])
     cand |= labelled
     for q in QUERIES[1:]:
         cand |= search(q)

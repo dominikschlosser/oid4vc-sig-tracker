@@ -12,6 +12,9 @@ blind-*.json
 review-input*.json
 review-out-*.json
 new-ratings.json
+recheck*.json
+scope-input.json
+scope-answer.json
 todo.txt
 deploy.env
 site/version.txt
