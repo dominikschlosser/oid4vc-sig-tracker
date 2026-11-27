@@ -3,37 +3,55 @@
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Old duplicate of #42889. It has no open work of its own."
+  "note": "Old duplicate of #42889. It has no open work of its own.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "29997": {
   "rating": "none",
   "basis": "hygiene",
   "specs": [],
-  "note": "EUDI does not issue access tokens or ID tokens as credentials."
+  "note": "EUDI does not issue access tokens or ID tokens as credentials.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "30358": {
   "rating": "none",
   "basis": "hygiene",
   "specs": [],
-  "note": "Claim mapping for token exchange. EUDI flows don't use it."
+  "note": "Claim mapping for token exchange. EUDI flows don't use it.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "31493": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "A question about how mappers are chosen. It needs an answer or a small cleanup."
+  "note": "A question about how mappers are chosen. It needs an answer or a small cleanup.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "31674": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Test refactoring."
+  "note": "Test refactoring.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "32956": {
-  "rating": "low",
+  "rating": "none",
   "basis": "hygiene",
   "specs": [],
-  "note": "Internal refactoring of client scope configuration."
+  "note": "The author says this client scope refactoring has nothing to do with OID4VCI. It serves a custom extension.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "39042": {
   "rating": "medium",
@@ -41,41 +59,57 @@
   "specs": [
    "haip-4-dpop"
   ],
-  "note": "HAIP requires DPoP. A server nonce prevents proofs made in advance."
+  "note": "HAIP requires DPoP. A server nonce prevents proofs made in advance.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "39260": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Moves endpoints into their own class. Internal cleanup."
+  "note": "Moves endpoints into their own class. Internal cleanup.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "39828": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "The admin UI dropdown lacks custom attributes. The API already accepts them."
+  "note": "The admin UI dropdown lacks custom attributes. The API already accepts them.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "40038": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Consistent naming in docs and UI text."
+  "note": "Consistent naming in docs and UI text.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "42889": {
   "rating": "high",
   "basis": "usable",
   "specs": [],
-  "note": "The open part is promotion to supported. Production deployments need that."
+  "note": "The open part is promotion to supported. Production deployments need that.",
+  "why": "A PID or attestation provider that needs vendor support and stable APIs can't run an experimental or preview feature in production. It is not a blocker because the preview feature already issues credentials that work.",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "43136": {
   "rating": "blocker",
   "basis": "legal",
   "specs": [
-   "c2979-tr-wia-3",
-   "arf-wua-25",
-   "haip-4-4-1-client-auth-required"
+   "arf-wua-25"
   ],
-  "note": "PID and attestation providers must check the wallet attestation during client authentication."
+  "note": "PID and attestation providers must check the wallet attestation during client authentication.",
+  "why": "A PID provider must verify the wallet instance attestation before it issues a PID, and the ABCA support for that is still experimental and incomplete. Without it a PID provider can't issue lawfully to EUDI wallets.",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "43396": {
   "rating": "medium",
@@ -83,7 +117,10 @@
   "specs": [
    "arf-issu-01a"
   ],
-  "note": "OID4VCI 1.0 is required, but most of it is already in place."
+  "note": "OID4VCI 1.0 is required, but most of it is already in place.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "43400": {
   "rating": "low",
@@ -91,16 +128,21 @@
   "specs": [
    "abca-7-1-trusted-attester"
   ],
-  "note": "The ABCA authenticator now checks trusted attesters. The issue is marked for closing."
+  "note": "The ABCA authenticator now checks trusted attesters. The issue is marked for closing.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "43939": {
   "rating": "high",
   "basis": "usable",
   "specs": [
-   "haip-9-3-1-1-no-preexisting",
    "arf-vcr-11a"
   ],
-  "note": "Still open: revocation, and issuance to wallets that are not registered in advance."
+  "note": "Still open: revocation, and issuance to wallets that are not registered in advance.",
+  "why": "A PID or attestation provider needs a supported feature with revocation to run issuance in production. It is not a blocker because the preview feature works and the blocking gaps are tracked in their own items.",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "43974": {
   "rating": "low",
@@ -108,33 +150,41 @@
   "specs": [
    "c2977-annex-4-2-nbf-exp"
   ],
-  "note": "Main already sets exp from the credential refresh interval. This looks done."
+  "note": "Main already sets exp from the credential refresh interval. This looks done.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44206": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Cleanup of the SD-JWT library API. Maintainers call it minor."
+  "note": "Cleanup of the SD-JWT library API. Maintainers call it minor.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44745": {
-  "rating": "high",
+  "rating": "medium",
   "basis": "security",
   "specs": [
    "vci-4-1-1-tx-code"
   ],
-  "note": "Anyone with the offer-create role can get offers for other users until tx_code works.",
-  "why": "A user with the offer-create role can get credentials in other users' names. It is High and not Blocker because it needs that privileged role."
+  "note": "The REST offer endpoint now needs its own experimental feature. When an admin enables it, anyone with the offer-create role can still get offers for other users.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44768": {
-  "rating": "high",
+  "rating": "medium",
   "basis": "legal",
   "specs": [
-   "c2979-tr-wia-3",
-   "arf-wua-25",
-   "haip-4-4-1-client-auth-required"
+   "arf-wua-25"
   ],
-  "note": "Issuers must check the wallet attestation during issuance.",
-  "why": "The implementing regulation requires PID providers to check the wallet attestation. Parts of it are merged, the rest is open."
+  "note": "The ABCA authenticator already verifies attestations against trusted attesters. The remaining claim and algorithm checks are also tracked in #51578.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44769": {
   "rating": "medium",
@@ -142,15 +192,19 @@
   "specs": [
    "haip-4-4-1-client-auth-required"
   ],
-  "note": "Server challenges replace nonces chosen by the client in attestation PoPs."
+  "note": "Server challenges replace nonces chosen by the client in attestation PoPs.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44770": {
-  "rating": "medium",
+  "rating": "high",
   "basis": "security",
-  "specs": [
-   "abca-7-1-trusted-attester"
-  ],
-  "note": "Stops replay of attestation PoP JWTs."
+  "specs": [],
+  "note": "Keycloak does not track the jti of attestation PoP JWTs. A captured PoP JWT can be replayed in another token request.",
+  "why": "An attacker who captures a wallet's attestation headers can authenticate as that wallet instance at the token endpoint again, as #51111 shows. It is High and not Blocker because the attacker also needs the captured headers and a second valid grant.",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44771": {
   "rating": "medium",
@@ -158,22 +212,30 @@
   "specs": [
    "haip-4-4-1-client-auth-required"
   ],
-  "note": "Binds refresh tokens to the attested wallet instance."
+  "note": "Binds refresh tokens to the attested wallet instance.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44772": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Admin UI for attestation trust settings."
+  "note": "Admin UI for attestation trust settings. Trusted attester keys can already be configured since #48269.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44831": {
-  "rating": "medium",
+  "rating": "low",
   "basis": "security",
   "specs": [
-   "vci-3-5-mitigations",
-   "vci-4-1-1-short-lived-single-use"
+   "vci-3-5-mitigations"
   ],
-  "note": "Only the token audience limit is open, and it is partly done."
+  "note": "The last open item of this epic is the token audience limit in #44834. Pre-authorized access tokens are already limited to the credential endpoint, so the epic looks done.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44834": {
   "rating": "low",
@@ -181,28 +243,39 @@
   "specs": [
    "vci-3-5-mitigations"
   ],
-  "note": "Looks done. Pre-authorized access tokens are already limited to the credential endpoint."
+  "note": "Looks done. Pre-authorized access tokens are already limited to the credential endpoint.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "44960": {
   "rating": "medium",
   "basis": "usable",
   "specs": [
-   "vci-6-1-preauth-client-auth-optional",
-   "vci-12-3-anonymous-preauth"
+   "vci-6-1-preauth-client-auth-optional"
   ],
-  "note": "Wallets are not registered clients. Only REST offers still bind the code to one client."
+  "note": "Wallets are not registered clients. Only REST offers still bind the code to one client.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "45851": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Vague follow-ups from test work. The flows work."
+  "note": "Vague follow-ups from test work. The flows work.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46200": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Admin permissions for credential management."
+  "note": "Admin permissions for credential management.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46212": {
   "rating": "high",
@@ -211,13 +284,18 @@
    "arf-vcr-01"
   ],
   "note": "Issuers of PIDs and qualified attestations need status lists. Keycloak has no status list of its own.",
-  "why": "Credentials valid for more than 24 hours need a status list. It is not a blocker because a custom protocol mapper can add a status claim that points to an external status list server."
+  "why": "A PID provider that issues credentials valid for months can't revoke one after a phone theft without a status list. It is not a blocker because a custom protocol mapper can add a status claim that points to an external status list server.",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46264": {
   "rating": "medium",
   "basis": "usable",
   "specs": [],
-  "note": "One configuration can then serve several records, such as multiple diplomas."
+  "note": "One configuration can then serve several records, such as multiple diplomas.",
+  "why": "",
+  "checked": "2026-11-27T15:23:36Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46269": {
   "rating": "medium",
@@ -551,7 +629,8 @@
    "arf-vcr-14"
   ],
   "note": "A verifier without status list checks accepts revoked PIDs and attestations.",
-  "why": "Without the check, a PID revoked after a phone was stolen still logs the thief in as its owner. VCR_13 is only a SHOULD, but the risk analysis that VCR_14 requires calls for the check in any login with a PID, and short-lived credentials that avoid revocation mean reissuing every day."
+  "why": "Without the check, a PID revoked after a phone was stolen still logs the thief in as its owner. VCR_13 is only a SHOULD, but the risk analysis that VCR_14 requires calls for the check in any login with a PID, and short-lived credentials that avoid revocation mean reissuing every day.",
+  "manual": true
  },
  "50666": {
   "rating": "high",
@@ -900,5 +979,164 @@
   "basis": "security",
   "specs": [],
   "note": "Keycloak still decrypts inbound JWE with RSA1_5, which is open to padding oracle attacks on the realm key."
+ },
+ "55177": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This PoC adds post-quantum TLS authentication to the HTTPS listener. No EUDI rule asks for post-quantum TLS.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55204": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This PR adds FAPI 2.0 with DPoP to the OIDC identity providers when Keycloak brokers to an upstream IdP. EUDI issuance and presentation don't use that brokering path.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55260": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This issue asks for a configurable typ header in client assertions that the OIDC broker sends. It concerns brokering to external IdPs and not OpenID4VC.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55278": {
+  "rating": "low",
+  "basis": "usable",
+  "specs": [],
+  "note": "This issue lets admins set the kid of generated EC and EdDSA keys. Credential signing keys in EUDI are found through x5c, so the kid format rarely matters.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55343": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This PR enforces the client PKCE setting for the device grant. Wallets don't use the device grant.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55345": {
+  "rating": "low",
+  "basis": "profile",
+  "specs": [],
+  "note": "This PR accepts several resource parameters in one request, also for the pre-authorized code grant. A wallet needs only one resource value to reach one credential issuer.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55356": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "haip-4-fapi2-pkce-par"
+  ],
+  "note": "This PR backports to 26.8 the CVE fix for codes issued without PKCE through the reset credentials page. An attacker still has to intercept the code, and main already has the fix.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55358": {
+  "rating": "medium",
+  "basis": "security",
+  "specs": [
+   "haip-4-fapi2-pkce-par"
+  ],
+  "note": "This PR backports to 26.6 the CVE fix for codes issued without PKCE through the reset credentials page. An attacker still has to intercept the code, and main already has the fix.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55395": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This PR loads ML-DSA keys from Java keystores. EUDI credentials are signed with ECDSA and don't use ML-DSA.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55402": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [
+   "haip-4-dpop"
+  ],
+  "note": "This PR moves DPoP and mTLS binding checks into one shared verifier. It changes only two lines of the credential endpoint, so the gain for EUDI is cleaner code.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55427": {
+  "rating": "low",
+  "basis": "security",
+  "specs": [],
+  "note": "This PR keeps a JWT client assertion in the replay store until it expires. The replay window it closes is at most a few seconds of clock skew.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55500": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This issue reports a startup failure with a PEM server certificate and a JCEKS truststore. It is a server configuration regression without a link to OpenID4VC.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55539": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This issue switches the DPoP replay cache keys from SHA-1 to SHA-256. DPoP proofs keep working as before.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55540": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This issue publishes x5t#S256 in the realm JWKS and broker assertions. EUDI credentials carry their certificates in x5c.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55542": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This issue makes OCSP requests use SHA-256 certificate IDs. Revocation checks keep working, and responders that accept only SHA-1 may need care.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55593": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This issue allows token exchange delegation of DPoP-bound tokens to agents. EUDI flows don't use token exchange.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55596": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This issue replaces the JOSE EdDSA identifier with Ed25519 and Ed448. EUDI credentials and HAIP use ES256.",
+  "why": "",
+  "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
  }
 }
