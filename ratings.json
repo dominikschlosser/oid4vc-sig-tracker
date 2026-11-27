@@ -545,12 +545,13 @@
   "note": "CIR 2026/1731 dropped the x509_hash requirement, so some wallets use x509_san_dns."
  },
  "50665": {
-  "rating": "medium",
-  "basis": "legal",
+  "rating": "blocker",
+  "basis": "security",
   "specs": [
-   "arf-vcr-13"
+   "arf-vcr-14"
   ],
-  "note": "Verifier revocation checks are only a SHOULD."
+  "note": "A verifier without status list checks accepts revoked PIDs and attestations.",
+  "why": "Without the check, a PID revoked after a phone was stolen still logs the thief in as its owner. VCR_13 is only a SHOULD, but the risk analysis that VCR_14 requires calls for the check in any login with a PID, and short-lived credentials that avoid revocation mean reissuing every day."
  },
  "50666": {
   "rating": "high",
