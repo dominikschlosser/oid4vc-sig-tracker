@@ -301,22 +301,30 @@
   "rating": "medium",
   "basis": "security",
   "specs": [
-   "vci-3-5-mitigations",
    "vci-4-1-1-tx-code"
   ],
-  "note": "Keycloak removed tx_code, and #47652 restores it. Delivery channels and a per-offer setting are open."
+  "note": "Keycloak removed tx_code, and #47652 restores it. Delivery channels and a per-offer setting are open.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46489": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Separate scopes per configuration already work."
+  "note": "Separate scopes per configuration already work.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46516": {
   "rating": "low",
   "basis": "security",
   "specs": [],
-  "note": "Optional protection of issuer_state against tampering."
+  "note": "Optional protection of issuer_state against tampering.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46518": {
   "rating": "medium",
@@ -324,7 +332,10 @@
   "specs": [
    "vci-4-1-1-tx-code"
   ],
-  "note": "Sends the tx_code out of band, so admins never see it."
+  "note": "Sends the tx_code out of band, so admins never see it.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46519": {
   "rating": "low",
@@ -332,16 +343,21 @@
   "specs": [
    "vci-4-1-1-tx-code"
   ],
-  "note": "tx_code for the AIA offer flow. The main tx_code work covers it."
+  "note": "tx_code for the AIA offer flow. The main tx_code work covers it.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46520": {
   "rating": "low",
   "basis": "security",
   "specs": [
-   "vci-4-1-1-tx-code",
-   "vci-3-5-mitigations"
+   "vci-4-1-1-tx-code"
   ],
-  "note": "tx_code for REST offers. The main tx_code work covers it."
+  "note": "tx_code for REST offers. The main tx_code work covers it.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46521": {
   "rating": "low",
@@ -349,7 +365,10 @@
   "specs": [
    "vci-4-1-1-tx-code"
   ],
-  "note": "tx_code for offers sent by email. The main tx_code work covers it."
+  "note": "tx_code for offers sent by email. The main tx_code work covers it.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46522": {
   "rating": "medium",
@@ -357,13 +376,19 @@
   "specs": [
    "vci-4-1-1-tx-code"
   ],
-  "note": "Issuers need to decide per offer whether a transaction code is required."
+  "note": "Issuers need to decide per offer whether a transaction code is required.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46854": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Admin switch to turn on the pre-authorized grant per client."
+  "note": "Admin switch to turn on the pre-authorized grant per client.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46888": {
   "rating": "low",
@@ -371,19 +396,28 @@
   "specs": [
    "haip-6-1-1-x5c-required"
   ],
-  "note": "A self-signed certificate does not chain to an EUDI trust anchor."
+  "note": "A self-signed certificate does not chain to an EUDI trust anchor.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "46896": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Moves an existing scope policy to client policies."
+  "note": "Moves an existing scope policy to client policies.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "47245": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Offers by reference work with wallets and keep the QR code small."
+  "note": "Offers by reference work with wallets and keep the QR code small.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "47652": {
   "rating": "high",
@@ -392,13 +426,18 @@
    "vci-3-5-mitigations"
   ],
   "note": "tx_code is the main protection against stolen pre-authorized offers. Keycloak removed it, and this issue restores it.",
-  "why": "Without tx_code, anyone who gets hold of a pre-authorized offer link or QR code receives the credential, and OID4VCI asks for a mitigation. It is not a blocker because deployments can use the authorization code flow, which HAIP requires anyway."
+  "why": "Without tx_code, anyone who gets hold of a pre-authorized offer link or QR code receives the credential, and OID4VCI asks for a mitigation. It is not a blocker because deployments can use the authorization code flow, which HAIP requires anyway.",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "47787": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Admin UI review for credential client scopes."
+  "note": "Admin UI review for credential client scopes.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "48106": {
   "rating": "blocker",
@@ -407,49 +446,67 @@
    "arf-issu-19b"
   ],
   "note": "PID and attestation providers must get wallet provider trust anchors from ETSI lists.",
-  "why": "Issuers must check wallet attestations against the wallet provider list. Copying its trust anchors by hand misses updates and withdrawn providers."
+  "why": "Issuers must check wallet attestations against the wallet provider list. Copying its trust anchors by hand misses updates and withdrawn providers.",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "48220": {
   "rating": "medium",
   "basis": "profile",
   "specs": [],
-  "note": "Conformance tests show interoperability. HAIP tests matter more for EUDI."
+  "note": "Conformance tests show interoperability. HAIP tests matter more for EUDI.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "48268": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Order of authenticators in the default client flow."
+  "note": "Order of authenticators in the default client flow.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "48270": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Code cleanup."
+  "note": "Code cleanup.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "48489": {
   "rating": "high",
   "basis": "usable",
   "specs": [
-   "vci-4-1-1-short-lived-single-use",
-   "vci-12-3-anonymous-preauth"
+   "vci-4-1-1-short-lived-single-use"
   ],
-  "note": "Pre-authorized issuance is common for attestations. The open part has security gaps."
+  "note": "Pre-authorized issuance is common for attestations. The open part has security gaps.",
+  "why": "An attestation provider that emails pre-authorized offers, such as a university issuing diplomas, hands the credential to anyone who gets the link while tx_code is missing. It is not a blocker because HAIP issuers can use the authorization code flow, which already works.",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "48490": {
   "rating": "high",
   "basis": "usable",
   "specs": [
-   "vci-3-5-mitigations",
-   "vci-12-3-anonymous-preauth"
+   "vci-3-5-mitigations"
   ],
-  "note": "Open: tx_code, anonymous wallet access and codes leaked in logs."
+  "note": "Open: tx_code, anonymous wallet access and codes leaked in logs.",
+  "why": "The preview still lacks tx_code and leaks pre-authorized codes in debug logs, so an attestation provider can't safely send offers by email or QR code. It is not a blocker because the authorization code flow covers HAIP issuance.",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "48491": {
   "rating": "medium",
   "basis": "usable",
   "specs": [],
-  "note": "Production pre-authorized issuance needs supported status."
+  "note": "Production pre-authorized issuance needs supported status.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "48902": {
   "rating": "low",
@@ -457,29 +514,39 @@
   "specs": [
    "vci-4-1-1-short-lived-single-use"
   ],
-  "note": "A retest on main shows the code is single use. The issue looks ready to close."
+  "note": "A retest on main shows the code is single use. The issue looks ready to close.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "49335": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Performance optimization for stored credentials."
+  "note": "Performance optimization for stored credentials.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "49415": {
   "rating": "high",
   "basis": "usable",
   "specs": [],
   "note": "Wallet sign-in for relying parties. The first verifier version is merged.",
-  "why": "Wallet sign-in is the main use case for relying parties. The first version is merged, and the rest is still open."
+  "why": "A relying party such as a public authority portal can't let citizens sign in with their PID without a verifier. It is not a blocker because the first verifier version is merged and the blocking gaps are tracked in their own items.",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "49815": {
-  "rating": "high",
+  "rating": "medium",
   "basis": "legal",
   "specs": [
-   "arf-vcr-07a",
-   "c2977-art-5-7-validity-status"
+   "arf-vcr-07a"
   ],
-  "note": "Revoking all credentials of a user or a wallet, for example after a user request or a wallet compromise."
+  "note": "This epic revokes all credentials of a user or a wallet at once. Revoking a single credential is tracked separately in #46201.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "49816": {
   "rating": "medium",
@@ -487,19 +554,28 @@
   "specs": [
    "arf-vcr-07a"
   ],
-  "note": "Lets a PID provider revoke all credentials of a user on request."
+  "note": "Lets a PID provider revoke all credentials of a user on request.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "49817": {
   "rating": "medium",
   "basis": "usable",
   "specs": [],
-  "note": "Revokes all credentials of one wallet, for example after a wallet compromise."
+  "note": "Revokes all credentials of one wallet, for example after a wallet compromise.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "49818": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Admin console button for the revocation REST API."
+  "note": "Admin console button for the revocation REST API.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "49819": {
   "rating": "medium",
@@ -507,13 +583,19 @@
   "specs": [
    "arf-vcr-07a"
   ],
-  "note": "Users can revoke their own credentials in the account console. The ARF requires that users can ask for revocation."
+  "note": "Users can revoke their own credentials in the account console. The ARF requires that users can ask for revocation.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "49821": {
   "rating": "low",
   "basis": "hygiene",
   "specs": [],
-  "note": "Admin UI action for the wallet revocation API."
+  "note": "Admin UI action for the wallet revocation API.",
+  "why": "",
+  "checked": "2026-11-28T06:42:07Z",
+  "rules": "7ba2d79152a94c62"
  },
  "49965": {
   "rating": "low",
@@ -1137,6 +1219,24 @@
   "note": "This issue replaces the JOSE EdDSA identifier with Ed25519 and Ed448. EUDI credentials and HAIP use ES256.",
   "why": "",
   "checked": "2026-11-27T15:16:43Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55501": {
+  "rating": "none",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "This PR fixes the HTTPS truststore type for inbound TLS client certificates. EUDI issuer and verifier flows do not depend on it.",
+  "why": "",
+  "checked": "2026-11-28T06:38:56Z",
+  "rules": "7ba2d79152a94c62"
+ },
+ "55627": {
+  "rating": "low",
+  "basis": "hygiene",
+  "specs": [],
+  "note": "The Jackson 3 migration is an internal refactoring. It also touches token and key handling, but EUDI flows don't wait for it.",
+  "why": "",
+  "checked": "2026-11-28T06:38:56Z",
   "rules": "7ba2d79152a94c62"
  }
 }

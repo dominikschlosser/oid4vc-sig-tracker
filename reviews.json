@@ -67,69 +67,21 @@
  },
  "54522": {
   "verdict": "approve",
-  "headline": "Signed LoTE trust anchors fail closed on every path and are well tested.",
-  "summary": "The PR adds an `etsi-trust-list` identity provider and lets `X509TrustMaterial` accept subordinate CAs as anchors. The provider downloads an ETSI TS 119 602 LoTE, verifies it against pinned signing certificates, checks `LoTEType`, service type, service status and `NextUpdate`, and exposes the listed CA certificates as X.509 trust anchors. I followed the null result of `validateX509Chain` through the OID4VCI key attestation, attestation based client authentication and OID4VP callers, and an unavailable list never yields a key from this provider and no caller uses `x5c[0]` unverified. Every earlier review point is addressed, and the one gap left is a retry pattern that can wait.",
-  "eudi": "Keycloak can now take Wallet Provider, PID Provider and PubEAA Provider LoTEs as trust anchors for key attestations, client attestations with `x5c` and SD-JWT VC presentations. Admins must pin the list signing certificates and update them on rotation, because Lists of Trusted Lists and revocation are follow ups.",
+  "headline": "Signed ETSI LoTE trust works, fails closed, and all earlier review points are addressed.",
+  "summary": "The PR adds an `etsi-trust-list` identity provider. It downloads a signed ETSI TS 119 602 LoTE, verifies it against pinned signing certificates, checks `LoTEType`, service type, service status and `NextUpdate`, and exposes the listed CA certificates as X.509 trust anchors. It also lets `X509TrustMaterial` accept subordinate CAs and makes the reload keys endpoint reach providers that are not login providers. The cache handling fails closed when a list is missing, invalid or expired, other trust providers keep working, and the earlier review points are fixed in the code, so nothing needs to change before merge.",
+  "eudi": "Keycloak can now take Wallet Provider, PID Provider and PubEAA Provider LoTEs directly as trust for key attestations, `x5c` client attestations and SD-JWT VC presentations, while attestations that only carry a `kid` are rejected. Admins still have to pin the list signing certificates and update them on rotation, because Lists of Trusted Lists and CRL checks come in later PRs.",
   "good": [
-   "A failed download, a bad signature, a wrong `LoTEType` or a list past `NextUpdate` removes the provider's anchors without breaking other trust providers of the same client.",
-   "Only CA certificates that are currently valid become anchors, so one bad entry on a list cannot make the `X509TrustMaterial` constructor throw and disable the whole list.",
-   "The tests cover scope filtering with a root CA in the wrong scope, a renewed CA next to its expired predecessor, forced reload and a fixture with the published list shape."
+   "A list that cannot be loaded makes only this provider return no trust material, so the other providers of a client keep working, and `unavailableListDoesNotBlockOtherTrustProviders` tests this.",
+   "The cache entry expires at the earlier of the refresh interval and `NextUpdate`, and a list that is past `NextUpdate` or has none is never loaded as trust.",
+   "The tests cover signature, LoTE type, service type and status scoping, withdrawal on refresh, forced reload and a fixture in the published JSON shape."
   ],
-  "findings": [
-   {
-    "severity": "followup",
-    "file": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java",
-    "line": 74,
-    "title": "An unusable list is downloaded again on every trust decision.",
-    "impact": "When the list endpoint is down or the operator publishes late past `NextUpdate`, every client or key attestation that presents `x5c` and every OID4VP response triggers a full download of the list.",
-    "detail": "`loadKeys` throws for a download, signature or expiry failure. `InfinispanPublicKeyStorageProvider.reloadKeys` then leaves the old entry and its `lastRequestTime` untouched, so `minTimeBetweenRequests` never throttles the next attempt. Only concurrent calls share one download through `tasksInProgress`. This is the shared cache behaviour and is different from the Copilot throttle thread the author already dismissed, which was about stale keys inside the throttle window. The discontinued list path at line 69 already caches an empty result, so the two failure paths behave differently.",
-    "fix": "Return an empty `PublicKeysWrapper` with a short fixed expiry, for example 60 seconds, for an expired list and for a failed download, as the discontinued case already does. Adjust `failedDownloadIsRetried` and `failedRefreshRejectsTheListUntilAValidListIsAvailable` to advance the time offset past that expiry.",
-    "context": [
-     [
-      "+",
-      null,
-      69,
-      "            return new PublicKeysWrapper(List.of(), refreshAt);"
-     ],
-     [
-      "+",
-      null,
-      70,
-      "        }"
-     ],
-     [
-      "+",
-      null,
-      71,
-      ""
-     ],
-     [
-      "+",
-      null,
-      72,
-      "        long nextUpdate = Instant.parse(list.schemeInformation().nextUpdate()).toEpochMilli();"
-     ],
-     [
-      "+",
-      null,
-      73,
-      "        if (nextUpdate <= now) {"
-     ],
-     [
-      "+",
-      null,
-      74,
-      "            throw new IllegalStateException(\"Trust list expired at \" + list.schemeInformation().nextUpdate());"
-     ]
-    ]
-   }
-  ],
+  "findings": [],
   "discussion": [
    {
     "ref": "t4479328170",
     "status": "fixed",
-    "point": "The empty check for the signing certificates sat inside the `try`, so an empty field got the wrong message.",
-    "answer": "Fixed. The `try` at `EtsiTrustListIdentityProviderConfig.java:51` now wraps only the parsing, and the empty check follows it at line 56. `adminApiRejectsIncompleteConfiguration` asserts the message.",
+    "point": "An empty signing certificate field reported the PEM bundle error instead of the missing certificate error.",
+    "answer": "The empty check now runs after the `try` block in `EtsiTrustListIdentityProviderConfig.java:56`, and `adminApiRejectsIncompleteConfiguration` asserts the message for an empty field.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java:51",
     "authors": [
@@ -142,8 +94,8 @@
    {
     "ref": "t4479328188",
     "status": "fixed",
-    "point": "An unparseable refresh interval was reported as not positive.",
-    "answer": "Fixed. `validate` now catches `NumberFormatException` and reports that the interval must be a number of seconds, and `adminApiRejectsIncompleteConfiguration` tests it with `abc`.",
+    "point": "A refresh interval that does not parse was reported as not positive.",
+    "answer": "The `NumberFormatException` now gets its own message at `EtsiTrustListIdentityProviderConfig.java:63`, and the admin API test checks both messages.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProviderConfig.java:103",
     "authors": [
@@ -156,8 +108,8 @@
    {
     "ref": "t4479328201",
     "status": "answered",
-    "point": "Clause 6.6.3 allows end entity certificates in `ServiceDigitalIdentity`, and the provider drops them, so it should be clear whether this is a deliberate scope decision.",
-    "answer": "Yes, it is deliberate. The class Javadoc of `EtsiTrustListIdentityProvider` and `proofs.adoc:140` say that listed end entity certificates are ignored, because HAIP keeps the anchor out of `x5c` and trust comes from a chain to a listed CA. A pinned leaf path can be added later if a scheme publishes only leaf certificates.",
+    "point": "The author confirmed that listed end entity certificates are left out on purpose.",
+    "answer": "The code matches that. `isCaCertificate` drops leaf certificates before they reach `X509TrustMaterial`, and `listedEndEntityCertificatesAreIgnored` covers it, so a pinned leaf path can be added later if a scheme needs it.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:25",
     "authors": [
@@ -170,8 +122,8 @@
    {
     "ref": "t4479328212",
     "status": "fixed",
-    "point": "The provider did not override `reloadKeys()`, so the reload keys endpoint could not force a refresh.",
-    "answer": "Fixed. `EtsiTrustListIdentityProvider.reloadKeys()` reloads with the same model key, and `IdentityProviderResource.reloadKeys` now resolves any `IdentityProvider` type. `reloadKeysDropsAWithdrawnCertificateBeforeTheRefreshInterval` covers it.",
+    "point": "The provider did not override `reloadKeys()`, so an admin could not force a new download.",
+    "answer": "`EtsiTrustListIdentityProvider.java:66` now overrides it with the same model key as the cache lookup. `IdentityProviderResource.reloadKeys` now resolves any `IdentityProvider`, so the endpoint reaches this provider, and `reloadKeysDropsAWithdrawnCertificateBeforeTheRefreshInterval` tests it.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:75",
     "authors": [
@@ -182,24 +134,10 @@
     "last": 4629210139
    },
    {
-    "ref": "t4626674678",
-    "status": "fixed",
-    "point": "The reload keys endpoint could not force a new download.",
-    "answer": "Fixed. The override in `EtsiTrustListIdentityProvider` and the change in `IdentityProviderResource` make the endpoint reload the list, and a test checks that a withdrawn CA disappears before the refresh interval.",
-    "kind": "thread",
-    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:78",
-    "authors": [
-     "dominikschlosser"
-    ],
-    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629223050",
-    "date": "2026-11-19",
-    "last": 4629223050
-   },
-   {
     "ref": "t4479328227",
     "status": "fixed",
-    "point": "The list signature is a plain JWS check, not full JAdES Baseline B validation, and the docs should say so.",
-    "answer": "Fixed. `proofs.adoc:145` now says that the signature is checked as a JWS against the configured certificates without full JAdES Baseline B validation.",
+    "point": "The list signature is checked as a plain JWS and not as full JAdES Baseline B, and the docs should say so.",
+    "answer": "`proofs.adoc:145` now states that only a JSON Web Signature check against the configured certificates is done.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:37",
     "authors": [
@@ -212,8 +150,8 @@
    {
     "ref": "t4479328242",
     "status": "fixed",
-    "point": "The subject C and O of the signing certificate are not matched against `SchemeTerritory` and `SchemeOperatorName`, and this should be noted.",
-    "answer": "Fixed. The comment above `verifySignature` in `EtsiTrustListPublicKeyLoader.java:79` explains that the pinned signer makes the clause 6.8.0 name match unnecessary.",
+    "point": "The clause 6.8.0 match of the signer subject C and O against `SchemeTerritory` and `SchemeOperatorName` is left out, and a note should say that this is deliberate.",
+    "answer": "The comment at `EtsiTrustListPublicKeyLoader.java:79` explains that the signer is pinned by configuration and that this is why the check is skipped.",
     "kind": "thread",
     "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListPublicKeyLoader.java:81",
     "authors": [
@@ -227,7 +165,7 @@
     "ref": "t4479328257",
     "status": "fixed",
     "point": "The docs did not say that services with a status are ignored when no status is configured.",
-    "answer": "Fixed. `proofs.adoc:137` and the factory help text now say that only services without a status are trusted when no status is configured.",
+    "answer": "`proofs.adoc:137` and the factory help text now say that only services without a status are trusted when no status is configured.",
     "kind": "thread",
     "where": "docs/documentation/server_admin/topics/oid4vci/proofs.adoc:137",
     "authors": [
@@ -241,7 +179,7 @@
     "ref": "t4479328269",
     "status": "fixed",
     "point": "The test lists were thinner than a published list.",
-    "answer": "Fixed. `listInThePublishedJsonShapeIsParsed` loads `wallet-providers-list.json`, which has the full scheme information, trusted entity information and pointers of a published Wallet Providers list.",
+    "answer": "`listInThePublishedJsonShapeIsParsed` at `EtsiTrustListIdentityProviderTest.java:228` loads `wallet-providers-list.json`, which has the full published shape, and checks that the issuance CA becomes the only anchor.",
     "kind": "thread",
     "where": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java:148",
     "authors": [
@@ -252,10 +190,24 @@
     "last": 4629274748
    },
    {
+    "ref": "t4626674678",
+    "status": "fixed",
+    "point": "The reload keys endpoint could not force a new download of the list.",
+    "answer": "This is fixed together with the same point above, through the override at `EtsiTrustListIdentityProvider.java:66` and the lookup change in `IdentityProviderResource.reloadKeys`.",
+    "kind": "thread",
+    "where": "services/src/main/java/org/keycloak/broker/trust/etsi/EtsiTrustListIdentityProvider.java:78",
+    "authors": [
+     "dominikschlosser"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/54522#discussion_r4629223050",
+    "date": "2026-11-19",
+    "last": 4629223050
+   },
+   {
     "ref": "t4626674687",
     "status": "fixed",
-    "point": "All test lists used the same field names the parser reads, so a wrong field name would go unnoticed.",
-    "answer": "Fixed. The new fixture `wallet-providers-list.json` follows the published list shape, and `listInThePublishedJsonShapeIsParsed` checks that its issuance CA becomes the only anchor.",
+    "point": "All test lists used the same field names that the parser reads.",
+    "answer": "The fixture `wallet-providers-list.json` has the full TS 119 602 JSON shape and is signed again with the test signer in `listInThePublishedJsonShapeIsParsed`.",
     "kind": "thread",
     "where": "tests/base/src/test/java/org/keycloak/tests/broker/trust/TrustListTestSupport.java:137",
     "authors": [
@@ -268,8 +220,8 @@
    {
     "ref": "r5990798892",
     "status": "fixed",
-    "point": "`proofs.adoc` still described the Default Trust anchor as a self signed trust anchor.",
-    "answer": "Fixed. `proofs.adoc:190` now reads \"(trust anchor, may be a subordinate CA)\".",
+    "point": "The diagram in `proofs.adoc` still called the trust anchor self signed.",
+    "answer": "`proofs.adoc:190` now reads \"(trust anchor, may be a subordinate CA)\".",
     "kind": "review",
     "where": "",
     "authors": [
@@ -285,9 +237,11 @@
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
-   "changes": []
+   "changes": [
+    "The point of `t4479328242` now says that the reviewer asked for a note on the skipped clause 6.8.0 check, because the old wording with status `fixed` read as if the check itself had been added."
+   ]
   },
-  "sha": "a2111424043d33c3d446daf970f21068ab2c0ffd",
+  "sha": "20272200079e50dc0c554ca2e806fdc766329c25",
   "notes": [
    "Rejecting a list that fails to download or verify is deliberate. It fails closed, and failedRefreshRejectsTheListUntilAValidListIsAvailable tests it. Letting the load error escape so that other trust providers never get a chance is not deliberate.",
    "Subordinate CAs as trust anchors are deliberate, because EUDI LoTEs list issuing CAs.",
@@ -295,8 +249,8 @@
    "trustListServiceStatuses has no default on purpose, because Keycloak is not EUDI specific. With nothing configured, services that carry a status are not trusted.",
    "x5c support in AttestationBasedClientAuthenticator and the rule that X.509 trust requires x5c are left out on purpose, because they overlap with the approved #52883. They come back in a follow-up after #52883 is merged."
   ],
-  "discussed": "2026-11-24T09:15:06Z",
-  "date": "2026-11-26"
+  "discussed": "2026-11-27T09:21:47Z",
+  "date": "2026-11-28"
  },
  "54367": {
   "verdict": "approve",
@@ -485,34 +439,68 @@
  "53645": {
   "verdict": "approve",
   "headline": "Bulk revocation of a user's issued credential records is correct, scoped and tested.",
-  "summary": "The PR adds admin and account `DELETE` endpoints that remove all issued credential records of one user. Both endpoints reuse the existing bulk JPQL deletes and route local and federated users like the existing single revoke. Refresh and credential requests that carry a removed `issuedCredentialId` already fail in `OID4VCUtil.checkIssuedVerifiableCredential`, so the bulk delete takes effect at once. I found nothing that must change.",
-  "eudi": "Issuers can now stop wallet refresh for every credential of a user in one call, which helps with offboarding. Credentials already in wallets stay valid until `exp` because there is no status list yet, and the docs now say so.",
+  "summary": "The PR adds `DELETE /admin/realms/{realm}/users/{userId}/vc/issued-credentials` and `DELETE /realms/{realm}/account/issued-verifiable-credentials`. Both call a new `removeIssuedVerifiableCredentials` model operation that reuses the existing bulk JPQL delete queries. The user deletion cleanup paths also go through it now. Routing between local and federated storage matches the sibling methods, authorization matches the single revoke endpoints, and the deletes are scoped to the path user or token user, so no other user's records are touched.",
+  "eudi": "Issuers can now cut off refresh for every wallet of a user in one call, which helps with device loss. The docs now say clearly that credentials already in wallets stay valid until their `exp`, which is 7 days by default, because no status list exists yet.",
   "good": [
-   "Authorization matches the sibling endpoints: `requireManage(user)` on the admin side and `manage-account` or `manage-verifiable-credentials` on the account side.",
-   "The account endpoint takes the user only from the token, and the tests check that another user's records stay untouched.",
-   "`removeUser` and the federated `preRemove` now call the new method, so deletion logic lives in one place."
+   "The account endpoint deletes by `user.getId()` from the authenticated token, and tests prove that another user's records survive.",
+   "Federated deletion is scoped by both `userId` and `realmId`, and `UserStorageManager` routes it the same way as the existing issued credential methods.",
+   "The docs state the real effect. After the delete, `OID4VCUtil.checkIssuedVerifiableCredential` rejects the stale `issuedCredentialId` at the credential endpoint, but credentials already in wallets stay valid until `exp`."
   ],
-  "findings": [],
-  "discussion": [
+  "findings": [
    {
-    "ref": "r5972970926",
-    "status": "fixed",
-    "point": "The code looks fine but the revocation documentation needs a change before approval.",
-    "answer": "The doc change you asked for is in. The paragraph at `managing-credentials.adoc` line 125 now explains that wallets keep valid credentials until `exp`, which is up to 7 days by default.",
-    "kind": "review",
-    "where": "",
-    "authors": [
-     "wistefan"
-    ],
-    "url": "https://github.com/keycloak/keycloak/pull/53645#pullrequestreview-5972970926",
-    "date": "2026-11-19",
-    "last": 5972970926
-   },
+    "severity": "followup",
+    "file": "model/infinispan/src/main/java/org/keycloak/models/cache/infinispan/UserCacheSession.java",
+    "line": 1003,
+    "title": "Bulk removal must invalidate the issued credential cache once #53332 adds that cache.",
+    "impact": "If #53332 merges after this PR without updating this delegate, a revoked wallet keeps passing `OID4VCUtil.checkIssuedVerifiableCredential` from a stale cached list and keeps getting fresh credentials.",
+    "detail": "At this commit `getIssuedVerifiableCredentialsStreamByUser` goes straight to the delegate, so the bare delegate in `removeIssuedVerifiableCredentials` is correct. The description already names this gap and says #53332 will add a per user cache of issued records. A bare delegate still compiles once that cache exists, so the build will not flag the missing invalidation in the new method.",
+    "fix": "Whichever of the two PRs merges second should invalidate the user's issued credential cache entry in `removeIssuedVerifiableCredentials`, and add a test that revokes all records and then expects the credential endpoint to reject the old `issuedCredentialId`.",
+    "context": [
+     [
+      "@",
+      null,
+      null,
+      "@@ -999,6 +999,11 @@ public class UserCacheSession implements UserCache, OnCreateComponent, OnUpdateC"
+     ],
+     [
+      " ",
+      999,
+      999,
+      "        return getDelegate().removeIssuedVerifiableCredential(userId, credentialId);"
+     ],
+     [
+      " ",
+      1000,
+      1000,
+      "    }"
+     ],
+     [
+      " ",
+      1001,
+      1001,
+      ""
+     ],
+     [
+      "+",
+      null,
+      1002,
+      "    @Override"
+     ],
+     [
+      "+",
+      null,
+      1003,
+      "    public void removeIssuedVerifiableCredentials(RealmModel realm, String userId) {"
+     ]
+    ]
+   }
+  ],
+  "discussion": [
    {
     "ref": "t4627155850",
     "status": "fixed",
-    "point": "The revocation wording suggests the user can no longer use credentials, but wallets keep valid credentials until the refresh interval runs out.",
-    "answer": "The new paragraph at `managing-credentials.adoc` line 125 now says that credentials already held by wallets stay valid until their `exp` claim, which is up to 7 days with the default refresh interval. The existing IMPORTANT note at lines 85 to 88 points to a short refresh interval as the way to limit exposure.",
+    "point": "The revocation wording suggests credentials become unusable, but wallets keep valid credentials until the refresh interval ends, which matters for offboarding.",
+    "answer": "The new paragraph at `managing-credentials.adoc:125` now says that credentials held by wallets stay cryptographically valid until `exp`, which is up to 7 days with the default refresh interval. `CredentialScopeModel` defaults the refresh interval to 604800 seconds, `exp` is set from it, and the credential endpoint rejects the deleted `issuedCredentialId` on the next refresh.",
     "kind": "thread",
     "where": "docs/documentation/server_admin/topics/oid4vci/managing-credentials.adoc:109",
     "authors": [
@@ -521,6 +509,20 @@
     "url": "https://github.com/keycloak/keycloak/pull/53645#discussion_r4627155850",
     "date": "2026-11-19",
     "last": 4627155850
+   },
+   {
+    "ref": "r5972970926",
+    "status": "fixed",
+    "point": "The code looks fine, but the documentation on revocation needs clearer wording.",
+    "answer": "The doc change is in the paragraph at `managing-credentials.adoc:125`, which now explains that wallet credentials stay valid until `exp` after a bulk revocation. The code needs no change.",
+    "kind": "review",
+    "where": "",
+    "authors": [
+     "wistefan"
+    ],
+    "url": "https://github.com/keycloak/keycloak/pull/53645#pullrequestreview-5972970926",
+    "date": "2026-11-19",
+    "last": 5972970926
    }
   ],
   "model": "claude-opus-5-5",
@@ -528,12 +530,15 @@
   "check": {
    "model": "claude-fable-5-2",
    "effort": "high",
-   "changes": []
+   "changes": [
+    "The followup on `UserCacheSession` now says that a bare delegate still compiles once the cache exists, because the checkout cannot show whether the two PRs merge without a textual conflict.",
+    "The followup now notes that the PR description already names the cache gap, so the finding reads as a merge order reminder and not as something the author missed."
+   ]
   },
-  "sha": "61c8f03e0132aedf2c49f2b6d3146583e99c370c",
+  "sha": "af1118e4cd4b22ea9476547727e158a9d0177606",
   "notes": [],
   "discussed": "2026-11-19T10:12:25Z",
-  "date": "2026-11-27"
+  "date": "2026-11-28"
  },
  "50897": {
   "verdict": "comment",
@@ -4140,5 +4145,177 @@
   "notes": [],
   "discussed": "2026-11-26T18:24:03Z",
   "date": "2026-11-27"
+ },
+ "55621": {
+  "verdict": "approve",
+  "headline": "Verified presentations now must match the DCQL query they answer.",
+  "summary": "The PR makes each `CredentialQuery` a `PresentationRequirements`, so the SD-JWT consumer checks the `vct` and every requested claim path against the disclosed payload. A presentation that withholds a mapped claim or the principal claim is now rejected, also for optional credentials. `ClaimPath` replaces the raw pointer list in `ClaimsQuery` and serializes as a claims path pointer. The change is small, matches OID4VP 1.0 \u00a76.4.1 and \u00a78.6, and has integration tests for each rejection path.",
+  "eudi": "EUDI verifiers now actually get the PID claims they ask for, instead of logging in a user whose wallet held back a mapped claim. A mapper on an optional PID claim such as `email` now also fails the login with wallets that used to present such a PID anyway, so admins should only map claims every accepted PID carries.",
+  "good": [
+   "The query sent in the request object is also the check run on the response, so the two cannot drift apart in code.",
+   "The principal claim is checked like any other requested claim, so a wallet that withholds it gets the error at `direct_post` and not only the browser at `complete-auth`.",
+   "Tests cover a withheld mapped claim, a withheld principal claim, an optional credential that withholds its claim, and a credential without mappers."
+  ],
+  "findings": [
+   {
+    "severity": "followup",
+    "file": "services/src/main/java/org/keycloak/broker/oid4vp/DcqlQuery.java",
+    "line": 82,
+    "title": "Every mapped claim is now mandatory, and the mapper help text and the release notes do not say so.",
+    "impact": "An admin who maps the optional PID claim `email` to the user email locks out every user whose PID has no email.",
+    "detail": "Before this PR a missing claim only left the attribute unset. Now `checkIfSatisfiedBy` rejects the presentation. That matches OID4VP 1.0 \u00a76.4.1, because a conforming wallet already refuses to return a credential that lacks a requested claim. However, the claim help text in `AbstractOID4VPClaimMapper` and the OID4VP section of the 27.0.0 release notes do not say that a mapped claim must be in the presented credential. The admin only learns it from the warning that `directPost` logs when it rejects the presentation. There is no way to mark a claim optional until claim sets are generated. This is the TODO in `checkIfSatisfiedBy`.",
+    "fix": "Say in the claim help text of the mappers and in the OID4VP section of the release notes that every mapped claim must be in the presented credential. Track claim sets as the way to map optional claims.",
+    "context": [
+     [
+      "+",
+      null,
+      77,
+      "            if (!meta.vctValues().contains(vct)) {"
+     ],
+     [
+      "+",
+      null,
+      78,
+      "                throw new VerificationException(\"The credential '\" + id + \"' has the type '\" + vct"
+     ],
+     [
+      "+",
+      null,
+      79,
+      "                        + \"', which is not requested\");"
+     ],
+     [
+      "+",
+      null,
+      80,
+      "            }"
+     ],
+     [
+      "+",
+      null,
+      81,
+      "            // TODO once claim sets are requested, require the claims of one claim set option instead of all claims."
+     ],
+     [
+      "+",
+      null,
+      82,
+      "            for (ClaimsQuery claim : claims) {"
+     ]
+    ]
+   },
+   {
+    "severity": "nit",
+    "file": "services/src/main/java/org/keycloak/broker/oid4vp/DcqlQuery.java",
+    "line": 77,
+    "title": "A credential without a textual `vct` throws a `NullPointerException` instead of the type error.",
+    "impact": "If a trusted issuer issues a non-conformant SD-JWT VC without a plain `vct`, the wallet gets a 400 without the intended message.",
+    "detail": "`Meta.vctValues()` is built with `List.copyOf`, and `contains(null)` on that immutable list throws `NullPointerException`. The code sets `vct` to null on purpose so it can report the type 'null', but that path never reaches the message. `directPost` catches the exception, so the login is still rejected. The old check used the configured list from Jackson, which accepts `contains(null)`.",
+    "fix": "Check `vct == null || !meta.vctValues().contains(vct)` before throwing the `VerificationException`.",
+    "context": [
+     [
+      "+",
+      null,
+      72,
+      "         */"
+     ],
+     [
+      "+",
+      null,
+      73,
+      "        @Override"
+     ],
+     [
+      "+",
+      null,
+      74,
+      "        public void checkIfSatisfiedBy(JsonNode disclosedPayload) throws VerificationException {"
+     ],
+     [
+      "+",
+      null,
+      75,
+      "            JsonNode type = disclosedPayload.get(OID4VCConstants.CLAIM_NAME_VCT);"
+     ],
+     [
+      "+",
+      null,
+      76,
+      "            String vct = type != null && type.isTextual() ? type.textValue() : null;"
+     ],
+     [
+      "+",
+      null,
+      77,
+      "            if (!meta.vctValues().contains(vct)) {"
+     ]
+    ]
+   }
+  ],
+  "discussion": [],
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "check": {
+   "model": "claude-fable-5-2",
+   "effort": "high",
+   "changes": [
+    "Reworded the title, detail and fix of the followup on mandatory claims, because `directPost` does log a warning with the missing claim, and the two places that lack the statement are the claim help text in `AbstractOID4VPClaimMapper` and the OID4VP section of the 27.0.0 release notes.",
+    "Softened the impact of the `NullPointerException` nit to say the wallet gets a 400 without the intended message, because the exact content of the error description cannot be confirmed by reading the code.",
+    "Corrected the second good point, because `requirePrincipalClaim` still runs at `complete-auth` and the PR only removed the TODO comment, while the real gain is that a withheld principal claim is now rejected at `direct_post`.",
+    "Put `vct` and `NullPointerException` in backticks in the title of the nit, because code names go in backticks."
+   ]
+  },
+  "sha": "754309700a987adeb58af937233239ddce245873",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-28"
+ },
+ "55358": {
+  "verdict": "approve",
+  "headline": "Token endpoint now rejects codes for PKCE clients that were issued without a challenge.",
+  "summary": "The PR moves the authorization endpoint PKCE parameter checks into `PkceUtils.checkPKCEParams` and runs them again at the token endpoint against the challenge and method stored in the code. This closes the path where `/login-actions/reset-credentials?client_id=...&redirect_uri=...` creates a fresh authentication session without PKCE notes and issues a code that a PKCE enforced client could exchange without a verifier. The refactoring keeps the authorization endpoint behaviour and error strings unchanged. The new tests cover the bypass, the method change case and the non PKCE client.",
+  "eudi": "Wallet clients configured with `pkce.code.challenge.method=S256`, as HAIP requires for the OpenID4VCI authorization code flow, can no longer get a usable code through a path that skipped PKCE. The pre-authorized code grant is a separate grant and is not affected.",
+  "good": [
+   "The check sits at the token endpoint, so it covers every path that can issue a code without PKCE notes, not only the reset credentials link.",
+   "One shared `PkceUtils.checkPKCEParams` now drives both endpoints, so the two cannot drift apart.",
+   "The tests reproduce the real bypass through the direct reset credentials link and assert the event details."
+  ],
+  "findings": [],
+  "discussion": [],
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "check": {
+   "model": "claude-fable-5-2",
+   "effort": "high",
+   "changes": []
+  },
+  "sha": "f721a1aeb9b978b5b55513f1e15c32f72e4d6b95",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-28"
+ },
+ "55356": {
+  "verdict": "approve",
+  "headline": "Token endpoint now rejects codes that bypass the client's PKCE setting.",
+  "summary": "The PR moves the authorization endpoint PKCE parameter checks into `PkceUtils.checkPKCEParams` and runs them again at the token endpoint against the challenge and method stored in the code. A PKCE enforced client can no longer exchange a code that was issued without a challenge, for example after the direct reset credentials link, or a code whose method no longer matches the client setting. The authorization endpoint keeps the same checks and the same `invalid_request` error string. Codes store the challenge method without a default, so clients without PKCE are unaffected.",
+  "eudi": "Wallets using the authorization code flow with PKCE S256, as HAIP requires, keep working because their stored challenge and method pass the new check. The OID4VCI pre-authorized code grant does not use `OAuth2Code` and is untouched.",
+  "good": [
+   "One shared check in `PkceUtils` replaces the copy in `AuthorizationEndpointChecker`, so both endpoints apply the same rules.",
+   "The check reads the challenge and method from the stored code, so codes from paths that skip the authorization endpoint are caught.",
+   "The new test covers both the rejected reset credentials code for a PKCE client and the accepted one for a client without PKCE."
+  ],
+  "findings": [],
+  "discussion": [],
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "check": {
+   "model": "claude-fable-5-2",
+   "effort": "high",
+   "changes": []
+  },
+  "sha": "2d803b2fa535bed4d5a78a08701b343863d92743",
+  "notes": [],
+  "discussed": "",
+  "date": "2026-11-28"
  }
 }
